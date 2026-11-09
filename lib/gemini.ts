@@ -297,7 +297,7 @@ export async function generateCropAdvice(
   const model =
     process.env.GEMINI_MODEL_FAST ||
     process.env.GEMINI_MODEL_DETAIL ||
-    'gemini-1.5-flash';
+    'gemini-3.5-flash-lite';
 
   const systemPrompt = `You are Zarkhez (زرخیز), a senior Pakistani agricultural plant doctor, pathologist and agronomist speaking to a small farmer.
 Rules:
@@ -422,7 +422,7 @@ export async function verifyLeafImageWithVision(
     };
   }
 
-  const model = process.env.GEMINI_MODEL_FAST || process.env.GEMINI_MODEL_DETAIL || 'gemini-1.5-flash';
+  const model = process.env.GEMINI_MODEL_FAST || process.env.GEMINI_MODEL_DETAIL || 'gemini-3.5-flash-lite';
   const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, '');
 
   const prompt = `Look at this crop photo. The on-device model thinks it shows ${label} on ${crop} with low confidence. Say whether the photo is a clear plant leaf, what visible symptoms you see, and whether you agree. If the image is unclear or not a plant, say so. Return JSON:
@@ -499,7 +499,7 @@ export async function streamGeminiChatResponse(
     );
   }
 
-  const model = process.env.GEMINI_MODEL_FAST || process.env.GEMINI_MODEL_DETAIL || 'gemini-1.5-flash';
+  const model = process.env.GEMINI_MODEL_FAST || process.env.GEMINI_MODEL_DETAIL || 'gemini-3.5-flash-lite';
 
   let customSystem = GEMINI_CHAT_SYSTEM_PROMPT;
   if (farmerProfile) {
@@ -685,7 +685,7 @@ export async function analyzeCropImageWithGemini(
   const model =
     process.env.GEMINI_MODEL_DETAIL ||
     process.env.GEMINI_MODEL_FAST ||
-    'gemini-1.5-flash';
+    'gemini-3.5-flash-lite';
 
   const systemInstruction = `You are Zarkhez's Senior Agricultural Computer Vision Specialist and Chief Plant Pathologist serving Pakistani farmers.
 Your mission is to perform an honest, rigorous, evidence-based two-stage visual analysis of the uploaded farm photograph.

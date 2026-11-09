@@ -14,7 +14,8 @@ export async function GET() {
     const envLocalPath = path.resolve(process.cwd(), '.env.local');
     if (fs.existsSync(envLocalPath)) {
       const content = fs.readFileSync(envLocalPath, 'utf8');
-      fileHasKey = /^(?:GEMINI_API_KEY|GOOGLE_API_KEY)\s*=\s*AIza/m.test(content);
+      const match = content.match(/^(?:GEMINI_API_KEY|GOOGLE_API_KEY)\s*=\s*([^\r\n#]+)/m);
+      fileHasKey = Boolean(match && match[1] && match[1].trim().length > 15);
     }
   } catch {}
 
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     if (!apiKey || apiKey.length < 15) {
       return NextResponse.json(
-        { error: 'Invalid Gemini API key. Keys typically start with AIza.' },
+        { error: 'Invalid Gemini API key. Please check your key.' },
         { status: 400 }
       );
     }
