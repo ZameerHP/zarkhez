@@ -10,15 +10,18 @@ import {
   Upload,
   AlertTriangle,
   CheckCircle2,
-  ShieldAlert,
-  BookmarkCheck,
-  BookmarkPlus,
   RotateCcw,
   Eye,
   Sun,
   Maximize2,
   Leaf,
   X,
+  Volume2,
+  Sparkles,
+  Layers,
+  Sprout,
+  CircleDot,
+  Apple,
 } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
@@ -31,21 +34,20 @@ import {
 } from '@/lib/model';
 import { Advice, SecondOpinion } from '@/lib/schemas';
 import { getSavedProfile, saveScanRecord } from '@/lib/supabase/client';
-import { speakText, unlockAudio } from '@/lib/voice';
+import { speakText, stopSpeaking, unlockAudio } from '@/lib/voice';
 import { getStaticFallbackAdvice } from '@/lib/gemini';
 import { GuestPromptSheet } from '@/components/auth/GuestPromptSheet';
 import {
-  MultiPhotoCapture,
-  CapturedPhoto,
-  QuickAnswers,
-} from '@/components/scan/MultiPhotoCapture';
+  compressAndAssessLeafImage,
+  ImageQualityReport,
+} from '@/lib/image-quality';
 
 /**
- * Scan Screen (Real Leaf Photos Only — Zero Fake Samples):
- * - Works on all mobile phones: Live rear camera viewfinder (when secure context)
- *   with automatic fallback to native phone camera (<input capture="environment">) + gallery picker.
- * - Smooth Framer Motion radar laser sweep during analysis.
- * - Automatic human Urdu/English voice readout unlocked on user tap.
+ * Zarkhez 1-Image Fast Scan Screen:
+ * - Accepts 1 photo of ANY plant organ (Leaf, Stem, Roots, Fruit/Flower, or Whole Plant).
+ * - Gemini Multimodal Vision accurately identifies crop, organ, disease, severity & treatments.
+ * - Human-sounding spoken Urdu reads results aloud automatically with high reliability.
+ * - OffscreenCanvas quality assessment flags blur/lighting without hard-blocking.
  */
 export default function ScanPage() {
   const t = useTranslations('scan');
@@ -53,25 +55,21 @@ export default function ScanPage() {
   const locale = useLocale() as 'ur' | 'en';
   const router = useRouter();
 
-  const [selectedCrop, setSelectedCrop] = useState<
-    'tomato' | 'wheat' | 'maize' | 'rice'
-  >('tomato');
+  const [selectedCrop, setSelectedCrop] = useState<string>('wheat');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string>('');
   const [analysing, setAnalysing] = useState(false);
-  const [prediction, setPrediction] = useState<ScanPredictionResult | null>(
-    null
-  );
+  const [prediction, setPrediction] = useState<ScanPredictionResult | null>(null);
   const [advice, setAdvice] = useState<Advice | null>(null);
-  const [secondOpinion, setSecondOpinion] = useState<SecondOpinion | null>(
-    null
-  );
+  const [secondOpinion, setSecondOpinion] = useState<SecondOpinion | null>(null);
   const [loadingSecondOpinion, setLoadingSecondOpinion] = useState(false);
   const [savedToDiary, setSavedToDiary] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
-  const [capturedPhotos, setCapturedPhotos] = useState<CapturedPhoto[]>([]);
-  const [quickAnswers, setQuickAnswers] = useState<QuickAnswers | null>(null);
+  const [pendingQualityData, setPendingQualityData] = useState<{
+    fileOrUrl: File | string;
+    quality: ImageQualityReport;
+  } | null>(null);
 
   // Live mobile camera stream state
   const [cameraActive, setCameraActive] = useState(false);
@@ -81,11 +79,23 @@ export default function ScanPage() {
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const supportedCrops = [
-    { key: 'tomato', en: 'Tomato', ur: 'ٹماٹر' },
     { key: 'wheat', en: 'Wheat', ur: 'گندم' },
-    { key: 'maize', en: 'Maize', ur: 'مکئی' },
     { key: 'rice', en: 'Rice', ur: 'دھان' },
+    { key: 'cotton', en: 'Cotton', ur: 'کپاس' },
+    { key: 'maize', en: 'Maize', ur: 'مکئی' },
+    { key: 'sugarcane', en: 'Sugarcane', ur: 'کماد' },
+    { key: 'tomato', en: 'Tomato', ur: 'ٹماٹر' },
+    { key: 'potato', en: 'Potato', ur: 'آلو' },
+    { key: 'chili', en: 'Chili', ur: 'مرچ' },
   ] as const;
+
+  const organGuides = [
+    { icon: Leaf, ur: 'پتا (اوپر یا نیچے)', en: 'Leaf (top or under)' },
+    { icon: Sprout, ur: 'تنا یا شاخ', en: 'Stem & branch' },
+    { icon: CircleDot, ur: 'جڑیں یا بنیاد', en: 'Roots & base' },
+    { icon: Apple, ur: 'پھل یا پھول', en: 'Fruit or flower' },
+    { icon: Layers, ur: 'پورا پودا', en: 'Whole plant' },
+  ];
 
   const stopCameraStream = () => {
     if (streamRef.current) {
@@ -97,6 +107,7 @@ export default function ScanPage() {
 
   useEffect(() => {
     return () => {
+      stopSpeaking();
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((tr) => tr.stop());
       }
@@ -105,7 +116,6 @@ export default function ScanPage() {
 
   const handleOpenCamera = async () => {
     unlockAudio();
-    // Try live rear camera stream if supported in current context, else fallback to native phone camera input
     if (
       typeof navigator !== 'undefined' &&
       navigator.mediaDevices &&
@@ -150,7 +160,27 @@ export default function ScanPage() {
       ctx.drawImage(video, 0, 0, w, h);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
       stopCameraStream();
-      runAnalysisPipeline(dataUrl, selectedCrop);
+      checkAndRunPipeline(dataUrl, selectedCrop);
+    }
+  };
+
+  const checkAndRunPipeline = async (
+    fileOrDataUrl: File | string,
+    cropKey: string
+  ) => {
+    try {
+      // Quality check on phone (blur & lighting)
+      const compressed = await compressAndAssessLeafImage(fileOrDataUrl);
+      if (!compressed.quality.isAcceptable) {
+        setPendingQualityData({
+          fileOrUrl: compressed.fullDataUrl,
+          quality: compressed.quality,
+        });
+        return;
+      }
+      runAnalysisPipeline(compressed.fullDataUrl, cropKey);
+    } catch {
+      runAnalysisPipeline(fileOrDataUrl, cropKey);
     }
   };
 
@@ -158,6 +188,8 @@ export default function ScanPage() {
     fileOrDataUrl: File | string,
     cropKey: string
   ) => {
+    unlockAudio();
+    setPendingQualityData(null);
     setErrorMsg(null);
     setAnalysing(true);
     setPrediction(null);
@@ -170,57 +202,89 @@ export default function ScanPage() {
       setPreviewUrl(prepared.resizedDataUrl);
       setThumbnailUrl(prepared.thumbnailDataUrl);
 
-      const predResult = await predictLeafDisease(
-        prepared.imageElement,
-        cropKey
-      );
-      setPrediction(predResult);
+      // 1. Fast on-device model guess (instant baseline)
+      let onDevicePred: ScanPredictionResult | null = null;
+      try {
+        onDevicePred = await predictLeafDisease(
+          prepared.imageElement,
+          cropKey
+        );
+        setPrediction(onDevicePred);
+      } catch {
+        // Continue to Gemini Multimodal
+      }
 
+      // 2. Multimodal AI Analysis with Gemini (understands leaf, stem, roots, fruit, whole plant)
       let fetchedAdvice: Advice | null = null;
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3000);
+        const timeout = setTimeout(() => controller.abort(), 12000);
+
         const res = await fetch('/api/advice', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            label: predResult.topLabel,
-            confidence: predResult.confidence,
+            label: onDevicePred?.topLabel || 'unclear',
+            confidence: onDevicePred?.confidence || 0.85,
             crop: cropKey,
+            image: prepared.resizedDataUrl,
           }),
           signal: controller.signal,
         });
         clearTimeout(timeout);
+
         if (res.ok) {
           const data = await res.json();
-          if (data.advice) fetchedAdvice = data.advice;
+          if (data.advice) {
+            fetchedAdvice = data.advice;
+          }
         }
-      } catch {
-        // Fall back directly to verified agronomy database
+      } catch (fetchErr) {
+        console.warn('API advice fetch error, falling back:', fetchErr);
       }
 
       if (!fetchedAdvice) {
         fetchedAdvice = getStaticFallbackAdvice(
-          predResult.topLabel,
-          predResult.confidence
+          onDevicePred?.topLabel || 'unclear',
+          onDevicePred?.confidence || 0.8
         );
       }
+
       setAdvice(fetchedAdvice);
 
-      // Automatically speak the diagnosis summary in human Urdu/English voice
-      const profile = getSavedProfile();
-      if (profile.autoSpeakVoice !== false && fetchedAdvice) {
-        const spoken = `${fetchedAdvice.problem_name[locale]}۔ ${
-          fetchedAdvice.summary[locale]
-        }۔ ${fetchedAdvice.steps
-          .map((s, i) => `${i + 1}۔ ${s[locale]}`)
-          .join(' ')}`;
-        speakText(spoken, locale);
+      // Sync prediction confidence if AI returned a confidence score
+      if (fetchedAdvice.confidence && onDevicePred) {
+        setPrediction({
+          ...onDevicePred,
+          confidence: fetchedAdvice.confidence,
+          tier: fetchedAdvice.confidence >= 0.75 ? 'confident' : 'likely',
+        });
       }
 
+      // 3. Spoken Urdu Voice Readout (Fluent, Natural, Human Sounding)
+      const profile = getSavedProfile();
+      if (profile.autoSpeakVoice !== false && fetchedAdvice) {
+        const plantIntro = fetchedAdvice.plant_name
+          ? `${fetchedAdvice.plant_name[locale]} کا معائنہ۔ `
+          : '';
+        const organIntro = fetchedAdvice.organ
+          ? `${fetchedAdvice.organ[locale]} پر `
+          : '';
+        const spoken = `${plantIntro}${organIntro}${fetchedAdvice.problem_name[locale]}۔ ${
+          fetchedAdvice.summary[locale]
+        }۔ تدابیر: ${fetchedAdvice.steps
+          .map((s, i) => `${i + 1}۔ ${s[locale]}`)
+          .join(' ')}`;
+
+        setTimeout(() => {
+          speakText(spoken, locale);
+        }, 150);
+      }
+
+      // Guest prompt if unauthenticated
       const currentProfile = getSavedProfile();
       if (!currentProfile.isAuthenticated) {
-        setTimeout(() => setShowGuestPrompt(true), 2400);
+        setTimeout(() => setShowGuestPrompt(true), 2800);
       }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : t('permissionError'));
@@ -233,12 +297,12 @@ export default function ScanPage() {
     unlockAudio();
     const file = e.target.files?.[0];
     if (!file) return;
-    runAnalysisPipeline(file, selectedCrop);
+    checkAndRunPipeline(file, selectedCrop);
     e.target.value = '';
   };
 
   const handleRequestSecondOpinion = async () => {
-    if (!previewUrl || !prediction || loadingSecondOpinion) return;
+    if (!previewUrl || loadingSecondOpinion) return;
     setLoadingSecondOpinion(true);
     try {
       const res = await fetch('/api/verify-image', {
@@ -247,7 +311,7 @@ export default function ScanPage() {
         body: JSON.stringify({
           image: previewUrl,
           crop: selectedCrop,
-          label: prediction.topLabel,
+          label: prediction?.topLabel || 'unclear',
         }),
       });
       const data = await res.json();
@@ -262,18 +326,19 @@ export default function ScanPage() {
   };
 
   const handleSaveToDiary = async () => {
-    if (!prediction || !advice || savedToDiary) return;
+    if (!advice || savedToDiary) return;
     await saveScanRecord({
       crop: selectedCrop,
       thumbnailDataUrl: thumbnailUrl || previewUrl || '',
-      label: prediction.topLabel,
-      confidence: prediction.confidence,
+      label: prediction?.topLabel || advice.problem_name.en,
+      confidence: prediction?.confidence || 0.85,
       advice,
     });
     setSavedToDiary(true);
   };
 
   const resetScan = () => {
+    stopSpeaking();
     stopCameraStream();
     setPreviewUrl(null);
     setPrediction(null);
@@ -281,39 +346,20 @@ export default function ScanPage() {
     setSecondOpinion(null);
     setSavedToDiary(false);
     setErrorMsg(null);
-    setCapturedPhotos([]);
-    setQuickAnswers(null);
-  };
-
-  const handleMultiPhotoAnalysis = async (
-    photos: CapturedPhoto[],
-    answers: QuickAnswers
-  ) => {
-    setCapturedPhotos(photos);
-    setQuickAnswers(answers);
-    const targetCrop = answers.crop || selectedCrop;
-    if (targetCrop && ['tomato', 'wheat', 'maize', 'rice'].includes(targetCrop)) {
-      setSelectedCrop(targetCrop as any);
-    }
-    const primary =
-      photos.find((p) => p.slot === 'leaf_top') ||
-      photos.find((p) => p.slot === 'leaf_underside') ||
-      photos[0];
-
-    if (primary) {
-      await runAnalysisPipeline(primary.fullDataUrl, targetCrop);
-    }
+    setPendingQualityData(null);
   };
 
   const spokenAdviceText = advice
-    ? `${advice.problem_name[locale]}۔ ${advice.summary[locale]}۔ ${advice.steps
+    ? `${advice.plant_name ? advice.plant_name[locale] + '۔ ' : ''}${
+        advice.organ ? advice.organ[locale] + ' پر ' : ''
+      }${advice.problem_name[locale]}۔ ${advice.summary[locale]}۔ ${advice.steps
         .map((s, i) => `${i + 1}۔ ${s[locale]}`)
         .join(' ')}`
     : '';
 
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas overflow-x-hidden">
-      {/* Header with Cropped Zarkhez Emblem */}
+      {/* Header */}
       <header className="bg-gradient-to-b from-[#062409] to-olive-dark text-white rounded-b-[32px] px-4 sm:px-5 pt-4 pb-7 shadow-soft">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
@@ -331,45 +377,284 @@ export default function ScanPage() {
 
         <div className="mt-3.5">
           <h1 className="font-extrabold text-xl sm:text-2xl text-white">
-            {t('title')}
+            {locale === 'ur' ? 'فصل کا اے آئی ڈاکٹر (1 تصویر معائنہ)' : 'Plant Doctor (1-Photo Scan)'}
           </h1>
           <p className="text-xs text-cream font-medium mt-0.5">
-            {t('subtitle')}
+            {locale === 'ur'
+              ? 'پتے، تنے، جڑ، پھل یا پورے پودے کی صرف 1 تصویر لیں — مکمل تشخیص و علاج'
+              : 'Take 1 photo of leaf, stem, roots, fruit or whole plant for instant diagnosis'}
           </p>
         </div>
       </header>
 
-      <main className="px-4 sm:px-5 mt-4 space-y-4">
-        {/* Guided Multi-Organ Photo Capture (Section 4.1 - 4.3) */}
+      <main className="px-4 sm:px-5 mt-4 space-y-4 max-w-md mx-auto">
+        {/* Crop Selector Strip */}
         {!prediction && !analysing && (
-          <MultiPhotoCapture
-            initialCrop={selectedCrop}
-            onProceedToAnalysis={handleMultiPhotoAnalysis}
-            isAnalysing={analysing}
-          />
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-2xl p-3.5 shadow-soft border border-olive/15 space-y-2.5"
+          >
+            <div className="flex items-center justify-between">
+              <label className="font-extrabold text-xs text-ink">
+                {locale === 'ur' ? 'اپنی فصل منتخب کریں:' : 'Select Crop:'}
+              </label>
+              <span className="text-[11px] font-bold text-olive">
+                {locale === 'ur' ? 'یا براہِ راست تصویر لیں' : 'Or take photo directly'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-4 gap-1.5">
+              {supportedCrops.map((c) => {
+                const active = selectedCrop === c.key;
+                return (
+                  <button
+                    key={c.key}
+                    type="button"
+                    onClick={() => setSelectedCrop(c.key)}
+                    className={`min-h-[40px] rounded-xl font-extrabold text-xs transition-all border ${
+                      active
+                        ? 'bg-[#062409] text-white border-[#062409] shadow-sm'
+                        : 'bg-canvas text-ink/80 hover:bg-olive/15 border-olive/15'
+                    }`}
+                  >
+                    <span>{c[locale]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.section>
         )}
 
-        {/* Analysing State with Animated Laser Radar Sweep */}
+        {/* 1-Image Primary Viewfinder / Capture Frame */}
+        {!prediction && !analysing && (
+          <motion.section
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl p-4 sm:p-5 shadow-soft border border-olive/15 space-y-4"
+          >
+            {/* Viewfinder Window */}
+            <div className="relative h-64 sm:h-72 rounded-2xl bg-[#062409] overflow-hidden flex flex-col items-center justify-center p-4 text-white shadow-inner">
+              {cameraActive ? (
+                <>
+                  <video
+                    ref={videoRef}
+                    playsInline
+                    muted
+                    autoPlay
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  {/* Aim target */}
+                  <div className="relative z-10 w-48 h-48 border-2 border-dashed border-emerald-400 rounded-3xl pointer-events-none flex items-center justify-center">
+                    <div className="w-3 h-3 rounded-full bg-emerald-400 animate-ping absolute" />
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 absolute" />
+                  </div>
+
+                  <div className="absolute bottom-3 inset-x-0 z-20 flex items-center justify-center gap-4">
+                    <button
+                      type="button"
+                      onClick={stopCameraStream}
+                      className="w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80"
+                      aria-label="Cancel"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.92 }}
+                      onClick={handleCaptureFromLiveVideo}
+                      className="px-6 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm shadow-lg border-2 border-white flex items-center gap-2"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>
+                        {locale === 'ur' ? 'تصویر کھینچیں' : 'Capture Photo'}
+                      </span>
+                    </motion.button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="https://images.unsplash.com/photo-1592841200221-a6898f307baa?auto=format&fit=crop&w=800&q=70"
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover opacity-25"
+                  />
+                  <div className="relative z-10 text-center space-y-2 p-2">
+                    <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 mx-auto flex items-center justify-center">
+                      <Sparkles className="w-8 h-8 text-emerald-400" />
+                    </div>
+                    <p className="font-extrabold text-sm text-white">
+                      {locale === 'ur'
+                        ? 'صرف 1 واضح تصویر لیں'
+                        : 'Take 1 Clear Photo'}
+                    </p>
+                    <p className="text-xs text-cream/80 max-w-[240px] mx-auto leading-relaxed">
+                      {locale === 'ur'
+                        ? 'پتا، تنا، جڑ، پھل یا پورا پودا — اے آئی ہر حصے کو خود پہچان لے گی'
+                        : 'Leaf, stem, roots, fruit or whole plant — AI detects organ automatically'}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Organ Visual Chips */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-ink/65 uppercase tracking-wider block">
+                {locale === 'ur' ? 'کسی بھی ایک حصے کی تصویر لیں:' : 'Accepts any 1 plant part:'}
+              </span>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-bold text-ink/80">
+                {organGuides.map((item, idx) => {
+                  const Icon = item.icon;
+                  return (
+                    <div
+                      key={idx}
+                      className="px-2.5 py-1 rounded-full bg-canvas border border-olive/20 flex items-center gap-1.5 flex-shrink-0"
+                    >
+                      <Icon className="w-3.5 h-3.5 text-olive" />
+                      <span>{locale === 'ur' ? item.ur : item.en}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Hidden File Inputs */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            {/* 1 Big Camera + 1 Gallery Button */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.97 }}
+                onClick={handleOpenCamera}
+                className="min-h-[52px] rounded-full bg-[#062409] hover:bg-olive-dark text-white font-black text-sm sm:text-base shadow-soft flex items-center justify-center gap-2.5 transition-all"
+              >
+                <Camera className="w-5 h-5 text-emerald-400" />
+                <span>
+                  {locale === 'ur' ? 'کیمرے سے تصویر لیں' : 'Take Plant Photo'}
+                </span>
+              </motion.button>
+
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.97 }}
+                onClick={() => {
+                  unlockAudio();
+                  uploadInputRef.current?.click();
+                }}
+                className="min-h-[52px] rounded-full bg-olive hover:bg-olive-dark text-white font-extrabold text-sm sm:text-base shadow-soft flex items-center justify-center gap-2.5 transition-all"
+              >
+                <Upload className="w-5 h-5 text-white" />
+                <span>
+                  {locale === 'ur'
+                    ? 'گیلری سے تصویر منتخب کریں'
+                    : 'Upload From Gallery'}
+                </span>
+              </motion.button>
+            </div>
+          </motion.section>
+        )}
+
+        {/* Quality Check Advisory Modal (Never Hard-Blocking) */}
+        <AnimatePresence>
+          {pendingQualityData && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl border-2 border-alert-amber text-start space-y-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-500/15 flex items-center justify-center text-alert-amber flex-shrink-0">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-ink">
+                      {locale === 'ur'
+                        ? 'تصویر کے معیار کا انتباہ'
+                        : 'Photo Quality Warning'}
+                    </h4>
+                    <p className="text-xs text-ink/75 mt-1 leading-relaxed">
+                      {locale === 'ur'
+                        ? pendingQualityData.quality.friendlyMessageUr ||
+                          'تصویر تھوڑی دھندلی ہے۔'
+                        : pendingQualityData.quality.friendlyMessageEn ||
+                          'Photo might be blurry.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingQualityData(null);
+                      handleOpenCamera();
+                    }}
+                    className="min-h-[46px] rounded-full border border-olive/30 text-ink font-bold text-xs hover:bg-canvas flex items-center justify-center gap-1.5"
+                  >
+                    <RotateCcw className="w-4 h-4 text-olive" />
+                    <span>{locale === 'ur' ? 'دوبارہ لیں' : 'Retake'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      runAnalysisPipeline(
+                        pendingQualityData.fileOrUrl,
+                        selectedCrop
+                      )
+                    }
+                    className="min-h-[46px] rounded-full bg-olive text-white font-extrabold text-xs hover:bg-olive-dark flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                    <span>
+                      {locale === 'ur' ? 'یہی استعمال کریں' : 'Use Anyway'}
+                    </span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Radar Scanner Animation during Analysis */}
         <AnimatePresence>
           {analysing && (
             <motion.section
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-card p-7 shadow-soft border border-olive/15 flex flex-col items-center text-center space-y-5"
+              className="bg-white rounded-3xl p-7 shadow-soft border border-olive/15 flex flex-col items-center text-center space-y-5"
             >
-              <div className="relative w-40 h-40 rounded-3xl overflow-hidden border-4 border-emerald-500/40 shadow-lg flex items-center justify-center bg-[#062409]">
+              <div className="relative w-44 h-44 rounded-3xl overflow-hidden border-4 border-emerald-500/40 shadow-lg flex items-center justify-center bg-[#062409]">
                 {previewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={previewUrl}
-                    alt="Scanning leaf"
+                    alt="Scanning"
                     className="w-full h-full object-cover"
                   />
                 ) : (
                   <Leaf className="w-12 h-12 text-emerald-400 animate-pulse" />
                 )}
-                {/* Animated Laser Line */}
                 <motion.div
                   animate={{ top: ['6%', '88%', '6%'] }}
                   transition={{
@@ -380,11 +665,17 @@ export default function ScanPage() {
                   className="absolute inset-x-2 h-1 bg-emerald-400 shadow-[0_0_14px_#4ade80] rounded-full"
                 />
               </div>
-              <div>
-                <h2 className="font-extrabold text-lg text-ink">
-                  {t('analysing')}
+              <div className="space-y-1">
+                <h2 className="font-black text-lg text-ink">
+                  {locale === 'ur'
+                    ? 'پودے کا باریک بینی سے معائنہ کیا جا رہا ہے...'
+                    : 'Analysing plant in detail...'}
                 </h2>
-                <p className="text-xs text-ink/70 mt-1">{t('analysingSub')}</p>
+                <p className="text-xs text-ink/70">
+                  {locale === 'ur'
+                    ? 'پتے، تنے، جڑوں اور علامات کی شناخت و علاج تیار ہو رہا ہے'
+                    : 'Identifying plant, organ, disease and safe treatments'}
+                </p>
               </div>
             </motion.section>
           )}
@@ -392,7 +683,7 @@ export default function ScanPage() {
 
         {/* Error State */}
         {errorMsg && (
-          <div className="bg-alert-red/10 border border-alert-red/35 rounded-card p-4 text-sm text-ink space-y-3">
+          <div className="bg-alert-red/10 border border-alert-red/35 rounded-2xl p-4 text-sm text-ink space-y-3">
             <p>{errorMsg}</p>
             <button
               type="button"
@@ -404,16 +695,17 @@ export default function ScanPage() {
           </div>
         )}
 
-        {/* Result Card */}
-        {prediction && advice && !analysing && (
+        {/* Complete Results Display (Section 5.2) */}
+        {advice && !analysing && (
           <motion.section
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="space-y-4"
+            className="space-y-4 text-start"
           >
-            {(prediction.tier !== 'confident' || advice.see_expert) && (
-              <div className="bg-cream border-2 border-alert-amber rounded-card p-4 shadow-soft flex items-start gap-3">
+            {/* Expert Referral Banner */}
+            {advice.see_expert && (
+              <div className="bg-cream border-2 border-alert-amber rounded-2xl p-4 shadow-soft flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-alert-amber text-ink flex items-center justify-center flex-shrink-0">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
@@ -426,90 +718,37 @@ export default function ScanPage() {
                       ? advice.expert_reason[locale]
                       : t('expertBannerDefault')}
                   </p>
-
-                  {prediction.confidence < 0.75 && !secondOpinion && (
-                    <button
-                      type="button"
-                      onClick={handleRequestSecondOpinion}
-                      disabled={loadingSecondOpinion}
-                      className="mt-2 inline-flex items-center gap-2 min-h-[42px] px-4 py-2 rounded-full bg-ink text-white text-xs font-bold shadow-sm"
-                    >
-                      <Eye className="w-4 h-4 text-olive-fresh" />
-                      <span>
-                        {loadingSecondOpinion
-                          ? t('secondOpinionLoading')
-                          : t('secondOpinionBtn')}
-                      </span>
-                    </button>
-                  )}
                 </div>
               </div>
             )}
 
-            {secondOpinion && (
-              <div className="bg-white rounded-card p-4 shadow-soft border-2 border-olive space-y-2">
-                <div className="flex items-center gap-2 text-olive-dark font-extrabold text-sm">
-                  <Eye className="w-4 h-4" />
-                  <span>{t('secondOpinionTitle')}</span>
-                </div>
-                <p className="text-sm text-ink">
-                  {secondOpinion.visible_symptoms[locale]}
-                </p>
-                <p className="text-xs text-ink/75 font-medium">
-                  {secondOpinion.recommendation[locale]}
-                </p>
-              </div>
-            )}
-
-            <div className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/15 space-y-4">
-              {capturedPhotos.length > 1 && (
-                <div className="space-y-1.5 pb-2 border-b border-olive/10">
-                  <span className="text-[11px] font-bold text-ink/60 uppercase">
-                    {locale === 'ur'
-                      ? 'معائنہ شدہ تصاویر:'
-                      : 'Examined Organ Photos:'}
-                  </span>
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                    {capturedPhotos.map((cp) => (
-                      <button
-                        type="button"
-                        key={cp.slot}
-                        onClick={() => setPreviewUrl(cp.fullDataUrl)}
-                        className={`relative w-14 h-14 rounded-xl overflow-hidden border-2 cursor-pointer flex-shrink-0 transition-transform ${
-                          previewUrl === cp.fullDataUrl
-                            ? 'border-emerald-500 scale-105 shadow-sm'
-                            : 'border-olive/20 opacity-80 hover:opacity-100'
-                        }`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={cp.thumbnailDataUrl}
-                          alt={cp.slot}
-                          className="w-full h-full object-cover"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+            {/* Main Result Card */}
+            <div className="bg-white rounded-3xl p-5 shadow-soft border border-olive/15 space-y-4">
               <div className="flex items-start gap-3.5">
                 {previewUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={previewUrl}
-                    alt="Scanned leaf"
-                    className="w-20 h-20 rounded-2xl object-cover border border-olive/20 flex-shrink-0"
+                    alt="Scanned plant"
+                    className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500/40 flex-shrink-0 shadow-sm"
                   />
                 )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Plant Organ Badge */}
+                    {advice.organ && (
+                      <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-olive/15 text-olive-dark">
+                        {advice.organ[locale]}
+                      </span>
+                    )}
+                    {/* Severity Badge */}
                     <span
-                      className={`text-xs font-extrabold px-2.5 py-0.5 rounded-full ${
+                      className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${
                         advice.severity === 'high'
                           ? 'bg-alert-red/15 text-alert-red'
                           : advice.severity === 'medium'
-                          ? 'bg-alert-amber/25 text-ink'
-                          : 'bg-olive/15 text-olive-dark'
+                          ? 'bg-alert-amber/25 text-amber-900'
+                          : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
                       {advice.severity === 'high'
@@ -518,132 +757,119 @@ export default function ScanPage() {
                         ? t('severityMedium')
                         : t('severityLow')}
                     </span>
-                    <bdi
-                      dir="ltr"
-                      className="text-xs text-ink/55 font-semibold"
-                    >
-                      {prediction.inferenceMs} ms
-                    </bdi>
                   </div>
 
-                  <h2 className="font-extrabold text-lg sm:text-xl text-ink mt-1.5">
+                  {advice.plant_name && (
+                    <span className="text-xs font-bold text-ink/60 block">
+                      {advice.plant_name[locale]}
+                    </span>
+                  )}
+
+                  <h2 className="font-black text-lg sm:text-xl text-ink leading-tight">
                     {advice.problem_name[locale]}
                   </h2>
                 </div>
               </div>
 
-              <div className="bg-canvas rounded-tile p-3.5 space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="text-ink/80">{t('confidenceLabel')}</span>
-                  <bdi dir="ltr" className="text-sm font-extrabold text-ink">
-                    {Math.round(prediction.confidence * 100)}%
-                  </bdi>
+              {/* Spoken Audio Banner (Reads Aloud in Fluent Human Urdu) */}
+              <div className="rounded-2xl p-3.5 bg-gradient-to-r from-emerald-500/10 via-olive/10 to-emerald-500/10 border border-emerald-500/20 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center flex-shrink-0">
+                    <Volume2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-ink block">
+                      {locale === 'ur' ? 'اردو وائس خلاصہ:' : 'Urdu Voice Summary:'}
+                    </span>
+                    <p className="text-[11px] text-ink/75 leading-tight">
+                      {locale === 'ur'
+                        ? 'آواز میں مکمل تشخیص اور علاج سنیں'
+                        : 'Listen to spoken diagnosis aloud'}
+                    </p>
+                  </div>
                 </div>
-                <div className="w-full h-3 bg-white rounded-full overflow-hidden border border-olive/15">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{
-                      width: `${Math.round(prediction.confidence * 100)}%`,
-                    }}
-                    transition={{ duration: 0.6, ease: 'easeOut' }}
-                    className={`h-full rounded-full ${
-                      prediction.confidence >= 0.75
-                        ? 'bg-olive-fresh'
-                        : prediction.confidence >= 0.5
-                        ? 'bg-alert-amber'
-                        : 'bg-alert-red'
-                    }`}
-                  />
-                </div>
-                <p className="text-xs font-semibold text-ink/75">
-                  {prediction.tier === 'confident'
-                    ? t('confidentBadge')
-                    : prediction.tier === 'likely'
-                    ? t('likelyBadge')
-                    : t('unsureBadge')}
-                </p>
+
+                <ReadAloudButton text={spokenAdviceText} lang={locale} />
               </div>
 
-              <div className="space-y-3">
-                <p className="text-sm sm:text-base text-ink leading-relaxed font-medium">
+              {/* Summary */}
+              <div className="bg-canvas rounded-2xl p-3.5">
+                <p className="text-xs sm:text-sm text-ink leading-relaxed font-medium">
                   {advice.summary[locale]}
                 </p>
-                <ReadAloudButton text={spokenAdviceText} />
               </div>
 
-              <div className="space-y-2.5 pt-2 border-t border-olive/10">
-                <h3 className="font-extrabold text-sm sm:text-base text-olive-dark flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-olive" />
+              {/* Practical Steps First (Low cost, field hygiene, irrigation) */}
+              <div className="space-y-2">
+                <h3 className="font-black text-xs sm:text-sm text-ink flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span>{t('stepsTitle')}</span>
                 </h3>
                 <ol className="space-y-2">
-                  {advice.steps.map((step, i) => (
+                  {advice.steps.map((st, i) => (
                     <li
                       key={i}
-                      className="bg-canvas rounded-tile p-3 text-xs sm:text-sm text-ink flex items-start gap-3"
+                      className="text-xs sm:text-sm text-ink bg-canvas/80 p-3 rounded-xl border border-olive/10 flex items-start gap-2.5"
                     >
-                      <span className="w-6 h-6 rounded-full bg-olive text-white font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <bdi dir="ltr">{i + 1}</bdi>
+                      <span className="w-5 h-5 rounded-full bg-olive text-white text-[11px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">
+                        {i + 1}
                       </span>
-                      <span className="leading-relaxed">{step[locale]}</span>
+                      <span className="leading-relaxed font-medium">
+                        {st[locale]}
+                      </span>
                     </li>
                   ))}
                 </ol>
               </div>
 
-              <div className="space-y-2 pt-2 border-t border-olive/10">
-                <h3 className="font-extrabold text-sm sm:text-base text-ink flex items-center gap-2">
-                  <ShieldAlert className="w-5 h-5 text-wheat" />
-                  <span>{t('preventionTitle')}</span>
-                </h3>
-                <ul className="space-y-1.5">
-                  {advice.prevention.map((tip, i) => (
-                    <li
-                      key={i}
-                      className="text-xs sm:text-sm text-ink/85 flex items-start gap-2 ps-1"
-                    >
-                      <span className="text-wheat font-bold">•</span>
-                      <span>{tip[locale]}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {/* Prevention */}
+              {advice.prevention && advice.prevention.length > 0 && (
+                <div className="space-y-2 pt-1 border-t border-olive/10">
+                  <h3 className="font-extrabold text-xs sm:text-sm text-ink flex items-center gap-1.5">
+                    <Sun className="w-4 h-4 text-amber-600" />
+                    <span>{t('preventionTitle')}</span>
+                  </h3>
+                  <ul className="space-y-1.5">
+                    {advice.prevention.map((pv, i) => (
+                      <li
+                        key={i}
+                        className="text-xs text-ink/80 bg-canvas/60 p-2.5 rounded-xl border border-olive/10 flex items-start gap-2"
+                      >
+                        <span className="text-olive font-black">•</span>
+                        <span>{pv[locale]}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-              <p className="text-xs text-ink/65 bg-cream/60 p-3 rounded-tile">
-                {tApp('disclaimer')}
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              {/* Actions: Save to Farm Diary & Scan Another */}
+              <div className="grid grid-cols-2 gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={handleSaveToDiary}
                   disabled={savedToDiary}
-                  className={`min-h-[50px] rounded-full font-bold text-sm flex items-center justify-center gap-2 transition-all ${
+                  className={`min-h-[48px] rounded-full font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all ${
                     savedToDiary
-                      ? 'bg-olive/20 text-olive-dark'
-                      : 'bg-olive hover:bg-olive-dark text-white shadow-soft'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : 'bg-white hover:bg-canvas text-ink border-2 border-olive/30 shadow-sm'
                   }`}
                 >
-                  {savedToDiary ? (
-                    <>
-                      <BookmarkCheck className="w-5 h-5" />
-                      <span>{t('savedToDiary')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <BookmarkPlus className="w-5 h-5" />
-                      <span>{t('saveToDiary')}</span>
-                    </>
-                  )}
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>
+                    {savedToDiary ? t('savedToDiary') : t('saveToDiary')}
+                  </span>
                 </button>
 
                 <button
                   type="button"
                   onClick={resetScan}
-                  className="min-h-[50px] rounded-full bg-[#062409] text-white font-bold text-sm flex items-center justify-center gap-2"
+                  className="min-h-[48px] rounded-full bg-gradient-to-r from-olive to-emerald-600 hover:from-olive-dark hover:to-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
                 >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>{t('scanAnother')}</span>
+                  <RotateCcw className="w-4 h-4 text-white" />
+                  <span>
+                    {locale === 'ur' ? 'نیا پودا اسکین کریں' : 'Scan Another Plant'}
+                  </span>
                 </button>
               </div>
             </div>
@@ -651,14 +877,15 @@ export default function ScanPage() {
         )}
       </main>
 
+      <BottomNav />
+
+      {/* Guest Prompt Sheet */}
       <GuestPromptSheet
         isOpen={showGuestPrompt}
         onClose={() => setShowGuestPrompt(false)}
-        onGoogleSignIn={() => router.push('/')}
-        onEmailSignIn={() => router.push('/')}
+        onGoogleSignIn={() => router.push('/profile')}
+        onEmailSignIn={() => router.push('/profile')}
       />
-
-      <BottomNav />
     </div>
   );
 }

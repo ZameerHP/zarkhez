@@ -63,23 +63,16 @@ function getSharedAudio(): HTMLAudioElement | null {
 export function unlockAudio(): void {
   if (typeof window === 'undefined' || audioUnlocked) return;
   audioUnlocked = true;
-  setTimeout(() => {
-    try {
-      const audio = getSharedAudio();
-      if (audio) {
-        audio.src =
-          'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-        audio.volume = 0.01;
-        audio.play().then(() => {
-          audio.pause();
-          audio.currentTime = 0;
-          audio.volume = 1;
-        }).catch(() => {});
-      }
-    } catch {
-      // ignore
-    }
-  }, 10);
+  try {
+    // Unlocks mobile audio without touching sharedAudio
+    const dummy = new Audio();
+    dummy.src =
+      'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+    dummy.volume = 0.01;
+    dummy.play().catch(() => {});
+  } catch {
+    // ignore
+  }
 }
 
 export function stripMarkdownForSpeech(text: string): string {
@@ -168,42 +161,45 @@ export function speakText(
     return;
   }
 
-  // Prefer Neural Human TTS (/api/tts) with fast 2-second timeout before falling back
+  // Stream high-quality human Neural MP3 audio via /api/tts
   if (navigator.onLine !== false) {
     try {
       const url = `/api/tts?lang=${encodeURIComponent(
         lang
-      )}&text=${encodeURIComponent(cleanText.slice(0, 750))}`;
+      )}&text=${encodeURIComponent(cleanText.slice(0, 800))}`;
       const audio = getSharedAudio() || new Audio();
       audio.volume = 1;
       audio.src = url;
 
       let started = false;
-      const timeoutId = setTimeout(() => {
+      const fallbackTimer = setTimeout(() => {
         if (!started) {
-          audio.pause();
           speakWithBrowserSynthesis(cleanText, lang, callbacks);
         }
-      }, 2200);
+      }, 7500);
 
       audio.onplay = () => {
         started = true;
-        clearTimeout(timeoutId);
+        clearTimeout(fallbackTimer);
         callbacks?.onStart?.(true);
       };
       audio.onended = () => {
-        clearTimeout(timeoutId);
+        clearTimeout(fallbackTimer);
         callbacks?.onEnd?.();
       };
       audio.onerror = () => {
-        clearTimeout(timeoutId);
+        clearTimeout(fallbackTimer);
         speakWithBrowserSynthesis(cleanText, lang, callbacks);
       };
 
-      audio.play().catch(() => {
-        clearTimeout(timeoutId);
-        speakWithBrowserSynthesis(cleanText, lang, callbacks);
-      });
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // Fall back if user did not interact yet
+          clearTimeout(fallbackTimer);
+          speakWithBrowserSynthesis(cleanText, lang, callbacks);
+        });
+      }
       return;
     } catch {
       // Fallback below

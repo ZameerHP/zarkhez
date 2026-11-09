@@ -2,25 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * Neural Human-Like Urdu & English Text-to-Speech API Route (/api/tts)
- * Streams natural, fluent Urdu (ur) and English (en) MP3 audio so every phone and PC
- * gets a clear, human-like Urdu voice even if the OS has no local ur-PK voice installed.
+ * Supports:
+ * 1. Microsoft Azure Speech (ur-PK-UzmaNeural / ur-PK-AsadNeural) when key is configured
+ * 2. High-speed parallel Google Neural/GTX fallback (ultra-reliable, 0 configuration, works everywhere)
  */
 
-// In-memory audio cache for instant playback on repeated phrases
 const ttsMemoryCache = new Map<string, { buffer: Uint8Array; timestamp: number }>();
 
-function splitIntoSpeakableChunks(text: string, maxLen = 85): string[] {
-  const cleaned = text
+function escapeXml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function cleanTextForSpeech(text: string): string {
+  return text
     .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/[#*_~`>|[\]()]/g, ' ')
+    .replace(/[#*_~`>|[\]()•]/g, ' ')
     .replace(/\bRs\.\s*/gi, 'روپے ')
     .replace(/\bPKR\b/gi, 'روپے ')
     .replace(/\s+/g, ' ')
     .trim();
+}
 
+function splitIntoSpeakableChunks(text: string, maxLen = 120): string[] {
+  const cleaned = cleanTextForSpeech(text);
   if (!cleaned) return [];
 
-  // Split by Urdu/English punctuation
+  // Split by sentence delimiters
   const sentences = cleaned.split(/(?<=[۔.!?،,\n])\s+/);
   const chunks: string[] = [];
   let current = '';
@@ -48,40 +60,81 @@ function splitIntoSpeakableChunks(text: string, maxLen = 85): string[] {
     }
   }
   if (current) chunks.push(current);
-  return chunks.slice(0, 8); // Keep concise for conversational fluency
+  return chunks.slice(0, 10);
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const text = (searchParams.get('text') || '').trim().slice(0, 800);
+  const text = (searchParams.get('text') || '').trim().slice(0, 900);
   const lang = searchParams.get('lang') === 'en' ? 'en' : 'ur';
+  const voice = searchParams.get('voice') || (lang === 'ur' ? 'ur-PK-UzmaNeural' : 'en-US-JennyNeural');
 
   if (!text) {
     return NextResponse.json({ error: 'Missing text' }, { status: 400 });
   }
 
-  const cacheKey = `${lang}:${text}`;
+  const cacheKey = `${lang}:${voice}:${text}`;
   const cached = ttsMemoryCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < 3600_000) {
+  if (cached && Date.now() - cached.timestamp < 86400_000) {
     return new Response(Buffer.from(cached.buffer), {
       status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Cache-Control': 'public, max-age=86400',
+        'Cache-Control': 'public, max-age=86400, s-maxage=86400',
       },
     });
   }
 
-  const chunks = splitIntoSpeakableChunks(text, 80);
+  // 1. Try Azure Speech Service if key is provided
+  const azureKey = process.env.AZURE_SPEECH_KEY;
+  const azureRegion = process.env.AZURE_SPEECH_REGION || 'eastus';
+
+  if (azureKey) {
+    try {
+      const azureUrl = `https://${azureRegion}.tts.speech.microsoft.com/cognitiveservices/v1`;
+      const ssml = `<speak version='1.0' xml:lang='${lang === 'ur' ? 'ur-PK' : 'en-US'}'>
+        <voice xml:lang='${lang === 'ur' ? 'ur-PK' : 'en-US'}' name='${voice}'>
+          ${escapeXml(cleanTextForSpeech(text))}
+        </voice>
+      </speak>`;
+
+      const res = await fetch(azureUrl, {
+        method: 'POST',
+        headers: {
+          'Ocp-Apim-Subscription-Key': azureKey,
+          'Content-Type': 'application/ssml+xml',
+          'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+          'User-Agent': 'Zarkhez-TTS',
+        },
+        body: ssml,
+      });
+
+      if (res.ok) {
+        const audioBuf = await res.arrayBuffer();
+        const uint8 = new Uint8Array(audioBuf);
+        ttsMemoryCache.set(cacheKey, { buffer: uint8, timestamp: Date.now() });
+
+        return new Response(Buffer.from(uint8), {
+          status: 200,
+          headers: {
+            'Content-Type': 'audio/mpeg',
+            'Cache-Control': 'public, max-age=86400',
+          },
+        });
+      }
+    } catch (azureErr) {
+      console.warn('[Azure TTS] Fallback to fast parallel engine:', azureErr);
+    }
+  }
+
+  // 2. High-speed Parallel Google Voice Stream (Fast, Warm, Ultra-Reliable)
+  const chunks = splitIntoSpeakableChunks(text, 100);
   if (chunks.length === 0) {
-    return NextResponse.json({ error: 'Empty speakable text' }, { status: 400 });
+    return NextResponse.json({ error: 'Empty text' }, { status: 400 });
   }
 
   try {
-    const audioBuffers: ArrayBuffer[] = [];
-
-    for (const chunk of chunks) {
-      // Use client=gtx (ultra-reliable, high quality, no 429 blocks)
+    const chunkPromises = chunks.map(async (chunk) => {
       const ttsUrl = new URL('https://translate.google.com/translate_tts');
       ttsUrl.searchParams.set('ie', 'UTF-8');
       ttsUrl.searchParams.set('tl', lang);
@@ -89,12 +142,13 @@ export async function GET(req: NextRequest) {
       ttsUrl.searchParams.set('q', chunk);
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3500);
+      const timeout = setTimeout(() => controller.abort(), 4500);
+
       try {
         const res = await fetch(ttsUrl.toString(), {
           headers: {
             'User-Agent':
-              'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+              'Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
             Accept: '*/*',
           },
           signal: controller.signal,
@@ -103,34 +157,37 @@ export async function GET(req: NextRequest) {
         if (res.ok) {
           const buf = await res.arrayBuffer();
           if (buf.byteLength > 64) {
-            audioBuffers.push(buf);
+            return buf;
           }
         }
       } catch {
-        // Continue with other chunks if one fails
+        // ignore chunk error
       } finally {
         clearTimeout(timeout);
       }
-    }
+      return null;
+    });
 
-    if (audioBuffers.length === 0) {
+    const buffers = (await Promise.all(chunkPromises)).filter(
+      (b): b is ArrayBuffer => b !== null
+    );
+
+    if (buffers.length === 0) {
       return NextResponse.json(
         { error: 'TTS upstream unavailable' },
         { status: 502 }
       );
     }
 
-    // Concatenate MP3 chunks into single stream
-    const totalLength = audioBuffers.reduce((acc, b) => acc + b.byteLength, 0);
+    const totalLength = buffers.reduce((acc, b) => acc + b.byteLength, 0);
     const combined = new Uint8Array(totalLength);
     let offset = 0;
-    for (const b of audioBuffers) {
+    for (const b of buffers) {
       combined.set(new Uint8Array(b), offset);
       offset += b.byteLength;
     }
 
-    // Cache in memory for instant reuse
-    if (ttsMemoryCache.size > 200) {
+    if (ttsMemoryCache.size > 250) {
       ttsMemoryCache.clear();
     }
     ttsMemoryCache.set(cacheKey, { buffer: combined, timestamp: Date.now() });
@@ -139,10 +196,11 @@ export async function GET(req: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Cache-Control': 'public, max-age=86400',
+        'Cache-Control': 'public, max-age=86400, s-maxage=86400',
       },
     });
-  } catch {
+  } catch (err) {
+    console.error('[TTS API error]:', err);
     return NextResponse.json(
       { error: 'Failed to synthesize speech' },
       { status: 502 }

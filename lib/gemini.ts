@@ -239,9 +239,12 @@ async function callGeminiApi({
 export async function generateCropAdvice(
   label: string,
   confidence: number,
-  crop: string
+  crop: string,
+  base64Image?: string
 ): Promise<{ advice: Advice; cached: boolean; source: 'ai' | 'fallback' }> {
-  const cacheKey = `${crop}:${label}:${confidence >= 0.75 ? 'high' : 'low'}`;
+  const cacheKey = base64Image
+    ? `img:${base64Image.slice(-80)}:${crop}`
+    : `${crop}:${label}:${confidence >= 0.75 ? 'high' : 'low'}`;
   const cached = adviceCache.get(cacheKey);
   if (cached) {
     return { advice: cached, cached: true, source: 'ai' };
@@ -254,17 +257,54 @@ export async function generateCropAdvice(
     return { advice: fallback, cached: false, source: 'fallback' };
   }
 
-  const model = process.env.GEMINI_MODEL_FAST || process.env.GEMINI_MODEL_DETAIL || 'gemini-1.5-flash';
+  const model =
+    process.env.GEMINI_MODEL_FAST ||
+    process.env.GEMINI_MODEL_DETAIL ||
+    'gemini-1.5-flash';
 
-  const systemPrompt = `You are Zarkhez (زرخیز), a warm, deeply knowledgeable Pakistani agriculture advisor speaking to a small farmer.
+  const systemPrompt = `You are Zarkhez (زرخیز), a senior Pakistani agricultural plant doctor, pathologist and agronomist speaking to a small farmer.
 Rules:
-- In Urdu ("ur"), write natural, fluent, respectful Pakistani agricultural Urdu (using proper terms like بوائی، وتر، شگوفے، گوبھ، تیلہ، کنگی، جھلساؤ، زرعی توسیعی افسر) that sounds warm and human when read aloud.
+- You analyze photos of plants. The photo can show ANY plant organ: leaf (top/underside), stem, roots, whole plant, or fruit/flower.
+- In Urdu ("ur"), write natural, fluent, respectful Pakistani agricultural Urdu (using proper terms like بوائی، وتر، شگوفے، تنے کا جھلساؤ، کنگی، تیلہ، سست تیلا، رس چوسنے والے کیڑے، زرعی توسیعی افسر) that sounds warm and human when read aloud.
 - Give low-risk, low-cost field hygiene and irrigation steps first.
-- For chemical treatment, name only the product class or active ingredient type, never an exact hazardous dose. Remind the farmer to read the label and confirm with their local agriculture officer.
-- If confidence is below 75% or you are unsure, set see_expert to true.
+- For chemical treatment, name only the product class or active ingredient type, never an exact hazardous dose or commercial brand. Remind the farmer to read the label and confirm with their local agriculture officer.
+- If confidence is below 70% or the photo is unclear, set see_expert to true.
 - Return ONLY valid JSON matching the requested structure.`;
 
-  const userPrompt = `Crop: ${crop}
+  const userPrompt = base64Image
+    ? `Analyze this single agricultural plant photo. The photo may show ANY part of the plant:
+- Leaf (upper surface or underside)
+- Stem or branch
+- Roots or base
+- Fruit or flower
+- Whole plant
+
+Examine what is visible in the photo. Identify:
+1. Plant common name in English and Urdu ("plant_name").
+2. Organ shown ("organ": e.g. Leaf, Stem, Roots, Fruit, Whole plant in Urdu & English).
+3. The specific disease, pest, nutrient disorder, or if it is healthy ("problem_name").
+4. Overall severity ("low" | "medium" | "high").
+5. Estimated confidence between 0.50 and 0.99 ("confidence").
+6. A concise, warm summary in English and natural Pakistani Urdu ("summary", 2 sentences max).
+7. Practical, low-cost field hygiene & watering steps first ("steps", 2 to 4 items).
+8. Prevention methods for next season ("prevention", 2 to 3 items).
+9. Chemical intervention: name ONLY the active ingredient/chemical class, NEVER a brand or dose.
+10. If confidence < 70% or unclear, set "see_expert": true.
+
+Return JSON:
+{
+  "plant_name": { "en": "string", "ur": "string" },
+  "organ": { "en": "string", "ur": "string" },
+  "problem_name": { "en": "string", "ur": "string" },
+  "severity": "low" | "medium" | "high",
+  "confidence": 0.90,
+  "summary": { "en": "string", "ur": "string" },
+  "steps": [{ "en": "string", "ur": "string" }],
+  "prevention": [{ "en": "string", "ur": "string" }],
+  "see_expert": boolean,
+  "expert_reason": { "en": "string", "ur": "string" }
+}`
+    : `Crop: ${crop}
 Detected disease/label: ${label}
 Model confidence: ${Math.round(confidence * 100)}%
 
@@ -279,6 +319,18 @@ Provide actionable Pakistani agricultural advice in JSON:
   "expert_reason": { "en": "string", "ur": "string" }
 }`;
 
+  const userParts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [];
+  if (base64Image) {
+    const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, '');
+    userParts.push({
+      inline_data: {
+        mime_type: 'image/jpeg',
+        data: cleanBase64,
+      },
+    });
+  }
+  userParts.push({ text: userPrompt });
+
   try {
     const rawText = await callGeminiApi({
       model,
@@ -286,7 +338,7 @@ Provide actionable Pakistani agricultural advice in JSON:
       contents: [
         {
           role: 'user',
-          parts: [{ text: userPrompt }],
+          parts: userParts as any,
         },
       ],
       temperature: 0.2,

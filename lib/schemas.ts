@@ -7,6 +7,9 @@ export const LocalizedStringSchema = z.object({
 
 export const AdviceSchema = z.object({
   problem_name: LocalizedStringSchema,
+  plant_name: LocalizedStringSchema.optional(),
+  organ: LocalizedStringSchema.optional(),
+  confidence: z.number().min(0).max(1).optional(),
   severity: z.enum(['low', 'medium', 'high']),
   summary: LocalizedStringSchema,
   steps: z.array(LocalizedStringSchema).min(1).max(6),
@@ -18,9 +21,10 @@ export const AdviceSchema = z.object({
 export type Advice = z.infer<typeof AdviceSchema>;
 
 export const AdviceRequestSchema = z.object({
-  label: z.string().min(1).max(100),
-  confidence: z.number().min(0).max(1),
-  crop: z.string().min(1).max(50),
+  label: z.string().min(1).max(100).optional().default('unclear'),
+  confidence: z.number().min(0).max(1).optional().default(0.8),
+  crop: z.string().min(1).max(50).optional().default('general'),
+  image: z.string().max(4_000_000).optional(),
 });
 
 export const ChatMessageSchema = z.object({

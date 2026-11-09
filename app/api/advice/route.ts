@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { label, confidence, crop } = parsed.data;
-  const result = await generateCropAdvice(label, confidence, crop);
+  const { label, confidence, crop, image } = parsed.data;
+  const result = await generateCropAdvice(label, confidence, crop, image);
 
   return NextResponse.json(result);
 }
