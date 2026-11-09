@@ -9,6 +9,7 @@ import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import { ServiceWorkerRegistrar } from '@/components/layout/ServiceWorkerRegistrar';
+import { AuthGuard } from '@/components/auth/AuthGuard';
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -57,9 +58,11 @@ export default async function LocaleLayout({
       <body className="min-h-[100dvh] bg-canvas text-ink antialiased selection:bg-olive selection:text-white">
         <NextIntlClientProvider messages={messages} locale={locale}>
           <ServiceWorkerRegistrar />
-          <div className="mx-auto max-w-[480px] min-h-[100dvh] bg-canvas relative shadow-2xl overflow-x-hidden">
-            {children}
-          </div>
+          <AuthGuard>
+            <div className="mx-auto max-w-[480px] min-h-[100dvh] bg-canvas relative shadow-2xl overflow-x-hidden">
+              {children}
+            </div>
+          </AuthGuard>
         </NextIntlClientProvider>
       </body>
     </html>

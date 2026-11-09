@@ -97,12 +97,6 @@ export default function WelcomePage() {
     router.replace(pathname, { locale: nextLocale });
   };
 
-  const handleGuestContinue = async () => {
-    setSubmitting(true);
-    await signInGuestAnonymously();
-    router.push('/home');
-  };
-
   const handleGoogleSignIn = async () => {
     setSubmitting(true);
     setOauthError(null);
@@ -342,23 +336,6 @@ export default function WelcomePage() {
               <ArrowRight className="w-5 h-5 text-wheat flex-shrink-0 rtl:rotate-180" />
             </button>
           )}
-
-          {/* 1-Tap Guest Access (Highest Priority: Scan immediately with zero forms) */}
-          <button
-            type="button"
-            onClick={handleGuestContinue}
-            className="w-full min-h-[50px] px-4 rounded-2xl bg-white hover:bg-canvas text-ink font-black text-xs sm:text-sm border-2 border-olive/40 shadow-sm flex items-center justify-between transition-all group"
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-olive/15 flex items-center justify-center text-olive group-hover:bg-olive group-hover:text-white transition-colors">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <span className="font-extrabold text-xs sm:text-sm">
-                {locale === 'ur' ? 'مہمان کسان (بغیر لاگ ان داخل ہوں)' : 'Continue as Guest (No Login)'}
-              </span>
-            </div>
-            <ArrowRight className="w-4 h-4 text-olive rtl:rotate-180" />
-          </button>
 
           {/* Simple Tab Switcher: Log In vs Sign Up */}
           <div className="grid grid-cols-2 bg-canvas p-1 rounded-xl border border-olive/15">

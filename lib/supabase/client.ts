@@ -584,6 +584,16 @@ export function getSavedProfile(): FarmerProfile {
     const raw = localStorage.getItem(KEYS.PROFILE);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<FarmerProfile>;
+      if (
+        parsed.isAuthenticated &&
+        parsed.email &&
+        parsed.authProvider !== 'anonymous' &&
+        parsed.authProvider !== 'none'
+      ) {
+        if (typeof document !== 'undefined' && !document.cookie.includes('zarkhez_auth=1')) {
+          document.cookie = 'zarkhez_auth=1; path=/; max-age=31536000; SameSite=Lax';
+        }
+      }
       return {
         ...DEFAULT_UNAUTHENTICATED_PROFILE,
         ...parsed,
@@ -619,6 +629,19 @@ export async function saveProfile(
 
   if (typeof window !== 'undefined') {
     localStorage.setItem(KEYS.PROFILE, JSON.stringify(merged));
+  }
+
+  if (typeof document !== 'undefined') {
+    if (
+      merged.isAuthenticated &&
+      merged.email &&
+      merged.authProvider !== 'anonymous' &&
+      merged.authProvider !== 'none'
+    ) {
+      document.cookie = 'zarkhez_auth=1; path=/; max-age=31536000; SameSite=Lax';
+    } else {
+      document.cookie = 'zarkhez_auth=; path=/; max-age=0; SameSite=Lax';
+    }
   }
 
   // Sync to Supabase in the background without blocking the UI
@@ -678,6 +701,9 @@ export async function signOutFarmer(): Promise<void> {
   };
   if (typeof window !== 'undefined') {
     localStorage.setItem(KEYS.PROFILE, JSON.stringify(signedOut));
+  }
+  if (typeof document !== 'undefined') {
+    document.cookie = 'zarkhez_auth=; path=/; max-age=0; SameSite=Lax';
   }
   const supabase = getSupabaseClient();
   if (supabase) {
@@ -896,6 +922,9 @@ export async function deleteAllUserData(): Promise<void> {
     localStorage.removeItem('zarkhez_fields_v1');
     localStorage.removeItem('zarkhez_scans_v1');
     localStorage.removeItem('zarkhez_diary_v1');
+  }
+  if (typeof document !== 'undefined') {
+    document.cookie = 'zarkhez_auth=; path=/; max-age=0; SameSite=Lax';
   }
   const supabase = getSupabaseClient();
   if (supabase) {

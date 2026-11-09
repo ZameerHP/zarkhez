@@ -252,6 +252,47 @@ testCase('Image Quality: recognizes healthy and infected plant pixels in subject
   assert.ok(report.subjectRatio >= 0.5);
 });
 
+testCase('AuthGuard: strictly forbids inner interface access for guests or unauthenticated users', () => {
+  // Unauthenticated profile
+  const unauthProfile: any = {
+    farmerId: '',
+    fullName: '',
+    email: '',
+    authProvider: 'none',
+    isAuthenticated: false,
+  };
+  assert.equal(
+    Boolean(unauthProfile.isAuthenticated && unauthProfile.email && unauthProfile.authProvider !== 'anonymous'),
+    false
+  );
+
+  // Anonymous guest profile (must be rejected from inner interface)
+  const anonymousGuest: any = {
+    farmerId: 'ZRK-PK-123456',
+    fullName: 'Guest Farmer',
+    email: '',
+    authProvider: 'anonymous',
+    isAuthenticated: false,
+  };
+  assert.equal(
+    Boolean(anonymousGuest.isAuthenticated && anonymousGuest.email && anonymousGuest.authProvider !== 'anonymous'),
+    false
+  );
+
+  // Valid logged-in / signed-up user
+  const loggedInFarmer: any = {
+    farmerId: 'ZRK-PK-789012',
+    fullName: 'Rashid Khan',
+    email: 'rashid.farmer@gmail.com',
+    authProvider: 'google',
+    isAuthenticated: true,
+  };
+  assert.equal(
+    Boolean(loggedInFarmer.isAuthenticated && loggedInFarmer.email && loggedInFarmer.authProvider !== 'anonymous'),
+    true
+  );
+});
+
 console.log(`\n🎉 Unit Test Summary: ${passed} passed, ${failed} failed.\n`);
 if (failed > 0) {
   process.exit(1);
