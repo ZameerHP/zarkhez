@@ -9,6 +9,7 @@ import {
 import { calculateFertilizer } from '../lib/fertilizer';
 import { calculateProfit } from '../lib/profit';
 import { generateFarmerPersonaId } from '../lib/supabase/client';
+import { analyzeImageData } from '../lib/image-quality';
 
 let passed = 0;
 let failed = 0;
@@ -189,6 +190,66 @@ testCase('Farmer Persona ID: generates deterministic ZRK-PK-XXXXXX ID from Googl
   const id2 = generateFarmerPersonaId('akram.kisan@gmail.com');
   assert.equal(id1, id2);
   assert.match(id1, /^ZRK-PK-\d{6}$/);
+});
+
+testCase('Image Quality: accurately flags blurry / flat image via Laplacian variance', () => {
+  // 10x10 completely uniform pixels (zero Laplacian variance)
+  const uniformData = new Uint8ClampedArray(10 * 10 * 4);
+  for (let i = 0; i < uniformData.length; i += 4) {
+    uniformData[i] = 120;     // R
+    uniformData[i + 1] = 120; // G
+    uniformData[i + 2] = 120; // B
+    uniformData[i + 3] = 255;
+  }
+  const report = analyzeImageData(uniformData, 10, 10);
+  assert.equal(report.isBlurry, true);
+  assert.equal(report.blurScore, 0);
+  assert.ok(report.friendlyMessageUr?.includes('دھندلی'));
+});
+
+testCase('Image Quality: accurately flags dark and overexposed photos', () => {
+  // Dark image
+  const darkData = new Uint8ClampedArray(10 * 10 * 4);
+  for (let i = 0; i < darkData.length; i += 4) {
+    darkData[i] = 15;
+    darkData[i + 1] = 20;
+    darkData[i + 2] = 15;
+    darkData[i + 3] = 255;
+  }
+  const darkReport = analyzeImageData(darkData, 10, 10);
+  assert.equal(darkReport.isDark, true);
+  assert.equal(darkReport.isOverexposed, false);
+
+  // Overexposed image
+  const brightData = new Uint8ClampedArray(10 * 10 * 4);
+  for (let i = 0; i < brightData.length; i += 4) {
+    brightData[i] = 245;
+    brightData[i + 1] = 250;
+    brightData[i + 2] = 240;
+    brightData[i + 3] = 255;
+  }
+  const brightReport = analyzeImageData(brightData, 10, 10);
+  assert.equal(brightReport.isOverexposed, true);
+});
+
+testCase('Image Quality: recognizes healthy and infected plant pixels in subjectRatio', () => {
+  // Image with 60% green leaf pixels
+  const leafData = new Uint8ClampedArray(10 * 10 * 4);
+  for (let i = 0; i < leafData.length; i += 4) {
+    if (i < leafData.length * 0.6) {
+      leafData[i] = 40;      // R
+      leafData[i + 1] = 150; // G (dominant green)
+      leafData[i + 2] = 30;  // B
+    } else {
+      leafData[i] = 200;     // White background
+      leafData[i + 1] = 200;
+      leafData[i + 2] = 200;
+    }
+    leafData[i + 3] = 255;
+  }
+  const report = analyzeImageData(leafData, 10, 10);
+  assert.equal(report.isTooSmall, false);
+  assert.ok(report.subjectRatio >= 0.5);
 });
 
 console.log(`\n🎉 Unit Test Summary: ${passed} passed, ${failed} failed.\n`);

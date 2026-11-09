@@ -34,6 +34,11 @@ import { getSavedProfile, saveScanRecord } from '@/lib/supabase/client';
 import { speakText, unlockAudio } from '@/lib/voice';
 import { getStaticFallbackAdvice } from '@/lib/gemini';
 import { GuestPromptSheet } from '@/components/auth/GuestPromptSheet';
+import {
+  MultiPhotoCapture,
+  CapturedPhoto,
+  QuickAnswers,
+} from '@/components/scan/MultiPhotoCapture';
 
 /**
  * Scan Screen (Real Leaf Photos Only — Zero Fake Samples):
@@ -65,6 +70,8 @@ export default function ScanPage() {
   const [savedToDiary, setSavedToDiary] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
+  const [capturedPhotos, setCapturedPhotos] = useState<CapturedPhoto[]>([]);
+  const [quickAnswers, setQuickAnswers] = useState<QuickAnswers | null>(null);
 
   // Live mobile camera stream state
   const [cameraActive, setCameraActive] = useState(false);
@@ -274,6 +281,28 @@ export default function ScanPage() {
     setSecondOpinion(null);
     setSavedToDiary(false);
     setErrorMsg(null);
+    setCapturedPhotos([]);
+    setQuickAnswers(null);
+  };
+
+  const handleMultiPhotoAnalysis = async (
+    photos: CapturedPhoto[],
+    answers: QuickAnswers
+  ) => {
+    setCapturedPhotos(photos);
+    setQuickAnswers(answers);
+    const targetCrop = answers.crop || selectedCrop;
+    if (targetCrop && ['tomato', 'wheat', 'maize', 'rice'].includes(targetCrop)) {
+      setSelectedCrop(targetCrop as any);
+    }
+    const primary =
+      photos.find((p) => p.slot === 'leaf_top') ||
+      photos.find((p) => p.slot === 'leaf_underside') ||
+      photos[0];
+
+    if (primary) {
+      await runAnalysisPipeline(primary.fullDataUrl, targetCrop);
+    }
   };
 
   const spokenAdviceText = advice
@@ -311,177 +340,13 @@ export default function ScanPage() {
       </header>
 
       <main className="px-4 sm:px-5 mt-4 space-y-4">
-        {/* Step 1: Supported Crop Selector */}
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-card p-4 shadow-soft border border-olive/10 space-y-3"
-        >
-          <label className="block font-bold text-xs sm:text-sm text-ink">
-            {t('selectCrop')}
-          </label>
-          <div className="grid grid-cols-4 gap-2">
-            {supportedCrops.map((c) => {
-              const active = selectedCrop === c.key;
-              return (
-                <button
-                  key={c.key}
-                  type="button"
-                  onClick={() => setSelectedCrop(c.key)}
-                  className={`relative min-h-[44px] rounded-tile font-bold text-xs sm:text-sm transition-all ${
-                    active
-                      ? 'text-white shadow-sm'
-                      : 'bg-canvas text-ink hover:bg-olive/15'
-                  }`}
-                >
-                  {active && (
-                    <motion.div
-                      layoutId="scan-crop-pill"
-                      transition={{
-                        type: 'spring',
-                        stiffness: 360,
-                        damping: 28,
-                      }}
-                      className="absolute inset-0 rounded-tile bg-[#062409]"
-                    />
-                  )}
-                  <span className="relative z-10">{c[locale]}</span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-[11px] sm:text-xs text-ink/70 leading-relaxed bg-canvas p-2.5 rounded-tile">
-            {t('supportedNote')}
-          </p>
-        </motion.section>
-
-        {/* Guide Frame & Capture/Upload Controls */}
+        {/* Guided Multi-Organ Photo Capture (Section 4.1 - 4.3) */}
         {!prediction && !analysing && (
-          <motion.section
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.06 }}
-            className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/10 space-y-4"
-          >
-            <div className="relative h-64 rounded-card bg-[#062409] overflow-hidden flex flex-col items-center justify-center p-4 text-white">
-              {cameraActive ? (
-                <>
-                  <video
-                    ref={videoRef}
-                    playsInline
-                    muted
-                    autoPlay
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                  <div className="relative z-10 w-44 h-44 border-2 border-dashed border-emerald-400 rounded-3xl pointer-events-none" />
-                  <div className="absolute bottom-3 inset-x-0 z-20 flex items-center justify-center gap-4">
-                    <button
-                      type="button"
-                      onClick={stopCameraStream}
-                      className="w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                    <motion.button
-                      type="button"
-                      whileTap={{ scale: 0.9 }}
-                      onClick={handleCaptureFromLiveVideo}
-                      className="px-6 py-2.5 rounded-full bg-emerald-500 text-white font-extrabold text-sm shadow-lg border-2 border-white flex items-center gap-2"
-                    >
-                      <Camera className="w-4 h-4" />
-                      <span>
-                        {locale === 'ur' ? 'تصویر کھینچیں' : 'Capture Leaf'}
-                      </span>
-                    </motion.button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="https://images.unsplash.com/photo-1592841200221-a6898f307baa?auto=format&fit=crop&w=800&q=70"
-                    alt=""
-                    className="absolute inset-0 w-full h-full object-cover opacity-30"
-                  />
-                  <motion.div
-                    animate={{ scale: [1, 1.03, 1] }}
-                    transition={{ duration: 2.6, repeat: Infinity }}
-                    className="relative z-10 w-44 h-44 border-2 border-dashed border-emerald-400 rounded-3xl flex flex-col items-center justify-center text-center p-4"
-                  >
-                    <Leaf className="w-10 h-10 text-emerald-400 mb-2" />
-                    <span className="text-xs font-bold text-cream">
-                      {t('tipSingleLeaf')}
-                    </span>
-                  </motion.div>
-                </>
-              )}
-            </div>
-
-            {/* 3 Tips Row */}
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="bg-canvas rounded-tile p-2.5 flex flex-col items-center">
-                <Leaf className="w-4 h-4 text-olive mb-1" />
-                <span className="text-[11px] font-bold text-ink">
-                  {t('tipSingleLeaf')}
-                </span>
-              </div>
-              <div className="bg-canvas rounded-tile p-2.5 flex flex-col items-center">
-                <Sun className="w-4 h-4 text-wheat mb-1" />
-                <span className="text-[11px] font-bold text-ink">
-                  {t('tipGoodLight')}
-                </span>
-              </div>
-              <div className="bg-canvas rounded-tile p-2.5 flex flex-col items-center">
-                <Maximize2 className="w-4 h-4 text-olive mb-1" />
-                <span className="text-[11px] font-bold text-ink">
-                  {t('tipFillFrame')}
-                </span>
-              </div>
-            </div>
-
-            {/* Hidden File Inputs */}
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <input
-              ref={uploadInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-
-            {/* Primary Capture & Upload Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.97 }}
-                onClick={handleOpenCamera}
-                className="min-h-[52px] rounded-full bg-[#062409] hover:bg-olive-dark text-white font-extrabold text-sm sm:text-base shadow-soft flex items-center justify-center gap-2.5 transition-all"
-              >
-                <Camera className="w-5 h-5 text-emerald-400" />
-                <span>{t('takePhoto')}</span>
-              </motion.button>
-
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.97 }}
-                onClick={() => {
-                  unlockAudio();
-                  uploadInputRef.current?.click();
-                }}
-                className="min-h-[52px] rounded-full bg-olive hover:bg-olive-dark text-white font-bold text-sm sm:text-base shadow-soft flex items-center justify-center gap-2.5 transition-all"
-              >
-                <Upload className="w-5 h-5" />
-                <span>{t('uploadPhoto')}</span>
-              </motion.button>
-            </div>
-          </motion.section>
+          <MultiPhotoCapture
+            initialCrop={selectedCrop}
+            onProceedToAnalysis={handleMultiPhotoAnalysis}
+            isAnalysing={analysing}
+          />
         )}
 
         {/* Analysing State with Animated Laser Radar Sweep */}
@@ -597,6 +462,36 @@ export default function ScanPage() {
             )}
 
             <div className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/15 space-y-4">
+              {capturedPhotos.length > 1 && (
+                <div className="space-y-1.5 pb-2 border-b border-olive/10">
+                  <span className="text-[11px] font-bold text-ink/60 uppercase">
+                    {locale === 'ur'
+                      ? 'معائنہ شدہ تصاویر:'
+                      : 'Examined Organ Photos:'}
+                  </span>
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {capturedPhotos.map((cp) => (
+                      <button
+                        type="button"
+                        key={cp.slot}
+                        onClick={() => setPreviewUrl(cp.fullDataUrl)}
+                        className={`relative w-14 h-14 rounded-xl overflow-hidden border-2 cursor-pointer flex-shrink-0 transition-transform ${
+                          previewUrl === cp.fullDataUrl
+                            ? 'border-emerald-500 scale-105 shadow-sm'
+                            : 'border-olive/20 opacity-80 hover:opacity-100'
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={cp.thumbnailDataUrl}
+                          alt={cp.slot}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex items-start gap-3.5">
                 {previewUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
