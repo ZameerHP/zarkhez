@@ -101,16 +101,10 @@ export default function AssistantPage() {
     });
 
     const personalWelcome =
-      profile.fullName && locale === 'ur'
-        ? `Assalam o Alaikum Bhai ${profile.fullName}${
-            profile.farmerId ? ` (Kisan ID: ${profile.farmerId})` : ''
-          }! Main Zarkhez hoon — aap ki kheti ka mukhlis digital advisor. Aap bilkul ek dost ki tarah yahan Roman Urdu ya English mein bol kar ya likh kar fasal, pani, khad ya bimari ke baare mein pooch sakte hain.`
-        : profile.fullName && locale === 'en'
-        ? `Assalam o Alaikum ${profile.fullName}${
-            profile.farmerId ? ` (${profile.farmerId})` : ''
-          }! I am Zarkhez, your personal farming advisor. Speak or type any question below and I will answer in a natural human voice.`
-        : locale === 'ur'
-        ? `Assalam o Alaikum Kisan bhai! Main Zarkhez hoon — aap ki kheti ka mukhlis digital advisor. Aap bilkul ek dost ki tarah yahan Roman Urdu ya English mein bol kar ya likh kar fasal, pani, khad ya bimari ke baare mein pooch sakte hain.`
+      locale === 'ur'
+        ? `Assalam o Alaikum! Main Zarkhez hoon — aap ki kheti ka mukhlis digital advisor. Fasal, pani, khad ya kisi bhi bimari ke baare mein aap yahan be-jhijhak pooch sakte hain.`
+        : locale === 'en'
+        ? `Assalam o Alaikum! I am Zarkhez, your personal farming advisor. Speak or type any question below about your crops, water, fertilizer, or plant diseases.`
         : t('welcomeMsg');
 
     setMessages([

@@ -45,6 +45,15 @@ type SpeechRecognitionConstructorLike = new () => SpeechRecognitionInstanceLike;
 
 let sharedAudio: HTMLAudioElement | null = null;
 let audioUnlocked = false;
+let currentVoiceSession = 0;
+let activeFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearFallbackTimer(): void {
+  if (activeFallbackTimer) {
+    clearTimeout(activeFallbackTimer);
+    activeFallbackTimer = null;
+  }
+}
 
 function getSharedAudio(): HTMLAudioElement | null {
   if (typeof window === 'undefined') return null;
@@ -88,6 +97,7 @@ export function stripMarkdownForSpeech(text: string): string {
 function speakWithBrowserSynthesis(
   cleanText: string,
   lang: 'ur' | 'en',
+  sessionId: number,
   callbacks?: {
     onStart?: (hasNativeVoice: boolean) => void;
     onEnd?: () => void;
@@ -96,6 +106,9 @@ function speakWithBrowserSynthesis(
 ): void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     callbacks?.onError?.();
+    return;
+  }
+  if (sessionId !== currentVoiceSession) {
     return;
   }
 
@@ -109,7 +122,6 @@ function speakWithBrowserSynthesis(
         voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('ur-pk')) ||
         voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('ur')) ||
         null;
-        voices.find((v) => v.lang.toLowerCase().includes('arabic') || v.lang.toLowerCase().startsWith('ar'));
 
       if (urduVoice) {
         utterance.voice = urduVoice;
@@ -119,7 +131,6 @@ function speakWithBrowserSynthesis(
       }
       utterance.rate = 0.92;
       utterance.pitch = 1.0;
-      callbacks?.onStart?.(Boolean(urduVoice));
     } else {
       const enVoice =
         voices.find(
@@ -132,11 +143,28 @@ function speakWithBrowserSynthesis(
       if (enVoice) utterance.voice = enVoice;
       utterance.lang = 'en-US';
       utterance.rate = 0.98;
-      callbacks?.onStart?.(true);
     }
 
-    utterance.onend = () => callbacks?.onEnd?.();
-    utterance.onerror = () => callbacks?.onEnd?.();
+    utterance.onstart = () => {
+      if (sessionId !== currentVoiceSession) {
+        try { window.speechSynthesis.cancel(); } catch {}
+        return;
+      }
+      callbacks?.onStart?.(true);
+    };
+
+    utterance.onend = () => {
+      if (sessionId === currentVoiceSession) {
+        callbacks?.onEnd?.();
+      }
+    };
+
+    utterance.onerror = () => {
+      if (sessionId === currentVoiceSession) {
+        callbacks?.onEnd?.();
+      }
+    };
+
     window.speechSynthesis.speak(utterance);
   } catch {
     callbacks?.onError?.();
@@ -154,7 +182,9 @@ export function speakText(
 ): void {
   if (typeof window === 'undefined') return;
 
+  // 1. Immediately terminate and unbind ANY active audio or browser speech
   stopSpeaking();
+  const sessionId = currentVoiceSession;
 
   const cleanText = stripMarkdownForSpeech(text);
   if (!cleanText) {
@@ -162,43 +192,89 @@ export function speakText(
     return;
   }
 
-  // Stream high-quality human Neural MP3 audio via /api/tts
+  // 2. Stream high-quality human Neural MP3 audio via /api/tts
   if (navigator.onLine !== false) {
     try {
       const url = `/api/tts?lang=${encodeURIComponent(
         lang
       )}&text=${encodeURIComponent(cleanText.slice(0, 800))}`;
+
       const audio = getSharedAudio() || new Audio();
       audio.volume = 1;
-      audio.src = url;
 
       let started = false;
-      const fallbackTimer = setTimeout(() => {
-        if (!started) {
-          speakWithBrowserSynthesis(cleanText, lang, callbacks);
+      let ended = false;
+
+      const finishOnce = () => {
+        if (ended) return;
+        ended = true;
+        clearFallbackTimer();
+        if (sessionId === currentVoiceSession) {
+          callbacks?.onEnd?.();
         }
-      }, 7500);
+      };
+
+      // Set fallback timer only for slow connection timeout
+      activeFallbackTimer = setTimeout(() => {
+        if (!started && sessionId === currentVoiceSession) {
+          try {
+            audio.onplay = null;
+            audio.onended = null;
+            audio.onerror = null;
+            audio.pause();
+            audio.src = '';
+          } catch {}
+          speakWithBrowserSynthesis(cleanText, lang, sessionId, callbacks);
+        }
+      }, 7000);
 
       audio.onplay = () => {
+        if (sessionId !== currentVoiceSession) {
+          try {
+            audio.pause();
+            audio.src = '';
+          } catch {}
+          return;
+        }
         started = true;
-        clearTimeout(fallbackTimer);
+        clearFallbackTimer();
+        // Ensure browser speech synthesis is definitely canceled to prevent any dual audio!
+        if ('speechSynthesis' in window) {
+          try {
+            window.speechSynthesis.cancel();
+          } catch {}
+        }
         callbacks?.onStart?.(true);
       };
+
       audio.onended = () => {
-        clearTimeout(fallbackTimer);
-        callbacks?.onEnd?.();
-      };
-      audio.onerror = () => {
-        clearTimeout(fallbackTimer);
-        speakWithBrowserSynthesis(cleanText, lang, callbacks);
+        finishOnce();
       };
 
+      audio.onerror = () => {
+        if (sessionId !== currentVoiceSession) return;
+        clearFallbackTimer();
+        speakWithBrowserSynthesis(cleanText, lang, sessionId, callbacks);
+      };
+
+      audio.src = url;
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch(() => {
-          // Fall back if user did not interact yet
-          clearTimeout(fallbackTimer);
-          speakWithBrowserSynthesis(cleanText, lang, callbacks);
+          // If aborted because a new speech session began or user stopped, abort cleanly
+          if (sessionId !== currentVoiceSession) return;
+
+          // Autoplay was blocked or format error:
+          // Unhook audio completely so it CANNOT play later concurrently!
+          audio.onplay = null;
+          audio.onended = null;
+          audio.onerror = null;
+          try {
+            audio.pause();
+            audio.src = '';
+          } catch {}
+          clearFallbackTimer();
+          speakWithBrowserSynthesis(cleanText, lang, sessionId, callbacks);
         });
       }
       return;
@@ -207,19 +283,26 @@ export function speakText(
     }
   }
 
-  speakWithBrowserSynthesis(cleanText, lang, callbacks);
+  speakWithBrowserSynthesis(cleanText, lang, sessionId, callbacks);
 }
 
 export function stopSpeaking(): void {
   if (typeof window === 'undefined') return;
+  currentVoiceSession++;
+  clearFallbackTimer();
+
   if (sharedAudio) {
     try {
+      sharedAudio.onplay = null;
+      sharedAudio.onended = null;
+      sharedAudio.onerror = null;
       sharedAudio.pause();
-      sharedAudio.currentTime = 0;
+      sharedAudio.src = '';
     } catch {
       // ignore
     }
   }
+
   if ('speechSynthesis' in window) {
     try {
       window.speechSynthesis.cancel();
