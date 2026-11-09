@@ -106,8 +106,9 @@ function speakWithBrowserSynthesis(
 
     if (lang === 'ur') {
       const urduVoice =
+        voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('ur-pk')) ||
         voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('ur')) ||
-        voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('hi')) ||
+        null;
         voices.find((v) => v.lang.toLowerCase().includes('arabic') || v.lang.toLowerCase().startsWith('ar'));
 
       if (urduVoice) {

@@ -9,6 +9,262 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const ttsMemoryCache = new Map<string, { buffer: Uint8Array; timestamp: number }>();
 
+const PHRASE_PHONETIC_MAP: Array<[RegExp, string]> = [
+  [/assalam\s*[-o\s]*alaikum/gi, 'السلام علیکم'],
+  [/walaikum\s*[-o\s]*assalam/gi, 'وعلیکم السلام'],
+  [/alhamdulillah/gi, 'الحمدللہ'],
+  [/inshallah|insha\s*allah/gi, 'انشاءاللہ'],
+  [/mashallah|masha\s*allah/gi, 'ماشاءاللہ'],
+  [/allah\s+barkat\s+de/gi, 'اللہ برکت دے'],
+  [/allah\s+hafiz/gi, 'اللہ حافظ'],
+  [/khuda\s+hafiz/gi, 'خدا حافظ'],
+  [/jazakallah/gi, 'جزاک اللہ'],
+  [/subhanallah/gi, 'سبحان اللہ'],
+];
+
+const ROMAN_TO_URDU_WORDS: Record<string, string> = {
+  // Agricultural & Crops
+  gandum: 'گندم',
+  dhan: 'دھان',
+  chawal: 'چاول',
+  kapas: 'کپاس',
+  kamad: 'کماد',
+  ganna: 'گنا',
+  makai: 'مکئی',
+  tamatar: 'ٹماٹر',
+  aloo: 'آلو',
+  mirch: 'مرچ',
+  aam: 'آم',
+  kinnow: 'کنو',
+  malta: 'مالٹا',
+  pyaz: 'پیاز',
+  fasal: 'فصل',
+  faslon: 'فصلوں',
+  khet: 'کھیت',
+  kheton: 'کھیتوں',
+  pani: 'پانی',
+  aabpashi: 'آبپاشی',
+  khad: 'کھاد',
+  khadon: 'کھادوں',
+  bori: 'بوری',
+  boriyan: 'بوریاں',
+  beej: 'بیج',
+  bijai: 'بجائی',
+  patta: 'پتا',
+  patte: 'پتے',
+  paton: 'پتوں',
+  jar: 'جڑ',
+  jarein: 'جڑیں',
+  tana: 'تنا',
+  phool: 'پھول',
+  phal: 'پھل',
+  sitta: 'سٹہ',
+  paidawar: 'پیداوار',
+  munafa: 'منافع',
+  kharcha: 'خرچہ',
+  bimari: 'بیماری',
+  bimariyan: 'بیماریاں',
+  keera: 'کیڑا',
+  keeray: 'کیڑے',
+  sundi: 'سنڈی',
+  makhi: 'مکھی',
+  teli: 'تیلا',
+  phaphondi: 'پھپھوندی',
+  jhallao: 'جھلساؤ',
+  kangi: 'کنگی',
+  peela: 'پیلا',
+  peeli: 'پیلی',
+  peelay: 'پیلے',
+  sukad: 'سکڑ',
+  sukr: 'سکڑ',
+  dhabba: 'دھبہ',
+  dhabbe: 'دھبے',
+  // Conversational
+  bhai: 'بھائی',
+  bhaiya: 'بھائی',
+  sahib: 'صاحب',
+  sahab: 'صاحب',
+  mohtaram: 'محترم',
+  kisan: 'کسان',
+  dost: 'دوست',
+  aap: 'آپ',
+  ap: 'آپ',
+  aapko: 'آپ کو',
+  apko: 'آپ کو',
+  aapka: 'آپ کا',
+  apka: 'آپ کا',
+  aapki: 'آپ کی',
+  apki: 'آپ کی',
+  aapke: 'آپ کے',
+  apke: 'آپ کے',
+  main: 'میں',
+  mein: 'میں',
+  mera: 'میرا',
+  meri: 'میری',
+  mere: 'میرے',
+  hum: 'ہم',
+  hamara: 'ہمارا',
+  hamari: 'ہماری',
+  hamare: 'ہمارے',
+  yeh: 'یہ',
+  ye: 'یہ',
+  woh: 'وہ',
+  wo: 'وہ',
+  hai: 'ہے',
+  hain: 'ہیں',
+  tha: 'تھا',
+  thi: 'تھی',
+  thay: 'تھے',
+  the: 'تھے',
+  hoga: 'ہوگا',
+  hogi: 'ہوگی',
+  honge: 'ہوں گے',
+  aur: 'اور',
+  ya: 'یا',
+  lekin: 'لیکن',
+  magar: 'مگر',
+  bhi: 'بھی',
+  to: 'تو',
+  toh: 'تو',
+  hi: 'ہی',
+  kya: 'کیا',
+  kyun: 'کیوں',
+  kyon: 'کیوں',
+  kab: 'کب',
+  kahan: 'کہاں',
+  kaise: 'کیسے',
+  kese: 'کیسے',
+  kitna: 'کتنا',
+  kitni: 'کتنی',
+  kitne: 'کتنے',
+  ka: 'کا',
+  ki: 'کی',
+  ke: 'کے',
+  ko: 'کو',
+  se: 'سے',
+  par: 'پر',
+  pe: 'پر',
+  tak: 'تک',
+  ne: 'نے',
+  karna: 'کرنا',
+  karein: 'کریں',
+  karen: 'کریں',
+  karo: 'کرو',
+  karta: 'کرتا',
+  karti: 'کرتی',
+  karte: 'کرتے',
+  dein: 'دیں',
+  den: 'دیں',
+  do: 'دو',
+  dena: 'دینا',
+  lein: 'لیں',
+  len: 'لیں',
+  lena: 'لینا',
+  lagayein: 'لگائیں',
+  lagaen: 'لگائیں',
+  lagana: 'لگانا',
+  batayein: 'بتائیں',
+  bataen: 'بتائیں',
+  batana: 'بتانا',
+  rakhein: 'رکھیں',
+  rakhen: 'رکھیں',
+  rakhna: 'رکھنا',
+  jayein: 'جائیں',
+  jaen: 'جائیں',
+  jana: 'جانا',
+  aayein: 'آئیں',
+  aaen: 'آئیں',
+  aana: 'آنا',
+  dekhein: 'دیکھیں',
+  dekhna: 'دیکھنا',
+  mat: 'مت',
+  na: 'نہ',
+  nahi: 'نہیں',
+  nahin: 'نہیں',
+  sirf: 'صرف',
+  zyada: 'زیادہ',
+  ziyada: 'زیادہ',
+  kam: 'کم',
+  bohat: 'بہت',
+  bahut: 'بہت',
+  thora: 'تھوڑا',
+  pehle: 'پہلے',
+  pehla: 'پہلا',
+  pehli: 'پہلی',
+  doosra: 'دوسرا',
+  doosri: 'دوسری',
+  teesra: 'تیسرا',
+  teesri: 'تیسری',
+  baad: 'بعد',
+  sath: 'ساتھ',
+  saath: 'ساتھ',
+  theek: 'ٹھیک',
+  acha: 'اچھا',
+  achha: 'اچھا',
+  achi: 'اچھی',
+  achay: 'اچھے',
+  ache: 'اچھے',
+  zaroor: 'ضرور',
+  zaroori: 'ضروری',
+  bilkul: 'بالکل',
+  pareshan: 'پریشان',
+  shukriya: 'شکریہ',
+  hawa: 'ہوا',
+  barish: 'بارش',
+  dhoop: 'دھوپ',
+  mausam: 'موسم',
+  sardi: 'سردی',
+  garmi: 'گرمی',
+  nami: 'نمی',
+  subah: 'صبح',
+  shaam: 'شام',
+  sham: 'شام',
+  dopahar: 'دوپہر',
+  raat: 'رات',
+  waqt: 'وقت',
+  din: 'دن',
+  hafte: 'ہفتے',
+  hafta: 'ہفتہ',
+  mahina: 'مہینہ',
+  saal: 'سال',
+  ek: 'ایک',
+  aik: 'ایک',
+  teen: 'تین',
+  char: 'چار',
+  paanch: 'پانچ',
+  che: 'چھ',
+  chay: 'چھ',
+  saat: 'سات',
+  aath: 'آٹھ',
+  nau: 'نو',
+  das: 'دس',
+  bees: 'بیس',
+  pachees: 'پچیس',
+  tees: 'تیس',
+  chalees: 'چالیس',
+  pachaas: 'پچاس',
+};
+
+function romanUrduToSpokenUrduScript(text: string): string {
+  // If text already contains significant Urdu script, return directly
+  if (/[\u0600-\u06FF]{4,}/.test(text)) {
+    return text;
+  }
+
+  let out = text;
+  for (const [rgx, rep] of PHRASE_PHONETIC_MAP) {
+    out = out.replace(rgx, rep);
+  }
+
+  return out
+    .split(/(\b[\w'-]+\b)/)
+    .map((token) => {
+      const lower = token.toLowerCase();
+      return ROMAN_TO_URDU_WORDS[lower] || token;
+    })
+    .join('');
+}
+
 function escapeXml(unsafe: string): string {
   return unsafe
     .replace(/&/g, '&amp;')
@@ -18,18 +274,29 @@ function escapeXml(unsafe: string): string {
     .replace(/'/g, '&apos;');
 }
 
-function cleanTextForSpeech(text: string): string {
-  return text
+function cleanTextForSpeech(text: string, lang: 'ur' | 'en'): string {
+  let cleaned = text
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/[#*_~`>|[\]()•]/g, ' ')
-    .replace(/\bRs\.\s*/gi, 'روپے ')
-    .replace(/\bPKR\b/gi, 'روپے ')
+    .replace(/\bRs\.\s*/gi, lang === 'ur' ? 'روپے ' : 'Rupees ')
+    .replace(/\bPKR\b/gi, lang === 'ur' ? 'روپے ' : 'Rupees ')
+    .replace(/(\d+)\s*%/g, '$1 percent ')
+    .replace(/(?:^|\n)\s*(\d+)\.\s+/g, lang === 'ur' ? ' نمبر $1: ' : ' Step $1: ')
     .replace(/\s+/g, ' ')
     .trim();
+
+  if (lang === 'ur') {
+    cleaned = romanUrduToSpokenUrduScript(cleaned);
+  }
+  return cleaned;
 }
 
-function splitIntoSpeakableChunks(text: string, maxLen = 120): string[] {
-  const cleaned = cleanTextForSpeech(text);
+function splitIntoSpeakableChunks(
+  text: string,
+  lang: 'ur' | 'en',
+  maxLen = 120
+): string[] {
+  const cleaned = cleanTextForSpeech(text, lang);
   if (!cleaned) return [];
 
   // Split by sentence delimiters
@@ -94,7 +361,7 @@ export async function GET(req: NextRequest) {
       const azureUrl = `https://${azureRegion}.tts.speech.microsoft.com/cognitiveservices/v1`;
       const ssml = `<speak version='1.0' xml:lang='${lang === 'ur' ? 'ur-PK' : 'en-US'}'>
         <voice xml:lang='${lang === 'ur' ? 'ur-PK' : 'en-US'}' name='${voice}'>
-          ${escapeXml(cleanTextForSpeech(text))}
+          ${escapeXml(cleanTextForSpeech(text, lang))}
         </voice>
       </speak>`;
 
@@ -128,7 +395,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 2. High-speed Parallel Google Voice Stream (Fast, Warm, Ultra-Reliable)
-  const chunks = splitIntoSpeakableChunks(text, 100);
+  const chunks = splitIntoSpeakableChunks(text, lang, 100);
   if (chunks.length === 0) {
     return NextResponse.json({ error: 'Empty text' }, { status: 400 });
   }

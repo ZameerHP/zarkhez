@@ -73,15 +73,17 @@ export async function POST(req: NextRequest) {
                 farmerId: context.farmerId,
                 district: context.region,
                 crop: context.crop,
+                weatherSummary: context.weatherSummary,
               }
-            : undefined
+            : undefined,
+          lang
         );
 
         const words = fullReply.split(' ');
         for (let i = 0; i < words.length; i++) {
           const chunk = (i === 0 ? '' : ' ') + words[i];
           controller.enqueue(encoder.encode(chunk));
-          await new Promise((r) => setTimeout(r, 16));
+          await new Promise((r) => setTimeout(r, 12));
         }
       } catch {
         const fallback = generateFallbackChatReply(lastUserMsg, lang, context);

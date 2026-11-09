@@ -102,13 +102,15 @@ export default function AssistantPage() {
 
     const personalWelcome =
       profile.fullName && locale === 'ur'
-        ? `السلام علیکم ورحمۃ اللہ محترم ${profile.fullName} صاحب${
-            profile.farmerId ? ` (کسان آئی ڈی: ${profile.farmerId})` : ''
-          }! میں زرخیز ہوں، آپ کی کھیتی کا مخلص دوست اور زرعی مشیر۔ آپ مجھ سے بالکل ایک دوست کی طرح اردو میں بول کر یا لکھ کر سوال پوچھ سکتے ہیں اور میں آپ کو صاف انسانی آواز میں جواب سناؤں گا۔`
+        ? `Assalam o Alaikum Bhai ${profile.fullName}${
+            profile.farmerId ? ` (Kisan ID: ${profile.farmerId})` : ''
+          }! Main Zarkhez hoon — aap ki kheti ka mukhlis digital advisor. Aap bilkul ek dost ki tarah yahan Roman Urdu ya English mein bol kar ya likh kar fasal, pani, khad ya bimari ke baare mein pooch sakte hain.`
         : profile.fullName && locale === 'en'
         ? `Assalam o Alaikum ${profile.fullName}${
             profile.farmerId ? ` (${profile.farmerId})` : ''
           }! I am Zarkhez, your personal farming advisor. Speak or type any question below and I will answer in a natural human voice.`
+        : locale === 'ur'
+        ? `Assalam o Alaikum Kisan bhai! Main Zarkhez hoon — aap ki kheti ka mukhlis digital advisor. Aap bilkul ek dost ki tarah yahan Roman Urdu ya English mein bol kar ya likh kar fasal, pani, khad ya bimari ke baare mein pooch sakte hain.`
         : t('welcomeMsg');
 
     setMessages([
@@ -219,7 +221,7 @@ export default function AssistantPage() {
     } catch {
       const errText =
         locale === 'ur'
-          ? 'معذرت کسان بھائی، رابطے میں دشواری پیش آئی۔ براہِ کرم دوبارہ کوشش کریں۔'
+          ? 'Maazrat kisan bhai, connection mein thori rukawat aayi hai. Baraye meherbani dobara poochiye.'
           : 'Sorry, connection interrupted. Please try again.';
       setMessages((prev) =>
         prev.map((m) =>
