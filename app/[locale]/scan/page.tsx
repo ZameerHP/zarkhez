@@ -24,6 +24,7 @@ import {
   ArrowRight,
   Info,
   Check,
+  Key,
 } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
@@ -60,6 +61,14 @@ export default function ScanPage() {
   const [savedToDiary, setSavedToDiary] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
+
+  // Gemini API Key config state
+  const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null);
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [inputKey, setInputKey] = useState('');
+  const [savingKey, setSavingKey] = useState(false);
+  const [keySuccessMsg, setKeySuccessMsg] = useState<string | null>(null);
+  const [keyErrorMsg, setKeyErrorMsg] = useState<string | null>(null);
 
   // Quality check state
   const [pendingQualityData, setPendingQualityData] = useState<{
@@ -111,6 +120,29 @@ export default function ScanPage() {
         streamRef.current.getTracks().forEach((tr) => tr.stop());
       }
     };
+  }, []);
+
+  useEffect(() => {
+    const localKey =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('gemini_api_key')
+        : null;
+    if (localKey) {
+      setInputKey(localKey);
+    }
+
+    fetch('/api/config/gemini-key')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.configured || (localKey && localKey.length > 20)) {
+          setGeminiConfigured(true);
+        } else {
+          setGeminiConfigured(false);
+        }
+      })
+      .catch(() => {
+        setGeminiConfigured(Boolean(localKey && localKey.length > 20));
+      });
   }, []);
 
   const handleOpenCamera = async () => {
@@ -201,6 +233,11 @@ export default function ScanPage() {
       setThumbnailUrl(compressed.thumbnailDataUrl);
 
       // Two-Stage Gemini Vision Analysis (/api/scan/analyze)
+      const storedKey =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('gemini_api_key') || undefined
+          : undefined;
+
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 22000);
 
@@ -212,6 +249,7 @@ export default function ScanPage() {
           selectedCrop: cropKey,
           confirmMismatchOverride,
           clientQuality: compressed.quality,
+          apiKey: storedKey,
         }),
         signal: controller.signal,
       });
@@ -349,6 +387,79 @@ export default function ScanPage() {
     setPendingQualityData(null);
   };
 
+  const handleSaveKey = async () => {
+    const trimmed = inputKey.trim();
+    if (!trimmed || trimmed.length < 20) {
+      setKeyErrorMsg(
+        locale === 'ur'
+          ? 'برائے مہربانی درست گوگل جیمنائی API Key درج کریں۔'
+          : 'Please enter a valid Google Gemini API Key (starts with AIzaSy...).'
+      );
+      return;
+    }
+
+    setSavingKey(true);
+    setKeyErrorMsg(null);
+    setKeySuccessMsg(null);
+
+    try {
+      const res = await fetch('/api/config/gemini-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: trimmed }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to save key');
+      }
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('gemini_api_key', trimmed);
+      }
+
+      setGeminiConfigured(true);
+      setKeySuccessMsg(
+        locale === 'ur'
+          ? 'جیمنائی API Key کامیابی سے محفوظ ہو گئی۔'
+          : 'Gemini API Key saved and activated successfully!'
+      );
+
+      setTimeout(() => {
+        setShowKeyModal(false);
+        setKeySuccessMsg(null);
+        if (
+          previewUrl &&
+          diagnosis?.problem_name?.en?.includes('Gemini Vision API Key Required')
+        ) {
+          runAnalysisPipeline(previewUrl, selectedCrop, false);
+        }
+      }, 1000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setKeyErrorMsg(
+        msg ||
+          (locale === 'ur'
+            ? 'کی محفوظ نہیں ہو سکی۔'
+            : 'Could not save Gemini key.')
+      );
+    } finally {
+      setSavingKey(false);
+    }
+  };
+
+  const handleRemoveKey = async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('gemini_api_key');
+    }
+    setInputKey('');
+    setGeminiConfigured(false);
+    setKeySuccessMsg(
+      locale === 'ur' ? 'کی ہٹا دی گئی۔' : 'Gemini key removed from browser.'
+    );
+    setTimeout(() => setKeySuccessMsg(null), 1500);
+  };
+
   const spokenDiagnosisText = diagnosis
     ? diagnosis.diagnosis_status === 'crop_mismatch'
       ? getLocalizedText(diagnosis.message, reportLang)
@@ -375,7 +486,34 @@ export default function ScanPage() {
             </Link>
             <ZarkhezLogo size={34} lightText showText={false} />
           </div>
-          <LanguageToggle variant="glass" />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowKeyModal(true)}
+              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[11px] font-black border flex items-center gap-1.5 transition-all shadow-sm ${
+                geminiConfigured
+                  ? 'bg-emerald-500/25 border-emerald-400 text-emerald-200 hover:bg-emerald-500/35'
+                  : 'bg-amber-500/30 border-amber-300 text-amber-200 animate-pulse hover:bg-amber-500/40'
+              }`}
+              title={
+                locale === 'ur'
+                  ? 'گوگل جیمنائی ترتیبات'
+                  : 'Google Gemini Settings'
+              }
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
+              <span>
+                {geminiConfigured
+                  ? locale === 'ur'
+                    ? 'جیمنائی فعال'
+                    : 'Gemini Active'
+                  : locale === 'ur'
+                  ? 'جیمنائی کی داخل کریں'
+                  : 'Connect Gemini'}
+              </span>
+            </button>
+            <LanguageToggle variant="glass" />
+          </div>
         </div>
 
         <div className="mt-3.5">
@@ -881,6 +1019,46 @@ export default function ScanPage() {
                 </div>
               </div>
 
+              {/* Gemini Key Missing Warning Banner */}
+              {diagnosis.problem_name?.en?.includes('Gemini Vision API Key Required') && (
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-400 rounded-3xl p-4 sm:p-5 text-start space-y-3 shadow-md">
+                  <div className="flex items-center gap-2.5 text-amber-900">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-200/90 flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="w-5 h-5 text-amber-900" />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-sm text-amber-950">
+                        {locale === 'ur'
+                          ? 'گوگل جیمنائی وژن (Gemini API Key) درکار ہے'
+                          : 'Google Gemini Vision Key Required'}
+                      </h4>
+                      <p className="text-[11px] text-amber-800 font-bold">
+                        {locale === 'ur'
+                          ? 'پتے کے دھبوں اور بلاسٹ کی درست تشخیص کے لیے کلید داخل کریں'
+                          : 'Inspect leaf lesions with Google Gemini Multimodal AI'}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-amber-900/90 leading-relaxed font-medium">
+                    {locale === 'ur'
+                      ? 'زرخیز کسی بھی بیمار پودے کو غلط طور پر تندرست قرار نہیں دیتا۔ پتے کی اصلی تشخیص کے لیے نیچے دیے گئے بٹن سے اپنی مفت گوگل جیمنائی کی داخل کریں۔'
+                      : 'Zarkhez never falsely reports a sick plant as healthy. Connect your free Google AI Studio key below to get real-time leaf pathology.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowKeyModal(true)}
+                    className="w-full min-h-[46px] rounded-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-200" />
+                    <span>
+                      {locale === 'ur'
+                        ? 'ابھی جیمنائی کی داخل کریں'
+                        : 'Connect Gemini API Key Now'}
+                    </span>
+                  </button>
+                </div>
+              )}
+
               {/* Expert Review Advisory Banner */}
               {diagnosis.requires_expert_review && (
                 <div className="bg-cream border-2 border-alert-amber rounded-2xl p-4 shadow-soft flex items-start gap-3">
@@ -1367,6 +1545,202 @@ export default function ScanPage() {
       </main>
 
       <BottomNav />
+
+      {/* Gemini API Key Modal */}
+      <AnimatePresence>
+        {showKeyModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-white rounded-3xl p-5 sm:p-6 shadow-2xl border border-olive/20 w-full max-w-md text-start space-y-4 relative"
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-olive/15">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-2xl bg-emerald-500/15 flex items-center justify-center text-emerald-700">
+                    <Sparkles className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-sm sm:text-base text-ink">
+                      {locale === 'ur'
+                        ? 'گوگل جیمنائی API Key ترتیبات'
+                        : 'Google Gemini Vision Setup'}
+                    </h3>
+                    <p className="text-[10px] text-ink/60">
+                      {locale === 'ur'
+                        ? 'پودوں کے پتوں اور بیماریوں کی اصلی AI تشخیص'
+                        : 'Enables live multimodal crop pathology'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowKeyModal(false);
+                    setKeyErrorMsg(null);
+                    setKeySuccessMsg(null);
+                  }}
+                  className="w-8 h-8 rounded-full bg-canvas text-ink/70 hover:bg-ink/10 flex items-center justify-center transition-all"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Status indicator */}
+              <div className="p-3 rounded-2xl bg-canvas border border-olive/15 flex items-center justify-between text-xs">
+                <span className="font-bold text-ink/70">
+                  {locale === 'ur' ? 'موجودہ کیفیت:' : 'Status:'}
+                </span>
+                <span
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-black flex items-center gap-1 ${
+                    geminiConfigured
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : 'bg-amber-100 text-amber-900 border border-amber-300'
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      geminiConfigured ? 'bg-emerald-500' : 'bg-amber-500'
+                    }`}
+                  />
+                  <span>
+                    {geminiConfigured
+                      ? locale === 'ur'
+                        ? 'جیمنائی فعال ہے'
+                        : 'Active & Connected'
+                      : locale === 'ur'
+                      ? 'کلید غائب ہے'
+                      : 'Key Missing'}
+                  </span>
+                </span>
+              </div>
+
+              {/* Instructions */}
+              <div className="space-y-1.5 text-xs text-ink/75 leading-relaxed bg-emerald-50/60 p-3 rounded-2xl border border-emerald-500/20">
+                <p className="font-extrabold text-emerald-950 flex items-center gap-1.5">
+                  <Key className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>
+                    {locale === 'ur'
+                      ? 'مفت جیمنائی کی کیسے حاصل کریں؟'
+                      : 'How to get your free Gemini Key:'}
+                  </span>
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-[11px] text-emerald-900 font-medium">
+                  <li>
+                    {locale === 'ur' ? (
+                      <>
+                        <a
+                          href="https://aistudio.google.com/app/apikey"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline font-bold text-emerald-800 hover:text-emerald-950 inline-flex items-center gap-1"
+                        >
+                          Google AI Studio
+                        </a>{' '}
+                        پر جائیں اور &quot;Create API key&quot; دبائیں۔
+                      </>
+                    ) : (
+                      <>
+                        Visit{' '}
+                        <a
+                          href="https://aistudio.google.com/app/apikey"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline font-bold text-emerald-800 hover:text-emerald-950 inline-flex items-center gap-1"
+                        >
+                          Google AI Studio
+                        </a>{' '}
+                        and click &quot;Create API key&quot;.
+                      </>
+                    )}
+                  </li>
+                  <li>
+                    {locale === 'ur'
+                      ? 'کی کاپی کر کے نیچے باکس میں پیسٹ کریں۔'
+                      : 'Copy the key (starts with AIzaSy...) and paste it below.'}
+                  </li>
+                </ol>
+              </div>
+
+              {/* Input field */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-extrabold text-ink block">
+                  {locale === 'ur' ? 'جیمنائی API Key درج کریں:' : 'Enter Gemini API Key:'}
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={inputKey}
+                    onChange={(e) => setInputKey(e.target.value)}
+                    placeholder="AIzaSy..."
+                    dir="ltr"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-olive/30 focus:border-emerald-600 focus:outline-none text-xs font-mono text-ink bg-canvas shadow-inner"
+                  />
+                  {inputKey && (
+                    <button
+                      type="button"
+                      onClick={() => setInputKey('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink/40 hover:text-ink/80 text-xs font-bold"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Feedback messages */}
+              {keyErrorMsg && (
+                <div className="p-2.5 rounded-xl bg-red-50 border border-red-300 text-red-700 text-xs font-medium flex items-start gap-1.5">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>{keyErrorMsg}</span>
+                </div>
+              )}
+
+              {keySuccessMsg && (
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  <span>{keySuccessMsg}</span>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSaveKey}
+                  disabled={savingKey || !inputKey.trim()}
+                  className="w-full min-h-[46px] rounded-full bg-[#062409] hover:bg-olive-dark text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md disabled:opacity-50 transition-all active:scale-[0.98]"
+                >
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                  <span>
+                    {savingKey
+                      ? locale === 'ur'
+                        ? 'محفوظ ہو رہا ہے...'
+                        : 'Saving & Activating...'
+                      : locale === 'ur'
+                      ? 'کی محفوظ کریں اور چالو کریں'
+                      : 'Save & Activate Key'}
+                  </span>
+                </button>
+
+                {geminiConfigured && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveKey}
+                    className="w-full py-2 text-xs font-bold text-red-600 hover:text-red-700 hover:underline text-center"
+                  >
+                    {locale === 'ur'
+                      ? 'براؤزر سے کی صاف کریں'
+                      : 'Remove key from browser'}
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Guest Prompt Sheet */}
       <GuestPromptSheet

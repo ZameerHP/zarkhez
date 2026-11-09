@@ -29,14 +29,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { image, selectedCrop, confirmMismatchOverride, clientQuality } = parsed.data;
+  const { image, selectedCrop, confirmMismatchOverride, clientQuality, apiKey } = parsed.data;
 
   try {
     const diagnosis = await analyzeCropImageWithGemini(
       image,
       selectedCrop,
       confirmMismatchOverride,
-      clientQuality
+      clientQuality,
+      apiKey
     );
 
     return NextResponse.json(diagnosis, { status: 200 });

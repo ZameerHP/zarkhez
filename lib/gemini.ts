@@ -171,7 +171,10 @@ export function generateFallbackChatReply(
       }.\n1. Use "Scan Leaf" to inspect any diseased crop leaf.\n2. Use "Crop Calendar", "Fertilizer Calculator", and "Profit Calculator" to plan your season.\n3. Which crop can I help you with today (wheat, rice, cotton, sugarcane, maize, or tomato)?`;
 }
 
-export function getGeminiApiKey(): string | undefined {
+export function getGeminiApiKey(clientApiKey?: string): string | undefined {
+  if (clientApiKey && clientApiKey.trim().length > 15) {
+    return clientApiKey.trim();
+  }
   if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
   if (process.env.GOOGLE_API_KEY) return process.env.GOOGLE_API_KEY;
   if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
@@ -210,6 +213,7 @@ async function callGeminiApi({
   contents,
   temperature = 0.2,
   responseSchema,
+  apiKeyOverride,
 }: {
   model: string;
   systemInstruction?: string;
@@ -222,8 +226,9 @@ async function callGeminiApi({
   }>;
   temperature?: number;
   responseSchema?: Record<string, unknown>;
+  apiKeyOverride?: string;
 }): Promise<string> {
-  const apiKey = getGeminiApiKey();
+  const apiKey = getGeminiApiKey(apiKeyOverride);
   if (!apiKey) {
     throw new Error('Missing GEMINI_API_KEY');
   }
@@ -554,6 +559,110 @@ export function normalizeCropName(name?: string): string {
   return clean;
 }
 
+export function getApiKeyMissingDiagnosis(selectedCrop: string): CropDiagnosis {
+  const norm = normalizeCropName(selectedCrop);
+  const cropNames: Record<
+    string,
+    { en: string; ur: string; roman_ur: string; sd: string }
+  > = {
+    wheat: { en: 'Wheat', ur: 'گندم', roman_ur: 'Gandum', sd: 'ڪڻڪ' },
+    rice: { en: 'Rice', ur: 'دھان (چاول)', roman_ur: 'Dhan / Chawal', sd: 'چانور (سارين)' },
+    cotton: { en: 'Cotton', ur: 'کپاس', roman_ur: 'Kapas', sd: 'ڪپهه' },
+    maize: { en: 'Maize', ur: 'مکئی', roman_ur: 'Makai', sd: 'مڪئي' },
+    sugarcane: { en: 'Sugarcane', ur: 'کماد (گنا)', roman_ur: 'Kamad / Ganna', sd: 'ڪمند' },
+    tomato: { en: 'Tomato', ur: 'ٹماٹر', roman_ur: 'Tamatar', sd: 'ٽماٽر' },
+    potato: { en: 'Potato', ur: 'آلو', roman_ur: 'Aloo', sd: 'پٽاٽا' },
+    chili: { en: 'Chili', ur: 'مرچ', roman_ur: 'Mirch', sd: 'مرچ' },
+  };
+
+  const crop = cropNames[norm] || {
+    en: selectedCrop,
+    ur: selectedCrop,
+    roman_ur: selectedCrop,
+    sd: selectedCrop,
+  };
+
+  return {
+    image_valid: true,
+    detected_crop: crop.en,
+    detected_crop_ur: crop.ur,
+    detected_crop_roman_ur: crop.roman_ur,
+    detected_crop_sd: crop.sd,
+    selected_crop: selectedCrop,
+    crop_match: true,
+    detected_plant_part: 'Leaf',
+    detected_plant_part_ur: 'پتا',
+    detected_plant_part_roman_ur: 'Patta',
+    detected_plant_part_sd: 'پن',
+    growth_stage: 'Vegetative',
+    growth_stage_ur: 'بڑھوتری کا مرحلہ',
+    growth_stage_roman_ur: 'Barhotri ka marhala',
+    growth_stage_sd: 'واڌ ويجهه جو مرحلو',
+    identification_confidence: 0,
+    visual_inspection: {
+      lesion_detected: false,
+      lesion_count: 'unassessed',
+      lesion_shape: 'none',
+      lesion_colors: [],
+      lesion_margins: 'none',
+      lesion_distribution: 'none',
+      tissue_damage: 'Gemini AI Vision key missing',
+    },
+    diagnosis_status: 'uncertain',
+    plant_condition: 'Gemini Vision AI key is not configured. Real-time pixel pathology inspection could not run.',
+    plant_condition_ur: 'گوگل جیمنائی API Key موجود نہیں ہے۔ اصلی پودے کا خودکار معائنہ نہیں ہو سکا۔',
+    plant_condition_roman_ur: 'Gemini API Key missing hai. Poday ka AI muaina nahi ho saka.',
+    plant_condition_sd: 'گوگل جيمنائي API Key ناهي. پودي جي چڪاس نٿي ٿي سگهي.',
+    problem_name: {
+      en: 'Gemini Vision API Key Required',
+      ur: 'جیمنائی اے آئی کی (API Key) درکار ہے',
+      roman_ur: 'Gemini API Key Darkaar Hai',
+      sd: 'جيمنائي API Key گهربل آهي',
+    },
+    possible_disease: [],
+    alternative_diagnoses: [],
+    why_suspected: {
+      en: 'Gemini Multimodal Vision model is required to inspect leaf pixels and diagnose blast or other diseases. Please enter your GEMINI_API_KEY in the scanner settings or .env.local.',
+      ur: 'پتے کے دھبے اور بیماری جانچنے کے لیے گوگل جیمنائی وژن ماڈل درکار ہے۔ براہِ کرم اوپر "Gemini Key داخل کریں" بٹن سے اپنی API Key درج کریں۔',
+      roman_ur: 'Bemari ki tasdeeq ke liye Gemini Vision darkaar hai. Barah-e-karam GEMINI_API_KEY enter karein.',
+      sd: 'بيماري جي سڃاڻپ لاءِ گوگل جيمنائي ماڊل ضروري آهي. مهرباني ڪري GEMINI_API_KEY داخل ڪريو.',
+    },
+    observed_symptoms: [],
+    possible_causes: [],
+    severity: 'not_assessed',
+    severity_explanation: {
+      en: 'Cannot assess disease severity without active Gemini Vision model.',
+      ur: 'جیمنائی وژن کے بغیر شدت کا اندازہ ممکن نہیں۔',
+      roman_ur: 'Gemini ke baghair shiddat ka andaza nahi lagaya ja sakta.',
+      sd: 'جيمنائي بنا شدت جو اندازو ممڪن ناهي.',
+    },
+    recommendations: [
+      {
+        en: 'Click "Connect Gemini Key" at the top of the scanner or set GEMINI_API_KEY in .env.local.',
+        ur: 'اسکینر کے اوپر "Gemini Key درج کریں" بٹن دبائیں یا .env.local فائل میں کی شامل کریں۔',
+        roman_ur: 'Scanner ke ooper "Connect Gemini Key" dabayein ya .env.local mein key add karein.',
+        sd: 'اسڪينر مٿان "Gemini Key داخل ڪريو" دٻايو.',
+      },
+    ],
+    what_to_do_now: [],
+    prevention: [],
+    when_to_consult_expert: {
+      en: 'If your plant shows visible lesions, consult your local agricultural extension officer immediately.',
+      ur: 'اگر پودے پر دھبے موجود ہیں تو مقامی زرعی توسیعی افسر سے تصدیق کروائیں۔',
+      roman_ur: 'Agar poda bimar hai to muqami zaria afsar ko dikhayein.',
+      sd: 'جيڪڏهن ٻوٽي تي نشان آهن ته زرعي آفيسر کي ڏيکاريو.',
+    },
+    requires_retake: false,
+    requires_expert_review: true,
+    message: {
+      en: 'Gemini API key is missing. Please connect your API key to enable live AI vision diagnosis.',
+      ur: 'جیمنائی API Key غائب ہے۔ براہِ کرم جیمنائی کی داخل کریں تاکہ اصلی پودے کا معائنہ ہو سکے۔',
+      roman_ur: 'Gemini API Key missing hai. Barah-e-karam API key enter karein takay AI diagnosis kaam karay.',
+      sd: 'جيمنائي API Key ناهي. مهرباني ڪري ڪي داخل ڪريو.',
+    },
+  };
+}
+
 /**
  * Two-Stage Intelligent Crop Scanner with Independent Crop & Organ Vision Analysis
  */
@@ -561,15 +670,16 @@ export async function analyzeCropImageWithGemini(
   base64Image: string,
   selectedCrop: string,
   confirmMismatchOverride = false,
-  clientQuality?: ImageQualityReport
+  clientQuality?: ImageQualityReport,
+  clientApiKey?: string
 ): Promise<CropDiagnosis> {
-  const apiKey = getGeminiApiKey();
+  const apiKey = getGeminiApiKey(clientApiKey);
   const cleanBase64 = cleanBase64Payload(base64Image);
   const mimeType = extractImageMimeType(base64Image);
 
   if (!apiKey) {
-    // Deterministic evidence-based fallback when API key is missing
-    return getFallbackCropDiagnosis(selectedCrop, confirmMismatchOverride, clientQuality);
+    // Return explicit API Key Missing state - NEVER claim healthy!
+    return getApiKeyMissingDiagnosis(selectedCrop);
   }
 
   const model =
@@ -805,8 +915,12 @@ Return valid JSON matching the schema.`;
     }
 
     return diagnosis;
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('[Gemini Crop Diagnosis Error]:', err);
+    const errMessage = err instanceof Error ? err.message : String(err);
+    if (/API_KEY|API key not valid|403|unauthenticated|Missing GEMINI_API_KEY/i.test(errMessage)) {
+      return getApiKeyMissingDiagnosis(selectedCrop);
+    }
     return getFallbackCropDiagnosis(selectedCrop, confirmMismatchOverride, clientQuality);
   }
 }
@@ -1092,7 +1206,128 @@ export function getFallbackCropDiagnosis(
     }
   }
 
-  // Case C: Genuinely Healthy Plant (No lesions, vigorous tissue)
+  // Case C: Explicitly Verified Healthy Plant by Client Optical Pre-scan
+  const isExplicitlyVerifiedHealthy =
+    Boolean(clientQuality) &&
+    clientQuality?.hasVisibleLesions === false &&
+    (clientQuality?.greenRatio ?? 0) >= 0.45 &&
+    (clientQuality?.lesionRatio ?? 0) <= 0.005;
+
+  if (isExplicitlyVerifiedHealthy) {
+    return {
+      image_valid: true,
+      detected_crop: crop.en,
+      detected_crop_ur: crop.ur,
+      detected_crop_roman_ur: crop.roman_ur,
+      detected_crop_sd: crop.sd,
+      selected_crop: selectedCrop,
+      crop_match: true,
+      detected_plant_part: 'Leaf',
+      detected_plant_part_ur: 'پتا',
+      detected_plant_part_roman_ur: 'Patta',
+      detected_plant_part_sd: 'پن',
+      growth_stage: 'Vegetative',
+      growth_stage_ur: 'بڑھوتری کا مرحلہ',
+      growth_stage_roman_ur: 'Barhotri ka marhala',
+      growth_stage_sd: 'واڌ ويجهه جو مرحلو',
+      identification_confidence: 0.94,
+      visual_inspection: {
+        lesion_detected: false,
+        lesion_count: 'none',
+        lesion_shape: 'none',
+        lesion_colors: [],
+        lesion_margins: 'none',
+        lesion_distribution: 'none',
+        tissue_damage: 'intact vigorous green tissue',
+      },
+      diagnosis_status: 'healthy_no_symptoms',
+      plant_condition: 'No obvious visible symptoms detected. Plant tissue appears normal, green, and vigorous.',
+      plant_condition_ur: 'کوئی واضح بیماری یا کیڑے کے دھبے نظر نہیں آئے؛ پودے کی بافتیں تندرست اور سرسبز ہیں۔',
+      plant_condition_roman_ur: 'Koi wazeh bemari ya dhabbe nazar nahi aye; poda tandrust aur sar-sabz hai.',
+      plant_condition_sd: 'ڪابه واضح بيماري يا داغ نظر نه آيو؛ ٻوٽو بلڪل صحتمند ۽ سائي رنگ جو آهي.',
+      problem_name: {
+        en: 'No Obvious Symptoms Detected (Appears Healthy)',
+        ur: 'کوئی واضح علامات ظاہر نہیں ہوئیں (بظاہر تندرست)',
+        roman_ur: 'Koi Wazeh Alamaat Nahi (Tandrust)',
+        sd: 'ڪابه واضح علامت ظاهر ناهي (ظاهري صحتمند)',
+      },
+      possible_disease: [],
+      alternative_diagnoses: [],
+      why_suspected: {
+        en: 'Uniform green coloration across leaf lamina with zero necrotic spots, zero blast spindles, and no visible pest feeding.',
+        ur: 'پتے کی سطح پر یکساں سبز رنگت، کسی قسم کے دھبوں یا کیڑوں کے بغیر مکمل صحت مند کیفیت۔',
+        roman_ur: 'Pattay ki satah par yaksaan sabz rangat aur kisi dhabbe ke baghair saf poda.',
+        sd: 'پن جي سڄي مٿاڇري تي هڪجهڙو سائي رنگ ۽ ڪنهن به داغ کان پاڪ.',
+      },
+      observed_symptoms: [],
+      possible_causes: [
+        {
+          en: 'Healthy crop growth under current seasonal and field management conditions.',
+          ur: 'موجودہ موسمی و زرعی حالات میں پودے کی معمول کی تندرست بڑھوتری۔',
+          roman_ur: 'Mausami halat mein poday ki mamool ki tandrust barhotri.',
+          sd: 'موجوده موسمي حالتن ۾ ٻوٽي جي عام واڌ ويجهه.',
+        },
+      ],
+      severity: 'low',
+      severity_explanation: {
+        en: 'No active tissue damage or disease lesions observed.',
+        ur: 'بافتوں کا کوئی نقصان یا بیماری کے دھبے موجود نہیں ہیں۔',
+        roman_ur: 'Pattay ko koi nuqsan nahi pohancha.',
+        sd: 'ٻوٽي کي ڪوبه نقصان ناهي پهتو.',
+      },
+      recommendations: [
+        {
+          en: 'Maintain regular morning scouting to detect any initial pests or early airborne spores.',
+          ur: 'روزانہ صبح کے وقت کھیت کا معائنہ جاری رکھیں تاکہ کسی بھی بیماری کا بروقت پتہ چل سکے۔',
+          roman_ur: 'Rozana subah khet ka muaina jari rakhein takay kisi bemari ka barwaqt pata chal sakay.',
+          sd: 'روزانو صبح جي وقت فيلڊ جو معائنو جاري رکو.',
+        },
+        {
+          en: 'Ensure balanced irrigation and avoid prolonged water stress in the root zone.',
+          ur: 'مناسب وتر پر آبپاشی کریں اور جڑوں میں اضافی پانی کھڑا نہ ہونے دیں۔',
+          roman_ur: 'Munasib watar par pani dein aur jarron mein pani khara na hone dein.',
+          sd: 'مناسب وتر تي پاڻي ڏيو ۽ پاڻي بيهڻ نه ڏيو.',
+        },
+        {
+          en: 'Consult your local agricultural extension officer before applying any preventative chemicals.',
+          ur: 'کسی بھی سپرے یا کیمیائی علاج سے قبل مقامی زرعی توسیعی افسر سے تصدیق کریں۔',
+          roman_ur: 'Kisi bhi spray se qabal muqami zaria afsar se tasdeeq karein.',
+          sd: 'ڪنهن به اسپري کان اڳ مقامي زرعي آفيسر سان صلاح ڪريو.',
+        },
+      ],
+      what_to_do_now: [],
+      prevention: [
+        {
+          en: 'Practice field hygiene and keep weed hosts clear around field borders.',
+          ur: 'کھیت کی وٹوں اور کناروں سے جڑی بوٹیاں تلف رکھیں۔',
+          roman_ur: 'Khet ki watton aur kinaray se jari bootiyan talaf rakhein.',
+          sd: 'فيلڊ جي ٻنن تان گند گاهه صاف رکو.',
+        },
+        {
+          en: 'Use certified seed and balanced NPK fertilizer recommendations.',
+          ur: 'تصدیق شدہ بیج اور زمین کے تجزیے کے مطابق متوازن کھاد استعمال کریں۔',
+          roman_ur: 'Certified beej aur mutawazan khad istemal karein.',
+          sd: 'تصديق ٿيل ٻج ۽ متوازن ڀاڻ استعمال ڪريو.',
+        },
+      ],
+      when_to_consult_expert: {
+        en: 'Consult extension officer only if new discoloration or lesions appear during weekly scouting.',
+        ur: 'اگر ہفتہ وار معائنے کے دوران کسی پتے پر دھبے یا مڑاؤ نظر آئے تو زرعی افسر سے مشورہ کریں۔',
+        roman_ur: 'Agar haftawar muainay ke dauran dhabbe nazar ayein to zaria afsar se mashwara karein.',
+        sd: 'جيڪڏهن هفتيوار معائني دوران ڪو داغ نظر اچي ته زرعي آفيسر سان صلاح ڪريو.',
+      },
+      requires_retake: false,
+      requires_expert_review: false,
+      message: {
+        en: 'No obvious disease or pest symptoms observed. Note: visual inspection does not guarantee 100% absence of latent micro-pathogens.',
+        ur: 'اس پودے پر کوئی واضح بیماری نہیں ملی۔ معمول کی دیکھ بھال جاری رکھیں۔ یاد رہے کہ بصری معائنہ سو فیصد پوشیدہ جراثیم کی غیر موجودگی کی حتمی ضمانت نہیں۔',
+        roman_ur: 'Poday par koi wazeh bemari nahi mili. Mamool ki dekh bhal jari rakhein.',
+        sd: 'ٻوٽي تي ڪابه واضح بيماري ناهي. عام سنڀال جاري رکو.',
+      },
+    };
+  }
+
+  // Case D: Inconclusive Offline Fallback (No Client Quality metrics or unverified)
   return {
     image_valid: true,
     detected_crop: crop.en,
@@ -1109,99 +1344,74 @@ export function getFallbackCropDiagnosis(
     growth_stage_ur: 'بڑھوتری کا مرحلہ',
     growth_stage_roman_ur: 'Barhotri ka marhala',
     growth_stage_sd: 'واڌ ويجهه جو مرحلو',
-    identification_confidence: 0.94,
+    identification_confidence: 0.60,
     visual_inspection: {
       lesion_detected: false,
-      lesion_count: 'none',
+      lesion_count: 'uncertain',
       lesion_shape: 'none',
       lesion_colors: [],
       lesion_margins: 'none',
       lesion_distribution: 'none',
-      tissue_damage: 'intact vigorous green tissue',
+      tissue_damage: 'inconclusive without active AI vision',
     },
-    diagnosis_status: 'healthy_no_symptoms',
-    plant_condition: 'No obvious visible symptoms detected. Plant tissue appears normal, green, and vigorous.',
-    plant_condition_ur: 'کوئی واضح بیماری یا کیڑے کے دھبے نظر نہیں آئے؛ پودے کی بافتیں تندرست اور سرسبز ہیں۔',
-    plant_condition_roman_ur: 'Koi wazeh bemari ya dhabbe nazar nahi aye; poda tandrust aur sar-sabz hai.',
-    plant_condition_sd: 'ڪابه واضح بيماري يا داغ نظر نه آيو؛ ٻوٽو بلڪل صحتمند ۽ سائي رنگ جو آهي.',
+    diagnosis_status: 'uncertain',
+    plant_condition: 'Visual pathology analysis is inconclusive without active Gemini AI cloud inspection. If your plant has visible spots, wilting, or yellowing, do not assume it is healthy.',
+    plant_condition_ur: 'جیمنائی کلاؤڈ ماڈل کے بغیر بیماری کی مکمل تصدیق نہیں ہو سکی۔ اگر پتے پر کوئی دھبے ہیں تو اسے تندرست نہ سمجھیں۔',
+    plant_condition_roman_ur: 'Gemini AI ke baghair mukammal tasdeeq nahi ho saki. Agar patte par dhabbe hain to use tandrust na samjhein.',
+    plant_condition_sd: 'جيمنائي بنا مڪمل چڪاس ممڪن ناهي. جيڪڏهن پن تي داغ آهن ته ان کي صحتمند نه سمجهو.',
     problem_name: {
-      en: 'No Obvious Symptoms Detected (Appears Healthy)',
-      ur: 'کوئی واضح علامات ظاہر نہیں ہوئیں (بظاہر تندرست)',
-      roman_ur: 'Koi Wazeh Alamaat Nahi (Tandrust)',
-      sd: 'ڪابه واضح علامت ظاهر ناهي (ظاهري صحتمند)',
+      en: 'Inconclusive Offline Scan — Gemini Vision Inspection Recommended',
+      ur: 'آف لائن معائنہ غیر حتمی — مکمل معائنے کے لیے جیمنائی درکار ہے',
+      roman_ur: 'Offline Muaina Ghair Yaqeeni — Gemini AI Darkaar Hai',
+      sd: 'آف لائن چڪاس غير حتمي — جيمنائي چڪاس گهربل آهي',
     },
     possible_disease: [],
     alternative_diagnoses: [],
     why_suspected: {
-      en: 'Uniform green coloration across leaf lamina with zero necrotic spots, zero blast spindles, and no visible pest feeding.',
-      ur: 'پتے کی سطح پر یکساں سبز رنگت، کسی قسم کے دھبوں یا کیڑوں کے بغیر مکمل صحت مند کیفیت۔',
-      roman_ur: 'Pattay ki satah par yaksaan sabz rangat aur kisi dhabbe ke baghair saf poda.',
-      sd: 'پن جي سڄي مٿاڇري تي هڪجهڙو سائي رنگ ۽ ڪنهن به داغ کان پاڪ.',
+      en: 'Basic offline heuristics did not detect acute macro-damage, but Gemini Multimodal Vision is required to inspect subtle blast spindles, fungal spots, and leaf blight.',
+      ur: 'بنیادی آف لائن چیک میں بڑا نقصان نہیں ملا، لیکن پتے کے باریک دھبے اور بلاسٹ جانچنے کے لیے جیمنائی وژن درکار ہے۔',
+      roman_ur: 'Bara nuqsan nahi mila lekin bareek dhabbe janchnay ke liye Gemini darkaar hai.',
+      sd: 'وڏو نقصان ناهي مليو پر بيماري جي پڪي سڃاڻپ لاءِ جيمنائي گهربل آهي.',
     },
     observed_symptoms: [],
     possible_causes: [
       {
-        en: 'Healthy crop growth under current seasonal and field management conditions.',
-        ur: 'موجودہ موسمی و زرعی حالات میں پودے کی معمول کی تندرست بڑھوتری۔',
-        roman_ur: 'Mausami halat mein poday ki mamool ki tandrust barhotri.',
-        sd: 'موجوده موسمي حالتن ۾ ٻوٽي جي عام واڌ ويجهه.',
+        en: 'Cloud AI vision offline or API key missing during this scan.',
+        ur: 'اسکین کے دوران کلاؤڈ اے آئی دستیاب نہیں تھی یا API کی غائب تھی۔',
+        roman_ur: 'Scan ke dauran Cloud AI offline thi ya API key missing thi.',
+        sd: 'اسڪين دوران ڪلائوڊ اي آءِ موجود نه هئي يا API ڪي غائب هئي.',
       },
     ],
-    severity: 'low',
+    severity: 'not_assessed',
     severity_explanation: {
-      en: 'No active tissue damage or disease lesions observed.',
-      ur: 'بافتوں کا کوئی نقصان یا بیماری کے دھبے موجود نہیں ہیں۔',
-      roman_ur: 'Pattay ko koi nuqsan nahi pohancha.',
-      sd: 'ٻوٽي کي ڪوبه نقصان ناهي پهتو.',
+      en: 'Severity cannot be confirmed without active Gemini AI vision inspection.',
+      ur: 'جیمنائی اے آئی کے بغیر بیماری کی شدت کا حتمی اندازہ نہیں لگایا جا سکتا۔',
+      roman_ur: 'Gemini ke baghair shiddat ka andaza nahi lagaya ja sakta.',
+      sd: 'جيمنائي بنا بيماري جي شدت جو حتمي اندازو نٿو لڳائي سگهجي.',
     },
     recommendations: [
       {
-        en: 'Maintain regular morning scouting to detect any initial pests or early airborne spores.',
-        ur: 'روزانہ صبح کے وقت کھیت کا معائنہ جاری رکھیں تاکہ کسی بھی بیماری کا بروقت پتہ چل سکے۔',
-        roman_ur: 'Rozana subah khet ka muaina jari rakhein takay kisi bemari ka barwaqt pata chal sakay.',
-        sd: 'روزانو صبح جي وقت فيلڊ جو معائنو جاري رکو.',
-      },
-      {
-        en: 'Ensure balanced irrigation and avoid prolonged water stress in the root zone.',
-        ur: 'مناسب وتر پر آبپاشی کریں اور جڑوں میں اضافی پانی کھڑا نہ ہونے دیں۔',
-        roman_ur: 'Munasib watar par pani dein aur jarron mein pani khara na hone dein.',
-        sd: 'مناسب وتر تي پاڻي ڏيو ۽ پاڻي بيهڻ نه ڏيو.',
-      },
-      {
-        en: 'Consult your local agricultural extension officer before applying any preventative chemicals.',
-        ur: 'کسی بھی سپرے یا کیمیائی علاج سے قبل مقامی زرعی توسیعی افسر سے تصدیق کریں۔',
-        roman_ur: 'Kisi bhi spray se qabal muqami zaria afsar se tasdeeq karein.',
-        sd: 'ڪنهن به اسپري کان اڳ مقامي زرعي آفيسر سان صلاح ڪريو.',
+        en: 'Connect your Gemini API Key in the scanner settings to get instant live diagnosis.',
+        ur: 'اسکینر کی سیٹنگز میں اپنی جیمنائی کی داخل کریں تاکہ فوری معائنہ ہو سکے۔',
+        roman_ur: 'Scanner settings mein Gemini key connect karein.',
+        sd: 'اسڪينر سيٽنگز ۾ جيمنائي ڪي داخل ڪريو.',
       },
     ],
     what_to_do_now: [],
-    prevention: [
-      {
-        en: 'Practice field hygiene and keep weed hosts clear around field borders.',
-        ur: 'کھیت کی وٹوں اور کناروں سے جڑی بوٹیاں تلف رکھیں۔',
-        roman_ur: 'Khet ki watton aur kinaray se jari bootiyan talaf rakhein.',
-        sd: 'فيلڊ جي ٻنن تان گند گاهه صاف رکو.',
-      },
-      {
-        en: 'Use certified seed and balanced NPK fertilizer recommendations.',
-        ur: 'تصدیق شدہ بیج اور زمین کے تجزیے کے مطابق متوازن کھاد استعمال کریں۔',
-        roman_ur: 'Certified beej aur mutawazan khad istemal karein.',
-        sd: 'تصديق ٿيل ٻج ۽ متوازن ڀاڻ استعمال ڪريو.',
-      },
-    ],
+    prevention: [],
     when_to_consult_expert: {
-      en: 'Consult extension officer only if new discoloration or lesions appear during weekly scouting.',
-      ur: 'اگر ہفتہ وار معائنے کے دوران کسی پتے پر دھبے یا مڑاؤ نظر آئے تو زرعی افسر سے مشورہ کریں۔',
-      roman_ur: 'Agar haftawar muainay ke dauran dhabbe nazar ayein to zaria afsar se mashwara karein.',
-      sd: 'جيڪڏهن هفتيوار معائني دوران ڪو داغ نظر اچي ته زرعي آفيسر سان صلاح ڪريو.',
+      en: 'If suspicious lesions or leaf spots are visible, consult your local agricultural extension officer.',
+      ur: 'اگر پتے پر دھبے نظر آ رہے ہیں تو مقامی زرعی توسیعی افسر کو دکھائیں۔',
+      roman_ur: 'Agar dhabbe nazar arahe hain to zaria afsar ko dikhayein.',
+      sd: 'جيڪڏهن پن تي داغ آهن ته زرعي آفيسر کي ڏيکاريو.',
     },
     requires_retake: false,
-    requires_expert_review: false,
+    requires_expert_review: true,
     message: {
-      en: 'No obvious disease or pest symptoms observed. Note: visual inspection does not guarantee 100% absence of latent micro-pathogens.',
-      ur: 'اس پودے پر کوئی واضح بیماری نہیں ملی۔ معمول کی دیکھ بھال جاری رکھیں۔ یاد رہے کہ بصری معائنہ سو فیصد پوشیدہ جراثیم کی غیر موجودگی کی حتمی ضمانت نہیں۔',
-      roman_ur: 'Poday par koi wazeh bemari nahi mili. Mamool ki dekh bhal jari rakhein.',
-      sd: 'ٻوٽي تي ڪابه واضح بيماري ناهي. عام سنڀال جاري رکو.',
+      en: 'Visual pathology analysis is inconclusive offline. Please connect your Gemini API key for complete diagnosis.',
+      ur: 'آف لائن تجزیہ غیر حتمی ہے۔ براہ کرم مکمل معائنے کے لیے جیمنائی کی کنیکٹ کریں۔',
+      roman_ur: 'Offline tajzia ghair yaqeeni hai. Mukammal muainay ke liye Gemini connect karein.',
+      sd: 'آف لائن چڪاس غير حتمي آهي. مڪمل چڪاس لاءِ جيمنائي ڪنيڪٽ ڪريو.',
     },
   };
 }
