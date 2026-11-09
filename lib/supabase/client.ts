@@ -368,6 +368,210 @@ export async function syncSupabaseAuthSession(): Promise<FarmerProfile | null> {
   }
 }
 
+/**
+ * 1-Tap Guest Access: farmer can start scanning immediately without filling any form.
+ */
+export async function signInGuestAnonymously(): Promise<FarmerProfile> {
+  const existing = getSavedProfile();
+  if (existing.isAuthenticated && existing.authProvider !== 'anonymous') {
+    return existing;
+  }
+
+  const supabase = getSupabaseClient();
+  let anonymousId = '';
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (!error && data?.user) {
+        anonymousId = data.user.id;
+      }
+    } catch {
+      // offline / mock mode
+    }
+  }
+
+  const guestSeed = anonymousId || `guest_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const guestProfile: FarmerProfile = {
+    ...existing,
+    farmerId: existing.farmerId || generateFarmerPersonaId(guestSeed),
+    fullName: existing.fullName || (existing.language === 'en' ? 'Guest Farmer' : 'مہمان کسان'),
+    authProvider: 'anonymous',
+    isAuthenticated: false, // guest status until signed in
+    onboardingDone: true,   // don't block guest with onboarding
+  };
+
+  await saveProfile(guestProfile);
+  return guestProfile;
+}
+
+/**
+ * Sends a 6-digit passwordless sign-in OTP code to the farmer's email.
+ */
+export async function sendEmailOtp(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    return { success: false, error: 'invalid_email' };
+  }
+
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    // Development simulated OTP when offline
+    return { success: true };
+  }
+
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: cleanEmail,
+      options: {
+        shouldCreateUser: true,
+      },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'network_error';
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * Verifies the 6-digit OTP code and signs the farmer in.
+ */
+export async function verifyEmailOtp(
+  email: string,
+  token: string
+): Promise<{ success: boolean; profile?: FarmerProfile; error?: string }> {
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanToken = token.trim();
+
+  if (cleanToken.length !== 6) {
+    return { success: false, error: 'invalid_token_length' };
+  }
+
+  const current = getSavedProfile();
+  const identity = deriveGoogleIdentityFromEmail(cleanEmail);
+
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    // Offline simulation for local exhibition test
+    const profile = await saveProfile({
+      ...current,
+      email: cleanEmail,
+      fullName: current.fullName && current.fullName !== 'مہمان کسان' ? current.fullName : identity.fullName,
+      farmerId: current.farmerId || identity.farmerId,
+      avatarUrl: current.avatarUrl || identity.avatarUrl,
+      authProvider: 'email',
+      isAuthenticated: true,
+    });
+    return { success: true, profile };
+  }
+
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: cleanEmail,
+      token: cleanToken,
+      type: 'email',
+    });
+
+    if (error || !data?.user) {
+      return { success: false, error: error?.message || 'verification_failed' };
+    }
+
+    const profile = await saveProfile({
+      ...current,
+      email: cleanEmail,
+      fullName: current.fullName && current.fullName !== 'مہمان کسان' ? current.fullName : identity.fullName,
+      farmerId: current.farmerId || identity.farmerId,
+      avatarUrl: current.avatarUrl || identity.avatarUrl,
+      authProvider: 'email',
+      isAuthenticated: true,
+    });
+
+    // Link guest records to the verified user ID
+    await linkGuestToAccount(data.user.id);
+
+    return { success: true, profile };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'network_error';
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * Links previous guest scans, fields, and diary to authenticated user ID.
+ */
+export async function linkGuestToAccount(newUserId: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+
+  try {
+    const localScans = getSavedScans();
+    for (const scan of localScans) {
+      await supabase.from('scans').upsert({
+        id: scan.id,
+        user_id: newUserId,
+        crop: scan.crop,
+        label: scan.label,
+        confidence: scan.confidence,
+        advice: scan.advice,
+        created_at: scan.created_at,
+      });
+    }
+
+    const localFields = getSavedFields();
+    for (const field of localFields) {
+      await supabase.from('fields').upsert({
+        id: field.id,
+        user_id: newUserId,
+        name: field.name,
+        crop: field.crop,
+        area_acres: field.area_acres,
+        soil_type: field.soil_type,
+        sowing_date: field.sowing_date,
+        created_at: field.created_at,
+      });
+    }
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Saves onboarding answers (max 4 taps) and marks onboarding_done = true.
+ */
+export async function saveOnboardingProfile(answers: {
+  language?: 'ur' | 'en';
+  district?: string;
+  placeName?: string;
+  lat?: number;
+  lon?: number;
+  mainCrops?: string[];
+  landAcresBand?: string;
+  consentImproveModel?: boolean;
+}): Promise<FarmerProfile> {
+  const current = getSavedProfile();
+  const updated = await saveProfile({
+    ...current,
+    language: answers.language || current.language,
+    district: answers.district || current.district,
+    placeName: answers.placeName || current.placeName,
+    lat: answers.lat ?? current.lat,
+    lon: answers.lon ?? current.lon,
+    primaryCrops: answers.mainCrops || current.primaryCrops,
+    mainCrops: answers.mainCrops || current.mainCrops,
+    landAcresBand: answers.landAcresBand || current.landAcresBand,
+    consentTermsAt: new Date().toISOString(),
+    consentImproveModel: answers.consentImproveModel ?? current.consentImproveModel,
+    onboardingDone: true,
+  });
+  return updated;
+}
+
 export function getSavedProfile(): FarmerProfile {
   if (typeof window === 'undefined') {
     return DEFAULT_UNAUTHENTICATED_PROFILE;

@@ -54,8 +54,12 @@ export default function ProfilePage() {
   const [totalAcres, setTotalAcres] = useState('5');
   const [selectedCrops, setSelectedCrops] = useState<string[]>(['wheat']);
   const [autoSpeakVoice, setAutoSpeakVoice] = useState(true);
+  const [preferredVoice, setPreferredVoice] = useState<'ur-PK-UzmaNeural' | 'ur-PK-AsadNeural'>('ur-PK-UzmaNeural');
+  const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
   const [savedNotice, setSavedNotice] = useState(false);
   const [deletedNotice, setDeletedNotice] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const p = getSavedProfile();
@@ -65,10 +69,12 @@ export default function ProfilePage() {
     setEmail(p.email);
     setPhone(p.phone);
     setVillageOrTehsil(p.villageOrTehsil);
-    setPlaceName(p.placeName);
+    setPlaceName(p.placeName || 'Faisalabad, Punjab');
     setTotalAcres(String(p.totalAcres || 5));
     setSelectedCrops(p.primaryCrops?.length ? p.primaryCrops : ['wheat']);
     setAutoSpeakVoice(p.autoSpeakVoice ?? true);
+    setPreferredVoice((p.preferredVoice as any) || 'ur-PK-UzmaNeural');
+    setVoiceSpeed(p.voiceSpeed || 1.0);
 
     syncSupabaseAuthSession().then((synced) => {
       if (synced) {
@@ -141,12 +147,16 @@ export default function ProfilePage() {
       avatarUrl: profile.avatarUrl || derived.avatarUrl,
       phone: phone.trim(),
       villageOrTehsil: villageOrTehsil.trim(),
-      placeName: placeName.trim() || 'Multan, Punjab',
+      placeName: placeName.trim() || 'Faisalabad, Punjab',
+      district: placeName.split(',')[0].trim(),
       totalAcres: Math.max(0, parseFloat(totalAcres) || 0),
       primaryCrops: selectedCrops,
-      authProvider: 'google',
+      mainCrops: selectedCrops,
+      authProvider: profile.authProvider || 'google',
       isAuthenticated: true,
       autoSpeakVoice,
+      preferredVoice,
+      voiceSpeed,
       language: locale,
     });
 
@@ -160,10 +170,15 @@ export default function ProfilePage() {
     router.push('/');
   };
 
-  const handleDeleteData = async () => {
+  const handleConfirmDeleteAll = async () => {
+    setDeleting(true);
     await deleteAllUserData();
+    setDeleting(false);
+    setShowDeleteModal(false);
     setDeletedNotice(true);
-    setTimeout(() => setDeletedNotice(false), 4000);
+    setTimeout(() => {
+      router.push('/');
+    }, 1500);
   };
 
   const previewProfile: FarmerProfile = {
@@ -377,6 +392,59 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            {/* Preferred Neural Voice & Speed */}
+            <div className="bg-cream/65 p-3.5 rounded-tile border border-wheat/30 space-y-3">
+              <label className="block text-xs font-bold text-ink">
+                {t('preferredVoiceLabel')}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPreferredVoice('ur-PK-UzmaNeural')}
+                  className={`min-h-[44px] p-2 rounded-xl text-xs font-bold border transition-all ${
+                    preferredVoice === 'ur-PK-UzmaNeural'
+                      ? 'bg-olive text-white border-olive shadow-sm'
+                      : 'bg-white text-ink border-olive/20 hover:bg-olive/10'
+                  }`}
+                >
+                  {t('femaleVoice')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreferredVoice('ur-PK-AsadNeural')}
+                  className={`min-h-[44px] p-2 rounded-xl text-xs font-bold border transition-all ${
+                    preferredVoice === 'ur-PK-AsadNeural'
+                      ? 'bg-olive text-white border-olive shadow-sm'
+                      : 'bg-white text-ink border-olive/20 hover:bg-olive/10'
+                  }`}
+                >
+                  {t('maleVoice')}
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-ink/75 mb-1.5">
+                  {t('voiceSpeedLabel')}: {voiceSpeed}x
+                </label>
+                <div className="flex gap-2">
+                  {[0.85, 1.0, 1.15].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setVoiceSpeed(s)}
+                      className={`flex-1 min-h-[38px] rounded-full text-xs font-bold transition-all border ${
+                        voiceSpeed === s
+                          ? 'bg-olive text-white border-olive'
+                          : 'bg-white text-ink border-olive/20 hover:bg-olive/10'
+                      }`}
+                    >
+                      {s}x
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             {/* Auto-Speak Voice Toggle */}
             <label className="flex items-center justify-between gap-3 bg-cream/65 p-3.5 rounded-tile cursor-pointer border border-wheat/30">
               <div className="flex items-center gap-2.5">
@@ -445,13 +513,54 @@ export default function ProfilePage() {
           )}
           <button
             type="button"
-            onClick={handleDeleteData}
+            onClick={() => setShowDeleteModal(true)}
             className="inline-flex items-center gap-1.5 min-h-[44px] px-4 py-2 rounded-full text-xs font-semibold text-alert-red hover:bg-alert-red/10"
           >
             <Trash2 className="w-4 h-4" />
             <span>{tApp('deleteMyData')}</span>
           </button>
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/75 backdrop-blur-sm">
+            <div className="w-full max-w-sm rounded-card bg-white p-5 space-y-4 text-start shadow-2xl border border-alert-red/20">
+              <div className="w-12 h-12 rounded-full bg-alert-red/10 flex items-center justify-center text-alert-red">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-extrabold text-base text-ink">
+                  {locale === 'ur'
+                    ? 'کیا آپ واقعی تمام ڈیٹا حذف کرنا چاہتے ہیں؟'
+                    : 'Permanently Delete All Your Data?'}
+                </h3>
+                <p className="text-xs text-ink/70 leading-relaxed">
+                  {locale === 'ur'
+                    ? 'اس عمل سے آپ کے تمام سکین، تصاویر، کھیت، ڈائری اور اکاؤنٹ مستقل طور پر مٹ جائیں گے۔ یہ عمل واپس نہیں کیا جا سکتا۔'
+                    : 'This will erase all your scans, leaf photos, fields, diary records, and account data forever. This cannot be undone.'}
+                </p>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 min-h-[44px] rounded-full bg-canvas text-ink font-bold text-xs"
+                >
+                  {tApp('cancel')}
+                </button>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={handleConfirmDeleteAll}
+                  className="flex-1 min-h-[44px] rounded-full bg-alert-red text-white font-extrabold text-xs shadow-soft"
+                >
+                  {deleting ? '...' : locale === 'ur' ? 'ہاں، حذف کریں' : 'Yes, Delete All'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       <BottomNav />

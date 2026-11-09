@@ -20,6 +20,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { GoogleLogoSvg } from '@/components/cards/FarmerPersonaCard';
+import { OnboardingModal } from '@/components/auth/OnboardingModal';
 import {
   deriveGoogleIdentityFromEmail,
   FarmerProfile,
@@ -28,6 +29,9 @@ import {
   getSavedProfile,
   isEmailRegistered,
   saveProfile,
+  signInGuestAnonymously,
+  sendEmailOtp,
+  verifyEmailOtp,
   syncSupabaseAuthSession,
   triggerSupabaseGoogleOAuth,
 } from '@/lib/supabase/client';
@@ -56,11 +60,13 @@ const QUICK_DISTRICTS = [
 
 export default function WelcomeAuthPage() {
   const t = useTranslations('welcome');
+  const tAuth = useTranslations('auth');
   const locale = useLocale() as 'ur' | 'en';
   const router = useRouter();
   const pathname = usePathname();
 
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authTab, setAuthTab] = useState<'google' | 'email_otp'>('google');
   const [savedUser, setSavedUser] = useState<FarmerProfile | null>(null);
   const [showGoogleChooser, setShowGoogleChooser] = useState(false);
   const [googleClientId, setGoogleClientId] = useState('');
@@ -68,6 +74,13 @@ export default function WelcomeAuthPage() {
   const [showClientIdConfig, setShowClientIdConfig] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [accountNotFoundError, setAccountNotFoundError] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Email OTP fields
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
 
   // Direct Google Auth / Login / Sign Up fields
   const [emailInput, setEmailInput] = useState('');
@@ -77,6 +90,70 @@ export default function WelcomeAuthPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const googleBtnContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleGuestContinue = async () => {
+    setSubmitting(true);
+    await signInGuestAnonymously();
+    router.push('/home');
+  };
+
+  const handleSendOtp = async () => {
+    if (!emailInput.trim() || !emailInput.includes('@')) {
+      setOauthError(
+        locale === 'ur'
+          ? 'براہ کرم درست ای میل درج کریں'
+          : 'Please enter a valid email address'
+      );
+      return;
+    }
+    setOtpSending(true);
+    setOauthError(null);
+    setAccountNotFoundError(false);
+
+    if (authMode === 'login' && !isEmailRegistered(emailInput)) {
+      setAccountNotFoundError(true);
+      setOauthError(
+        locale === 'ur'
+          ? 'یہ ای میل رجسٹرڈ نہیں ہے! نیا اکاؤنٹ بنانے کے لیے سائن اپ کریں۔'
+          : 'Account not found! This email is not registered. Please switch to Sign Up to create your account.'
+      );
+      setOtpSending(false);
+      return;
+    }
+
+    const res = await sendEmailOtp(emailInput);
+    setOtpSending(false);
+    if (res.success) {
+      setOtpSent(true);
+    } else {
+      setOauthError(res.error || 'Failed to send verification code');
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.trim().length !== 6) {
+      setOauthError(
+        locale === 'ur'
+          ? 'براہ کرم 6 ہندسی کوڈ درج کریں'
+          : 'Please enter a valid 6-digit code'
+      );
+      return;
+    }
+    setOtpVerifying(true);
+    setOauthError(null);
+    const res = await verifyEmailOtp(emailInput, otpCode);
+    setOtpVerifying(false);
+    if (res.success && res.profile) {
+      setSavedUser(res.profile);
+      if (!res.profile.onboardingDone) {
+        setShowOnboarding(true);
+      } else {
+        router.push('/home');
+      }
+    } else {
+      setOauthError(res.error || 'Verification code failed');
+    }
+  };
 
   const handleRealGoogleUserSuccess = async (googleUser: RealGoogleUserInfo) => {
     setSubmitting(true);
@@ -106,7 +183,11 @@ export default function WelcomeAuthPage() {
 
     setSavedUser(updatedProfile);
     setShowGoogleChooser(false);
-    router.push('/home');
+    if (!updatedProfile.onboardingDone) {
+      setShowOnboarding(true);
+    } else {
+      router.push('/home');
+    }
   };
 
   useEffect(() => {
@@ -234,7 +315,11 @@ export default function WelcomeAuthPage() {
 
     setSavedUser(updatedProfile);
     setShowGoogleChooser(false);
-    router.push('/home');
+    if (!updatedProfile.onboardingDone && authMode === 'signup') {
+      setShowOnboarding(true);
+    } else {
+      router.push('/home');
+    }
   };
 
   const handleGoogleButtonTap = async () => {
@@ -468,6 +553,23 @@ export default function WelcomeAuthPage() {
             </motion.button>
           )}
 
+          {/* 1-Tap Guest First Access: Instant start with zero forms */}
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleGuestContinue}
+            className="w-full min-h-[50px] px-4 rounded-2xl bg-white hover:bg-canvas text-ink font-extrabold text-xs sm:text-sm border-2 border-olive/35 shadow-sm flex items-center justify-between transition-all"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-olive/15 flex items-center justify-center text-olive">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <span>{tAuth('continueAsGuest')}</span>
+            </div>
+            <ArrowRight className="w-4 h-4 text-olive rtl:rotate-180" />
+          </motion.button>
+
           {/* Animated Login / Sign Up Switcher Tabs */}
           <div className="relative grid grid-cols-2 bg-canvas p-1 rounded-2xl border border-olive/15">
             {(['login', 'signup'] as const).map((tab) => {
@@ -514,10 +616,44 @@ export default function WelcomeAuthPage() {
             })}
           </div>
 
+          {/* Authentication Method Sub-Tabs: Google vs 6-Digit Email Code */}
+          <div className="flex rounded-xl bg-canvas p-1 border border-olive/15 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => {
+                setAuthTab('google');
+                setOauthError(null);
+              }}
+              className={`flex-1 min-h-[38px] rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                authTab === 'google'
+                  ? 'bg-white text-ink shadow-sm'
+                  : 'text-ink/65 hover:text-ink'
+              }`}
+            >
+              <GoogleLogoSvg className="w-4 h-4" />
+              <span>{locale === 'ur' ? 'گوگل اکاؤنٹ' : 'Google Account'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthTab('email_otp');
+                setOauthError(null);
+              }}
+              className={`flex-1 min-h-[38px] rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                authTab === 'email_otp'
+                  ? 'bg-white text-ink shadow-sm'
+                  : 'text-ink/65 hover:text-ink'
+              }`}
+            >
+              <Mail className="w-4 h-4" />
+              <span>{tAuth('emailOtpTab')}</span>
+            </button>
+          </div>
+
           {/* Official Google Identity Services Button Container (when Client ID is set) */}
           <div
             ref={googleBtnContainerRef}
-            className={googleClientId ? 'flex justify-center' : 'hidden'}
+            className={googleClientId && authTab === 'google' ? 'flex justify-center' : 'hidden'}
           />
 
           {/* Error Banner when Account Not Found or OAuth Error */}
@@ -556,25 +692,106 @@ export default function WelcomeAuthPage() {
             </motion.div>
           )}
 
-          {/* Primary 1-Tap Real Google Account Chooser Button */}
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleGoogleButtonTap}
-            className="w-full min-h-[52px] px-4 rounded-2xl bg-white hover:bg-canvas text-ink font-extrabold text-sm sm:text-base border-2 border-ink/15 shadow-soft flex items-center justify-center gap-3 transition-all"
-          >
-            <GoogleLogoSvg className="w-5 h-5 flex-shrink-0" />
-            <span>
-              {authMode === 'login'
-                ? locale === 'ur'
-                  ? 'گوگل اکاؤنٹ منتخب کریں (Google Sign-In)'
-                  : 'Choose Google Account & Log In'
-                : locale === 'ur'
-                ? 'گوگل اکاؤنٹ سے نیا سائن اپ کریں'
-                : 'Choose Google Account & Sign Up'}
-            </span>
-          </motion.button>
+          {/* 6-DIGIT EMAIL CODE (PASSWORDLESS OTP) FLOW */}
+          {authTab === 'email_otp' && (
+            <div className="space-y-3.5 text-start">
+              <div>
+                <label className="block text-xs font-bold text-ink/75 mb-1">
+                  {locale === 'ur' ? 'اپنا ای میل ایڈریس درج کریں' : 'Enter Your Email Address'}
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-ink/45 absolute top-1/2 -translate-y-1/2 start-3.5 pointer-events-none" />
+                  <input
+                    type="email"
+                    dir="ltr"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    placeholder="farmer@example.com"
+                    className="w-full min-h-[46px] ps-10 pe-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                  />
+                </div>
+              </div>
+
+              {!otpSent ? (
+                <button
+                  type="button"
+                  disabled={otpSending}
+                  onClick={handleSendOtp}
+                  className="w-full min-h-[48px] rounded-xl bg-olive hover:bg-olive-dark text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-soft transition-all"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>{otpSending ? '...' : tAuth('sendOtpBtn')}</span>
+                </button>
+              ) : (
+                <div className="space-y-3 p-3.5 rounded-2xl bg-white border border-olive/20 shadow-sm">
+                  <div className="space-y-1">
+                    <span className="text-xs font-extrabold text-olive-dark">
+                      {tAuth('enterOtpPrompt')}
+                    </span>
+                    <p className="text-[11px] text-ink/60">
+                      {locale === 'ur'
+                        ? '6 ہندسی کوڈ آپ کی ای میل پر بھیج دیا گیا ہے'
+                        : 'A 6-digit code has been sent to your email'}
+                    </p>
+                  </div>
+
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    dir="ltr"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="123456"
+                    className="w-full min-h-[48px] text-center tracking-[0.4em] font-mono font-black text-xl rounded-xl bg-canvas border-2 border-olive/35 text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                  />
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={otpVerifying}
+                      onClick={handleVerifyOtp}
+                      className="flex-1 min-h-[46px] rounded-xl bg-[#062409] text-white font-extrabold text-sm flex items-center justify-center gap-1.5 shadow-md"
+                    >
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span>{otpVerifying ? '...' : tAuth('verifyOtpBtn')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOtpSent(false)}
+                      className="px-3 min-h-[46px] rounded-xl bg-canvas text-ink/70 hover:text-ink font-bold text-xs"
+                    >
+                      {locale === 'ur' ? 'دوبارہ' : 'Resend'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* GOOGLE AUTH FLOW */}
+          {authTab === 'google' && (
+            <>
+              {/* Primary 1-Tap Real Google Account Chooser Button */}
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleGoogleButtonTap}
+                className="w-full min-h-[52px] px-4 rounded-2xl bg-white hover:bg-canvas text-ink font-extrabold text-sm sm:text-base border-2 border-ink/15 shadow-soft flex items-center justify-center gap-3 transition-all"
+              >
+                <GoogleLogoSvg className="w-5 h-5 flex-shrink-0" />
+                <span>
+                  {authMode === 'login'
+                    ? locale === 'ur'
+                      ? 'گوگل اکاؤنٹ منتخب کریں (Google Sign-In)'
+                      : 'Choose Google Account & Log In'
+                    : locale === 'ur'
+                    ? 'گوگل اکاؤنٹ سے نیا سائن اپ کریں'
+                    : 'Choose Google Account & Sign Up'}
+                </span>
+              </motion.button>
 
           {/* Divider */}
           <div className="flex items-center gap-3">
@@ -762,6 +979,8 @@ export default function WelcomeAuthPage() {
               </button>
             </div>
           </form>
+          </>
+          )}
         </div>
       </motion.div>
 
@@ -947,6 +1166,13 @@ export default function WelcomeAuthPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* 4-Tap Onboarding Wizard */}
+      <OnboardingModal
+        isOpen={showOnboarding}
+        onComplete={() => router.push('/home')}
+        onSkip={() => router.push('/home')}
+        initialDistrict={selectedDistrict}
+      />
     </main>
   );
 }

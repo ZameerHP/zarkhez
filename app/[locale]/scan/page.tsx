@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Link } from '@/i18n/routing';
+import { Link, useRouter } from '@/i18n/routing';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -33,6 +33,7 @@ import { Advice, SecondOpinion } from '@/lib/schemas';
 import { getSavedProfile, saveScanRecord } from '@/lib/supabase/client';
 import { speakText, unlockAudio } from '@/lib/voice';
 import { getStaticFallbackAdvice } from '@/lib/gemini';
+import { GuestPromptSheet } from '@/components/auth/GuestPromptSheet';
 
 /**
  * Scan Screen (Real Leaf Photos Only — Zero Fake Samples):
@@ -45,6 +46,7 @@ export default function ScanPage() {
   const t = useTranslations('scan');
   const tApp = useTranslations('app');
   const locale = useLocale() as 'ur' | 'en';
+  const router = useRouter();
 
   const [selectedCrop, setSelectedCrop] = useState<
     'tomato' | 'wheat' | 'maize' | 'rice'
@@ -62,6 +64,7 @@ export default function ScanPage() {
   const [loadingSecondOpinion, setLoadingSecondOpinion] = useState(false);
   const [savedToDiary, setSavedToDiary] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showGuestPrompt, setShowGuestPrompt] = useState(false);
 
   // Live mobile camera stream state
   const [cameraActive, setCameraActive] = useState(false);
@@ -206,6 +209,11 @@ export default function ScanPage() {
           .map((s, i) => `${i + 1}۔ ${s[locale]}`)
           .join(' ')}`;
         speakText(spoken, locale);
+      }
+
+      const currentProfile = getSavedProfile();
+      if (!currentProfile.isAuthenticated) {
+        setTimeout(() => setShowGuestPrompt(true), 2400);
       }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : t('permissionError'));
@@ -747,6 +755,13 @@ export default function ScanPage() {
           </motion.section>
         )}
       </main>
+
+      <GuestPromptSheet
+        isOpen={showGuestPrompt}
+        onClose={() => setShowGuestPrompt(false)}
+        onGoogleSignIn={() => router.push('/')}
+        onEmailSignIn={() => router.push('/')}
+      />
 
       <BottomNav />
     </div>
