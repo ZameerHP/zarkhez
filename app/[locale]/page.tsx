@@ -23,8 +23,10 @@ import { GoogleLogoSvg } from '@/components/cards/FarmerPersonaCard';
 import {
   deriveGoogleIdentityFromEmail,
   FarmerProfile,
+  findRegisteredAccount,
   generateFarmerPersonaId,
   getSavedProfile,
+  isEmailRegistered,
   saveProfile,
   syncSupabaseAuthSession,
   triggerSupabaseGoogleOAuth,
@@ -39,13 +41,17 @@ import {
 import { unlockAudio } from '@/lib/voice';
 
 const QUICK_DISTRICTS = [
-  { name: 'Multan, Punjab', ur: 'ملتان، پنجاب', lat: 30.1575, lon: 71.5249 },
   { name: 'Faisalabad, Punjab', ur: 'فیصل آباد، پنجاب', lat: 31.418, lon: 73.079 },
   { name: 'Sahiwal, Punjab', ur: 'ساہیوال، پنجاب', lat: 30.6682, lon: 73.1114 },
   { name: 'Lahore, Punjab', ur: 'لاہور، پنجاب', lat: 31.5204, lon: 74.3587 },
+  { name: 'Sargodha, Punjab', ur: 'سرگودھا، پنجاب', lat: 32.0836, lon: 72.6711 },
+  { name: 'Gujranwala, Punjab', ur: 'گوجرانوالہ، پنجاب', lat: 32.1877, lon: 74.1945 },
+  { name: 'Rahim Yar Khan, Punjab', ur: 'رحیم یار خان، پنجاب', lat: 28.4202, lon: 70.3013 },
   { name: 'Bahawalpur, Punjab', ur: 'بہاولپور، پنجاب', lat: 29.3956, lon: 71.6836 },
+  { name: 'Multan, Punjab', ur: 'ملتان، پنجاب', lat: 30.1575, lon: 71.5249 },
   { name: 'Hyderabad, Sindh', ur: 'حیدرآباد، سندھ', lat: 25.396, lon: 68.3578 },
   { name: 'Mardan, KPK', ur: 'مردان، کے پی کے', lat: 34.1986, lon: 72.0404 },
+  { name: 'Swat, KPK', ur: 'سوات، کے پی کے', lat: 35.2227, lon: 72.4258 },
 ];
 
 export default function WelcomeAuthPage() {
@@ -61,21 +67,23 @@ export default function WelcomeAuthPage() {
   const [clientIdDraft, setClientIdDraft] = useState('');
   const [showClientIdConfig, setShowClientIdConfig] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
+  const [accountNotFoundError, setAccountNotFoundError] = useState(false);
 
   // Direct Google Auth / Login / Sign Up fields
   const [emailInput, setEmailInput] = useState('');
   const [nameInput, setNameInput] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState(QUICK_DISTRICTS[0]);
+  const [detectingGps, setDetectingGps] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const googleBtnContainerRef = useRef<HTMLDivElement>(null);
 
   const handleRealGoogleUserSuccess = async (googleUser: RealGoogleUserInfo) => {
-    unlockAudio();
     setSubmitting(true);
     setOauthError(null);
+    setAccountNotFoundError(false);
 
-    const existing = getSavedProfile();
+    const existing = findRegisteredAccount(googleUser.email) || getSavedProfile();
     const farmerId =
       existing.farmerId ||
       generateFarmerPersonaId(googleUser.email || googleUser.sub);
@@ -96,19 +104,6 @@ export default function WelcomeAuthPage() {
       language: locale,
     });
 
-    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          saveProfile({
-            lat: pos.coords.latitude,
-            lon: pos.coords.longitude,
-          });
-        },
-        () => {},
-        { timeout: 3500 }
-      );
-    }
-
     setSavedUser(updatedProfile);
     setShowGoogleChooser(false);
     router.push('/home');
@@ -120,7 +115,26 @@ export default function WelcomeAuthPage() {
       setSavedUser(existing);
       setEmailInput(existing.email);
       setNameInput(existing.fullName);
+      if (existing.placeName) {
+        const found = QUICK_DISTRICTS.find((d) => d.name === existing.placeName);
+        if (found) setSelectedDistrict(found);
+      }
     }
+
+    // Auto-detect real user city via edge location headers
+    fetch('/api/geocode?detect=1')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.city && !existing?.placeName) {
+          setSelectedDistrict({
+            name: data.placeName || `${data.city}, ${data.region}`,
+            ur: `${data.city}`,
+            lat: data.lat || 31.418,
+            lon: data.lon || 73.079,
+          });
+        }
+      })
+      .catch(() => {});
 
     const effectiveId = getEffectiveGoogleClientId();
     setGoogleClientId(effectiveId);
@@ -142,6 +156,39 @@ export default function WelcomeAuthPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleDetectGpsLocation = () => {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
+    setDetectingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        try {
+          const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
+          if (res.ok) {
+            setSelectedDistrict({
+              name: locale === 'ur' ? 'میرا کھیت (GPS)' : 'My Farm (GPS)',
+              ur: 'میرا کھیت (GPS)',
+              lat,
+              lon,
+            });
+          }
+        } catch {
+          setSelectedDistrict({
+            name: `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`,
+            ur: 'میرا مقام (GPS)',
+            lat,
+            lon,
+          });
+        } finally {
+          setDetectingGps(false);
+        }
+      },
+      () => setDetectingGps(false),
+      { timeout: 5000 }
+    );
+  };
+
   const switchLanguage = (nextLocale: 'ur' | 'en') => {
     if (nextLocale === locale) return;
     router.replace(pathname, { locale: nextLocale });
@@ -151,17 +198,32 @@ export default function WelcomeAuthPage() {
     rawEmail: string,
     explicitName?: string
   ) => {
-    unlockAudio();
     setSubmitting(true);
+    setOauthError(null);
+    setAccountNotFoundError(false);
+
+    const existingAccount = findRegisteredAccount(rawEmail);
+
+    // If logging in and account does not exist
+    if (authMode === 'login' && !existingAccount && !isEmailRegistered(rawEmail)) {
+      setAccountNotFoundError(true);
+      setOauthError(
+        locale === 'ur'
+          ? 'یہ ای میل رجسٹرڈ نہیں ہے! نیا اکاؤنٹ بنانے کے لیے سائن اپ کریں۔'
+          : 'Account not found! This email is not registered. Please switch to Sign Up to create your account.'
+      );
+      setSubmitting(false);
+      return;
+    }
 
     const identity = deriveGoogleIdentityFromEmail(rawEmail, explicitName);
-    const existing = getSavedProfile();
+    const existing = existingAccount || getSavedProfile();
 
     const updatedProfile = await saveProfile({
-      farmerId: identity.farmerId,
-      fullName: identity.fullName,
+      farmerId: existing.farmerId || identity.farmerId,
+      fullName: explicitName || existing.fullName || identity.fullName,
       email: identity.email,
-      avatarUrl: identity.avatarUrl,
+      avatarUrl: existing.avatarUrl || identity.avatarUrl,
       placeName: existing.placeName || selectedDistrict.name,
       lat: existing.lat || selectedDistrict.lat,
       lon: existing.lon || selectedDistrict.lon,
@@ -170,29 +232,16 @@ export default function WelcomeAuthPage() {
       language: locale,
     });
 
-    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          saveProfile({
-            lat: pos.coords.latitude,
-            lon: pos.coords.longitude,
-          });
-        },
-        () => {},
-        { timeout: 3500 }
-      );
-    }
-
     setSavedUser(updatedProfile);
     setShowGoogleChooser(false);
     router.push('/home');
   };
 
   const handleGoogleButtonTap = async () => {
-    unlockAudio();
     setOauthError(null);
+    setAccountNotFoundError(false);
 
-    // 1. If a real Google OAuth Client ID is configured, open Google's native Account Chooser popup (`accounts.google.com`)
+    // 1. If a real Google OAuth Client ID is configured, open Google's native Account Chooser popup
     const activeClientId = getEffectiveGoogleClientId();
     if (activeClientId) {
       try {
@@ -238,7 +287,22 @@ export default function WelcomeAuthPage() {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const targetEmail = emailInput.trim() || 'kisan.zarkhez@gmail.com';
+    const targetEmail = emailInput.trim();
+    if (!targetEmail) return;
+
+    if (authMode === 'login') {
+      const exists = isEmailRegistered(targetEmail) || Boolean(findRegisteredAccount(targetEmail));
+      if (!exists) {
+        setAccountNotFoundError(true);
+        setOauthError(
+          locale === 'ur'
+            ? 'اکاؤنٹ موجود نہیں ہے! یہ ای میل ابھی رجسٹرڈ نہیں ہے۔ نیا اکاؤنٹ بنانے کے لیے نیچے سائن اپ کریں۔'
+            : 'Account not found! This email is not registered yet. Please click Sign Up below to create an account.'
+        );
+        return;
+      }
+    }
+
     const targetName =
       authMode === 'signup' && nameInput.trim() ? nameInput.trim() : undefined;
     await completeDirectGoogleAuth(targetEmail, targetName);
@@ -456,6 +520,42 @@ export default function WelcomeAuthPage() {
             className={googleClientId ? 'flex justify-center' : 'hidden'}
           />
 
+          {/* Error Banner when Account Not Found or OAuth Error */}
+          {oauthError && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3.5 rounded-2xl bg-amber-500/10 border-2 border-alert-amber text-ink space-y-2 text-start"
+            >
+              <div className="flex items-start gap-2.5">
+                <ShieldCheck className="w-5 h-5 text-alert-amber flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-extrabold text-xs sm:text-sm text-ink leading-relaxed">
+                    {oauthError}
+                  </p>
+                </div>
+              </div>
+              {accountNotFoundError && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('signup');
+                    setOauthError(null);
+                    setAccountNotFoundError(false);
+                  }}
+                  className="w-full min-h-[38px] px-3 rounded-xl bg-olive hover:bg-olive-dark text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>
+                    {locale === 'ur'
+                      ? 'نیا اکاؤنٹ بنانے کے لیے سائن اپ کریں'
+                      : 'Switch to Sign Up & Create Account'}
+                  </span>
+                </button>
+              )}
+            </motion.div>
+          )}
+
           {/* Primary 1-Tap Real Google Account Chooser Button */}
           <motion.button
             type="button"
@@ -536,18 +636,34 @@ export default function WelcomeAuthPage() {
                     </div>
                   </div>
 
-                  {/* Quick District Chips */}
-                  <div>
-                    <label className="block text-xs font-bold text-ink/75 mb-1.5 flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-olive" />
-                      <span>
-                        {locale === 'ur'
-                          ? 'اپنا ضلع منتخب کریں (موسم کے لیے)'
-                          : 'Select District (for Weather)'}
-                      </span>
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {QUICK_DISTRICTS.slice(0, 5).map((d) => {
+                  {/* Quick District Chips + Auto GPS Detect */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-xs font-bold text-ink/75 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-olive" />
+                        <span>
+                          {locale === 'ur'
+                            ? 'اپنا ضلع منتخب کریں (موسم اور فصل کے لیے)'
+                            : 'Select District (for Weather & Crops)'}
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleDetectGpsLocation}
+                        disabled={detectingGps}
+                        className="text-[11px] font-extrabold text-olive hover:text-olive-dark underline flex items-center gap-1"
+                      >
+                        <span>{detectingGps ? (locale === 'ur' ? 'تلاش ہو رہا ہے...' : 'Detecting...') : (locale === 'ur' ? '📍 خودکار GPS' : '📍 Auto GPS')}</span>
+                      </button>
+                    </div>
+
+                    <div className="p-2 rounded-xl bg-canvas border border-olive/20 text-xs font-bold text-olive-dark flex items-center justify-between">
+                      <span>{locale === 'ur' ? `منتخب مقام: ${selectedDistrict.ur}` : `Selected: ${selectedDistrict.name}`}</span>
+                      <Check className="w-3.5 h-3.5 text-olive" />
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-1">
+                      {QUICK_DISTRICTS.map((d) => {
                         const isSel = selectedDistrict.name === d.name;
                         return (
                           <button
@@ -556,8 +672,8 @@ export default function WelcomeAuthPage() {
                             onClick={() => setSelectedDistrict(d)}
                             className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
                               isSel
-                                ? 'bg-olive text-white shadow-sm'
-                                : 'bg-canvas text-ink/75 border border-olive/20'
+                                ? 'bg-olive text-white shadow-sm ring-1 ring-white'
+                                : 'bg-canvas text-ink/75 border border-olive/20 hover:bg-olive/10'
                             }`}
                           >
                             {locale === 'ur' ? d.ur : d.name.split(',')[0]}
@@ -625,6 +741,26 @@ export default function WelcomeAuthPage() {
               </span>
               <ArrowRight className="w-5 h-5 text-emerald-400 rtl:rotate-180" />
             </motion.button>
+
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode(authMode === 'login' ? 'signup' : 'login');
+                  setOauthError(null);
+                  setAccountNotFoundError(false);
+                }}
+                className="text-xs font-bold text-olive-dark hover:text-olive underline"
+              >
+                {authMode === 'login'
+                  ? locale === 'ur'
+                    ? 'نیا اکاؤنٹ بنانا چاہتے ہیں؟ سائن اپ کریں'
+                    : "Don't have an account? Sign Up"
+                  : locale === 'ur'
+                  ? 'پہلے سے اکاؤنٹ ہے؟ لاگ ان کریں'
+                  : 'Already have an account? Log In'}
+              </button>
+            </div>
           </form>
         </div>
       </motion.div>

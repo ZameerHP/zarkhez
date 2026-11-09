@@ -69,7 +69,47 @@ const KEYS = {
   FIELDS: 'zarkhez_real_fields_v2',
   SCANS: 'zarkhez_real_scans_v2',
   DIARY: 'zarkhez_real_diary_v2',
+  REGISTERED_ACCOUNTS: 'zarkhez_registered_accounts_v2',
 };
+
+export function getRegisteredAccounts(): FarmerProfile[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(KEYS.REGISTERED_ACCOUNTS);
+    if (raw) return JSON.parse(raw) as FarmerProfile[];
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+export function isEmailRegistered(email: string): boolean {
+  const clean = (email || '').trim().toLowerCase();
+  if (!clean) return false;
+  const list = getRegisteredAccounts();
+  return list.some((u) => u.email.trim().toLowerCase() === clean);
+}
+
+export function findRegisteredAccount(email: string): FarmerProfile | null {
+  const clean = (email || '').trim().toLowerCase();
+  if (!clean) return null;
+  const list = getRegisteredAccounts();
+  return list.find((u) => u.email.trim().toLowerCase() === clean) || null;
+}
+
+export function addAccountToRegistered(profile: FarmerProfile): void {
+  if (typeof window === 'undefined' || !profile.email) return;
+  const clean = profile.email.trim().toLowerCase();
+  const list = getRegisteredAccounts().filter(
+    (u) => u.email.trim().toLowerCase() !== clean
+  );
+  list.unshift(profile);
+  try {
+    localStorage.setItem(KEYS.REGISTERED_ACCOUNTS, JSON.stringify(list));
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * Generates a unique, human-readable Zarkhez Farmer Persona ID (e.g., ZRK-PK-839204)
@@ -82,7 +122,7 @@ export function generateFarmerPersonaId(seedString: string): string {
     hash ^= clean.charCodeAt(i);
     hash = Math.imul(hash, 16777619);
   }
-  const sixDigits = String(Math.abs(hash) % 900000 + 100000);
+  const sixDigits = String((Math.abs(hash) % 900000) + 100000);
   return `ZRK-PK-${sixDigits}`;
 }
 
@@ -155,9 +195,9 @@ const DEFAULT_UNAUTHENTICATED_PROFILE: FarmerProfile = {
   email: '',
   phone: '',
   villageOrTehsil: '',
-  placeName: 'Multan, Punjab',
-  lat: 30.1575,
-  lon: 71.5249,
+  placeName: 'Faisalabad, Punjab',
+  lat: 31.418,
+  lon: 73.079,
   totalAcres: 0,
   primaryCrops: ['wheat'],
   avatarUrl: '',
@@ -293,38 +333,45 @@ export async function saveProfile(
     merged.joinedAt = new Date().toISOString().slice(0, 10);
   }
 
+  if (merged.isAuthenticated && merged.email) {
+    addAccountToRegistered(merged);
+  }
+
   if (typeof window !== 'undefined') {
     localStorage.setItem(KEYS.PROFILE, JSON.stringify(merged));
   }
 
+  // Sync to Supabase in the background without blocking the UI
   const supabase = getSupabaseClient();
   if (supabase) {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user?.id) {
-        await supabase.from('profiles').upsert({
-          id: session.user.id,
-          farmer_id: merged.farmerId,
-          full_name: merged.fullName,
-          father_or_farm_name: merged.fatherOrFarmName,
-          email: merged.email,
-          phone: merged.phone,
-          village_or_tehsil: merged.villageOrTehsil,
-          total_acres: merged.totalAcres,
-          primary_crops: merged.primaryCrops,
-          avatar_url: merged.avatarUrl,
-          auth_provider: merged.authProvider,
-          language: merged.language,
-          place_name: merged.placeName,
-          lat: merged.lat,
-          lon: merged.lon,
-        });
+    (async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          await supabase.from('profiles').upsert({
+            id: session.user.id,
+            farmer_id: merged.farmerId,
+            full_name: merged.fullName,
+            father_or_farm_name: merged.fatherOrFarmName,
+            email: merged.email,
+            phone: merged.phone,
+            village_or_tehsil: merged.villageOrTehsil,
+            total_acres: merged.totalAcres,
+            primary_crops: merged.primaryCrops,
+            avatar_url: merged.avatarUrl,
+            auth_provider: merged.authProvider,
+            language: merged.language,
+            place_name: merged.placeName,
+            lat: merged.lat,
+            lon: merged.lon,
+          });
+        }
+      } catch {
+        // ignore offline error
       }
-    } catch {
-      // ignore offline error
-    }
+    })();
   }
 
   return merged;

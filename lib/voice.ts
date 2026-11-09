@@ -58,38 +58,28 @@ function getSharedAudio(): HTMLAudioElement | null {
 /**
  * Call inside any direct user tap/click handler on mobile phones
  * so iOS Safari and Android Chrome allow subsequent async TTS playback.
+ * Runs non-blockingly so button clicks navigate in 0ms without delay.
  */
 export function unlockAudio(): void {
   if (typeof window === 'undefined' || audioUnlocked) return;
-  try {
-    const audio = getSharedAudio();
-    if (audio) {
-      // Tiny silent WAV data URI to bless the shared audio element on mobile
-      audio.src =
-        'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
-      audio.volume = 0.01;
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            audio.pause();
-            audio.currentTime = 0;
-            audio.volume = 1;
-            audioUnlocked = true;
-          })
-          .catch(() => {
-            audio.volume = 1;
-          });
+  audioUnlocked = true;
+  setTimeout(() => {
+    try {
+      const audio = getSharedAudio();
+      if (audio) {
+        audio.src =
+          'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+        audio.volume = 0.01;
+        audio.play().then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = 1;
+        }).catch(() => {});
       }
+    } catch {
+      // ignore
     }
-    if ('speechSynthesis' in window) {
-      const silentUtterance = new SpeechSynthesisUtterance('');
-      silentUtterance.volume = 0;
-      window.speechSynthesis.speak(silentUtterance);
-    }
-  } catch {
-    // ignore
-  }
+  }, 10);
 }
 
 export function stripMarkdownForSpeech(text: string): string {
@@ -123,16 +113,18 @@ function speakWithBrowserSynthesis(
 
     if (lang === 'ur') {
       const urduVoice =
-        voices.find((v) => v.lang.toLowerCase().startsWith('ur')) ||
-        voices.find((v) => v.lang.toLowerCase().startsWith('hi'));
+        voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('ur')) ||
+        voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('hi')) ||
+        voices.find((v) => v.lang.toLowerCase().includes('arabic') || v.lang.toLowerCase().startsWith('ar'));
+
       if (urduVoice) {
         utterance.voice = urduVoice;
         utterance.lang = urduVoice.lang;
       } else {
         utterance.lang = 'ur-PK';
       }
-      utterance.rate = 0.95;
-      utterance.pitch = 1.02;
+      utterance.rate = 0.92;
+      utterance.pitch = 1.0;
       callbacks?.onStart?.(Boolean(urduVoice));
     } else {
       const enVoice =
@@ -176,29 +168,40 @@ export function speakText(
     return;
   }
 
-  // Prefer Neural Human TTS (/api/tts) when online for natural, fluent Urdu & English voice
+  // Prefer Neural Human TTS (/api/tts) with fast 2-second timeout before falling back
   if (navigator.onLine !== false) {
     try {
       const url = `/api/tts?lang=${encodeURIComponent(
         lang
-      )}&text=${encodeURIComponent(cleanText.slice(0, 1400))}`;
+      )}&text=${encodeURIComponent(cleanText.slice(0, 750))}`;
       const audio = getSharedAudio() || new Audio();
       audio.volume = 1;
       audio.src = url;
 
+      let started = false;
+      const timeoutId = setTimeout(() => {
+        if (!started) {
+          audio.pause();
+          speakWithBrowserSynthesis(cleanText, lang, callbacks);
+        }
+      }, 2200);
+
       audio.onplay = () => {
-        audioUnlocked = true;
+        started = true;
+        clearTimeout(timeoutId);
         callbacks?.onStart?.(true);
       };
       audio.onended = () => {
+        clearTimeout(timeoutId);
         callbacks?.onEnd?.();
       };
       audio.onerror = () => {
-        // Fallback to local browser speechSynthesis if offline or network blocked
+        clearTimeout(timeoutId);
         speakWithBrowserSynthesis(cleanText, lang, callbacks);
       };
 
       audio.play().catch(() => {
+        clearTimeout(timeoutId);
         speakWithBrowserSynthesis(cleanText, lang, callbacks);
       });
       return;
@@ -266,26 +269,39 @@ export function startSpeechRecognition(
 
   try {
     const recognition = new SpeechRecognitionCtor();
+    // Use ur-PK for Urdu, fall back to ur / hi-IN for South Asian agricultural speech
     recognition.lang = lang === 'ur' ? 'ur-PK' : 'en-US';
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-    recognition.continuous = false;
+    recognition.continuous = true;
+
+    let fullTranscript = '';
 
     recognition.onresult = (event: SpeechRecognitionEventLike) => {
-      let transcript = '';
-      let isFinal = false;
+      let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-        if (event.results[i].isFinal) isFinal = true;
+        const item = event.results[i][0];
+        if (event.results[i].isFinal) {
+          fullTranscript += (fullTranscript ? ' ' : '') + item.transcript.trim();
+        } else {
+          interim += ' ' + item.transcript;
+        }
       }
-      callbacks.onResult(transcript, isFinal);
+      const combined = (fullTranscript + ' ' + interim).trim();
+      callbacks.onResult(combined || fullTranscript, false);
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+      if (event?.error === 'no-speech') {
+        return;
+      }
       callbacks.onError(event?.error || 'speech_error');
     };
 
     recognition.onend = () => {
+      if (fullTranscript.trim()) {
+        callbacks.onResult(fullTranscript.trim(), true);
+      }
       callbacks.onEnd();
     };
 

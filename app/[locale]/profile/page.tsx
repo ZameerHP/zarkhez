@@ -50,7 +50,7 @@ export default function ProfilePage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [villageOrTehsil, setVillageOrTehsil] = useState('');
-  const [placeName, setPlaceName] = useState('Multan, Punjab');
+  const [placeName, setPlaceName] = useState(() => getSavedProfile().placeName || 'Faisalabad, Punjab');
   const [totalAcres, setTotalAcres] = useState('5');
   const [selectedCrops, setSelectedCrops] = useState<string[]>(['wheat']);
   const [autoSpeakVoice, setAutoSpeakVoice] = useState(true);

@@ -32,6 +32,7 @@ import {
 import { Advice, SecondOpinion } from '@/lib/schemas';
 import { getSavedProfile, saveScanRecord } from '@/lib/supabase/client';
 import { speakText, unlockAudio } from '@/lib/voice';
+import { getStaticFallbackAdvice } from '@/lib/anthropic';
 
 /**
  * Scan Screen (Real Leaf Photos Only — Zero Fake Samples):
@@ -165,19 +166,35 @@ export default function ScanPage() {
       );
       setPrediction(predResult);
 
-      const res = await fetch('/api/advice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          label: predResult.topLabel,
-          confidence: predResult.confidence,
-          crop: cropKey,
-        }),
-      });
+      let fetchedAdvice: Advice | null = null;
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        const res = await fetch('/api/advice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            label: predResult.topLabel,
+            confidence: predResult.confidence,
+            crop: cropKey,
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.advice) fetchedAdvice = data.advice;
+        }
+      } catch {
+        // Fall back directly to verified agronomy database
+      }
 
-      if (!res.ok) throw new Error('Advice request failed');
-      const data = await res.json();
-      const fetchedAdvice = data.advice as Advice;
+      if (!fetchedAdvice) {
+        fetchedAdvice = getStaticFallbackAdvice(
+          predResult.topLabel,
+          predResult.confidence
+        );
+      }
       setAdvice(fetchedAdvice);
 
       // Automatically speak the diagnosis summary in human Urdu/English voice

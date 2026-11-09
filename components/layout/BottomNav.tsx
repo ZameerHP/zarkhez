@@ -12,7 +12,6 @@ import {
 import { useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import { Link, usePathname } from '@/i18n/routing';
-import { unlockAudio } from '@/lib/voice';
 
 export function BottomNav() {
   const t = useTranslations('nav');
@@ -53,7 +52,7 @@ export function BottomNav() {
             <Link
               key={item.key}
               href={item.href}
-              onClick={() => unlockAudio()}
+              prefetch={true}
               className={`relative flex flex-col items-center justify-center min-h-[48px] py-1 px-0.5 rounded-[20px] min-w-0 transition-colors ${
                 isActive
                   ? 'text-white font-extrabold'

@@ -56,13 +56,17 @@ import { SoilType } from '@/lib/fertilizer';
 import { unlockAudio } from '@/lib/voice';
 
 const POPULAR_PLACES: GeocodePlace[] = [
-  { id: 1, name: 'Multan', admin1: 'Punjab', latitude: 30.1575, longitude: 71.5249 },
-  { id: 2, name: 'Faisalabad', admin1: 'Punjab', latitude: 31.418, longitude: 73.079 },
-  { id: 3, name: 'Sahiwal', admin1: 'Punjab', latitude: 30.6682, longitude: 73.1114 },
-  { id: 4, name: 'Lahore', admin1: 'Punjab', latitude: 31.5204, longitude: 74.3587 },
-  { id: 5, name: 'Bahawalpur', admin1: 'Punjab', latitude: 29.3956, longitude: 71.6836 },
-  { id: 6, name: 'Hyderabad', admin1: 'Sindh', latitude: 25.396, longitude: 68.3578 },
-  { id: 7, name: 'Mardan', admin1: 'KPK', latitude: 34.1986, longitude: 72.0404 },
+  { id: 1, name: 'Faisalabad', admin1: 'Punjab', latitude: 31.418, longitude: 73.079 },
+  { id: 2, name: 'Sahiwal', admin1: 'Punjab', latitude: 30.6682, longitude: 73.1114 },
+  { id: 3, name: 'Lahore', admin1: 'Punjab', latitude: 31.5204, longitude: 74.3587 },
+  { id: 4, name: 'Sargodha', admin1: 'Punjab', latitude: 32.0836, longitude: 72.6711 },
+  { id: 5, name: 'Gujranwala', admin1: 'Punjab', latitude: 32.1877, longitude: 74.1945 },
+  { id: 6, name: 'Rahim Yar Khan', admin1: 'Punjab', latitude: 28.4202, longitude: 70.3013 },
+  { id: 7, name: 'Bahawalpur', admin1: 'Punjab', latitude: 29.3956, longitude: 71.6836 },
+  { id: 8, name: 'Multan', admin1: 'Punjab', latitude: 30.1575, longitude: 71.5249 },
+  { id: 9, name: 'Hyderabad', admin1: 'Sindh', latitude: 25.396, longitude: 68.3578 },
+  { id: 10, name: 'Mardan', admin1: 'KPK', latitude: 34.1986, longitude: 72.0404 },
+  { id: 11, name: 'Swat', admin1: 'KPK', latitude: 35.2227, longitude: 72.4258 },
 ];
 
 export default function HomePage() {

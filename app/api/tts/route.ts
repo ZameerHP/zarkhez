@@ -6,16 +6,21 @@ import { NextRequest, NextResponse } from 'next/server';
  * gets a clear, human-like Urdu voice even if the OS has no local ur-PK voice installed.
  */
 
-function splitIntoSpeakableChunks(text: string, maxLen = 180): string[] {
+// In-memory audio cache for instant playback on repeated phrases
+const ttsMemoryCache = new Map<string, { buffer: Uint8Array; timestamp: number }>();
+
+function splitIntoSpeakableChunks(text: string, maxLen = 85): string[] {
   const cleaned = text
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/[#*_~`>|[\]()]/g, ' ')
+    .replace(/\bRs\.\s*/gi, 'روپے ')
+    .replace(/\bPKR\b/gi, 'روپے ')
     .replace(/\s+/g, ' ')
     .trim();
 
   if (!cleaned) return [];
 
-  // Split by Urdu full stop (۔), English period, question mark, newline, or comma
+  // Split by Urdu/English punctuation
   const sentences = cleaned.split(/(?<=[۔.!?،,\n])\s+/);
   const chunks: string[] = [];
   let current = '';
@@ -28,7 +33,6 @@ function splitIntoSpeakableChunks(text: string, maxLen = 180): string[] {
       if (sentence.length <= maxLen) {
         current = sentence.trim();
       } else {
-        // Hard-split very long clause by words
         const words = sentence.split(' ');
         let temp = '';
         for (const w of words) {
@@ -44,19 +48,31 @@ function splitIntoSpeakableChunks(text: string, maxLen = 180): string[] {
     }
   }
   if (current) chunks.push(current);
-  return chunks;
+  return chunks.slice(0, 8); // Keep concise for conversational fluency
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const text = (searchParams.get('text') || '').trim().slice(0, 1500);
+  const text = (searchParams.get('text') || '').trim().slice(0, 800);
   const lang = searchParams.get('lang') === 'en' ? 'en' : 'ur';
 
   if (!text) {
     return NextResponse.json({ error: 'Missing text' }, { status: 400 });
   }
 
-  const chunks = splitIntoSpeakableChunks(text, 185);
+  const cacheKey = `${lang}:${text}`;
+  const cached = ttsMemoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < 3600_000) {
+    return new Response(Buffer.from(cached.buffer), {
+      status: 200,
+      headers: {
+        'Content-Type': 'audio/mpeg',
+        'Cache-Control': 'public, max-age=86400',
+      },
+    });
+  }
+
+  const chunks = splitIntoSpeakableChunks(text, 80);
   if (chunks.length === 0) {
     return NextResponse.json({ error: 'Empty speakable text' }, { status: 400 });
   }
@@ -65,30 +81,33 @@ export async function GET(req: NextRequest) {
     const audioBuffers: ArrayBuffer[] = [];
 
     for (const chunk of chunks) {
+      // Use client=gtx (ultra-reliable, high quality, no 429 blocks)
       const ttsUrl = new URL('https://translate.google.com/translate_tts');
       ttsUrl.searchParams.set('ie', 'UTF-8');
       ttsUrl.searchParams.set('tl', lang);
-      ttsUrl.searchParams.set('client', 'tw-ob');
+      ttsUrl.searchParams.set('client', 'gtx');
       ttsUrl.searchParams.set('q', chunk);
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const timeout = setTimeout(() => controller.abort(), 3500);
       try {
         const res = await fetch(ttsUrl.toString(), {
           headers: {
             'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            Referer: 'https://translate.google.com/',
+              'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+            Accept: '*/*',
           },
           signal: controller.signal,
         });
 
         if (res.ok) {
           const buf = await res.arrayBuffer();
-          if (buf.byteLength > 0) {
+          if (buf.byteLength > 64) {
             audioBuffers.push(buf);
           }
         }
+      } catch {
+        // Continue with other chunks if one fails
       } finally {
         clearTimeout(timeout);
       }
@@ -101,7 +120,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Concatenate MP3 frames into a single smooth audio stream
+    // Concatenate MP3 chunks into single stream
     const totalLength = audioBuffers.reduce((acc, b) => acc + b.byteLength, 0);
     const combined = new Uint8Array(totalLength);
     let offset = 0;
@@ -110,16 +129,22 @@ export async function GET(req: NextRequest) {
       offset += b.byteLength;
     }
 
-    return new NextResponse(combined, {
+    // Cache in memory for instant reuse
+    if (ttsMemoryCache.size > 200) {
+      ttsMemoryCache.clear();
+    }
+    ttsMemoryCache.set(cacheKey, { buffer: combined, timestamp: Date.now() });
+
+    return new Response(Buffer.from(combined), {
       status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'public, max-age=86400',
       },
     });
   } catch {
     return NextResponse.json(
-      { error: 'Failed to synthesize neural speech' },
+      { error: 'Failed to synthesize speech' },
       { status: 502 }
     );
   }

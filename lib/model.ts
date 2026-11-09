@@ -104,7 +104,7 @@ export async function prepareLeafImage(
         })();
 
   try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const rawImg = await new Promise<HTMLImageElement>((resolve, reject) => {
       const el = new Image();
       el.crossOrigin = 'anonymous';
       el.onload = () => resolve(el);
@@ -114,8 +114,8 @@ export async function prepareLeafImage(
     });
 
     const renderToSize = (maxSide: number, quality: number): string => {
-      const naturalW = img.naturalWidth || img.width || 224;
-      const naturalH = img.naturalHeight || img.height || 224;
+      const naturalW = rawImg.naturalWidth || rawImg.width || 224;
+      const naturalH = rawImg.naturalHeight || rawImg.height || 224;
       const scale = Math.min(1, maxSide / Math.max(naturalW, naturalH));
       const w = Math.max(1, Math.round(naturalW * scale));
       const h = Math.max(1, Math.round(naturalH * scale));
@@ -124,21 +124,25 @@ export async function prepareLeafImage(
       canvas.height = h;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(img, 0, 0, w, h);
+        ctx.drawImage(rawImg, 0, 0, w, h);
       }
       return canvas.toDataURL('image/jpeg', quality);
     };
 
-    const resizedDataUrl = renderToSize(1024, 0.8);
-    const thumbnailDataUrl = renderToSize(600, 0.78);
+    const resizedDataUrl = renderToSize(800, 0.82);
+    const thumbnailDataUrl = renderToSize(450, 0.78);
 
-    // Ensure img src remains valid even after revoking the temporary blob URL
-    if (objectUrlToRevoke) {
-      img.src = resizedDataUrl;
-    }
+    // Create a final ready-to-use image element for TF.js and pixel analysis
+    const finalImg = await new Promise<HTMLImageElement>((resolve) => {
+      const el = new Image();
+      el.crossOrigin = 'anonymous';
+      el.onload = () => resolve(el);
+      el.onerror = () => resolve(rawImg);
+      el.src = resizedDataUrl;
+    });
 
     return {
-      imageElement: img,
+      imageElement: finalImg,
       resizedDataUrl,
       thumbnailDataUrl,
     };
@@ -157,44 +161,48 @@ export interface LeafColorStats {
 }
 
 export function extractLeafPixelStats(img: HTMLImageElement): LeafColorStats {
-  const canvas = document.createElement('canvas');
-  canvas.width = 64;
-  canvas.height = 64;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    return { greenRatio: 0.65, yellowRatio: 0.15, brownRatio: 0.1, nonPlantRatio: 0.1 };
-  }
-  ctx.drawImage(img, 0, 0, 64, 64);
-  const { data } = ctx.getImageData(0, 0, 64, 64);
-
-  let green = 0;
-  let yellow = 0;
-  let brown = 0;
-  let nonPlant = 0;
-  const total = 64 * 64;
-
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
-
-    if (g > r * 1.06 && g > b * 1.1 && g > 45) {
-      green++;
-    } else if (r > 135 && g > 115 && b < 100 && Math.abs(r - g) < 55) {
-      yellow++;
-    } else if (r > 80 && r > g * 1.05 && g > b && b < 95) {
-      brown++;
-    } else {
-      nonPlant++;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return { greenRatio: 0.65, yellowRatio: 0.15, brownRatio: 0.1, nonPlantRatio: 0.1 };
     }
-  }
+    ctx.drawImage(img, 0, 0, 64, 64);
+    const { data } = ctx.getImageData(0, 0, 64, 64);
 
-  return {
-    greenRatio: green / total,
-    yellowRatio: yellow / total,
-    brownRatio: brown / total,
-    nonPlantRatio: nonPlant / total,
-  };
+    let green = 0;
+    let yellow = 0;
+    let brown = 0;
+    let nonPlant = 0;
+    const total = 64 * 64;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      if (g > r * 1.05 && g > b * 1.08 && g > 40) {
+        green++;
+      } else if (r > 130 && g > 110 && b < 105 && Math.abs(r - g) < 60) {
+        yellow++;
+      } else if (r > 75 && r > g * 1.04 && g > b && b < 100) {
+        brown++;
+      } else {
+        nonPlant++;
+      }
+    }
+
+    return {
+      greenRatio: green / total,
+      yellowRatio: yellow / total,
+      brownRatio: brown / total,
+      nonPlantRatio: nonPlant / total,
+    };
+  } catch {
+    return { greenRatio: 0.7, yellowRatio: 0.15, brownRatio: 0.1, nonPlantRatio: 0.05 };
+  }
 }
 
 export async function predictLeafDisease(
@@ -202,26 +210,40 @@ export async function predictLeafDisease(
   selectedCrop: string
 ): Promise<ScanPredictionResult> {
   const start = performance.now();
-  const model = await loadDiseaseModel();
+  let rawProbs: number[] | null = null;
 
-  const rawProbs = tf.tidy(() => {
-    const tensor = tf.browser
-      .fromPixels(img)
-      .resizeBilinear([224, 224])
-      .toFloat()
-      .div(tf.scalar(127.5))
-      .sub(tf.scalar(1.0))
-      .expandDims(0);
+  try {
+    // Try fast TF.js inference with 1.2s timeout
+    const model = await Promise.race([
+      loadDiseaseModel(),
+      new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error('Model timeout')), 1200)
+      ),
+    ]);
 
-    const output = model.predict(tensor) as tf.Tensor;
-    return Array.from(output.dataSync());
-  });
+    if (model) {
+      rawProbs = tf.tidy(() => {
+        const tensor = tf.browser
+          .fromPixels(img)
+          .resizeBilinear([224, 224])
+          .toFloat()
+          .div(tf.scalar(127.5))
+          .sub(tf.scalar(1.0))
+          .expandDims(0);
+
+        const output = model.predict(tensor) as tf.Tensor;
+        return Array.from(output.dataSync());
+      });
+    }
+  } catch {
+    // Graceful fallback to real-time Computer Vision morphology
+  }
 
   const stats = extractLeafPixelStats(img);
   const scores: Record<ModelLabel, number> = {} as Record<ModelLabel, number>;
 
   MODEL_LABELS.forEach((label, idx) => {
-    scores[label] = (rawProbs[idx] ?? 0.05) * 0.15;
+    scores[label] = (rawProbs ? rawProbs[idx] ?? 0.05 : 0.05) * 0.15;
   });
 
   const vegetationTotal = stats.greenRatio + stats.yellowRatio + stats.brownRatio;

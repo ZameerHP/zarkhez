@@ -71,6 +71,7 @@ export default function AssistantPage() {
   });
 
   const sessionRef = useRef<SpeechSession | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -231,23 +232,43 @@ export default function AssistantPage() {
   };
 
   const handleToggleMic = () => {
-    unlockAudio();
     stopSpeaking();
     setAiSpeaking(false);
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
 
     if (listening) {
       sessionRef.current?.stop();
       setListening(false);
+      if (inputText.trim().length > 1) {
+        sendQuestion(inputText);
+      }
       return;
     }
 
     setListening(true);
     sessionRef.current = startSpeechRecognition(locale, {
       onResult: (transcript, isFinal) => {
+        if (!transcript) return;
         setInputText(transcript);
+
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
+
         if (isFinal && transcript.trim().length > 1) {
           setListening(false);
           sendQuestion(transcript);
+        } else if (transcript.trim().length > 2) {
+          // Auto-send after 1.8 seconds of natural pause in speech
+          silenceTimerRef.current = setTimeout(() => {
+            sessionRef.current?.stop();
+            setListening(false);
+            sendQuestion(transcript);
+          }, 1800);
         }
       },
       onError: () => {
