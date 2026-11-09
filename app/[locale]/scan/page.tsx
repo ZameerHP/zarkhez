@@ -225,7 +225,14 @@ export default function ScanPage() {
       clearTimeout(timeout);
 
       if (!res.ok) {
-        throw new Error(`Server returned status ${res.status}`);
+        const errorJson = await res.json().catch(() => ({}));
+        const serverMsg =
+          errorJson.message ||
+          errorJson.error ||
+          (locale === 'ur'
+            ? 'کلاؤڈ وژن سرور سے رابطہ نہیں ہو سکا۔'
+            : `Cloud Vision server returned status ${res.status}`);
+        throw new Error(serverMsg);
       }
 
       const diagData: CropDiagnosis = await res.json();
@@ -261,16 +268,26 @@ export default function ScanPage() {
       if (!profile.isAuthenticated) {
         setTimeout(() => setShowGuestPrompt(true), 2800);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Scan error:', err);
-      setErrorMsg(
-        locale === 'ur'
-          ? 'معائنہ مکمل نہیں ہو سکا۔ براہِ کرم انٹرنیٹ کنکشن چیک کر کے دوبارہ کوشش کریں۔'
-          : 'Analysis could not be completed. Please check connection and retry.'
-      );
+      const isAbort = (err as any)?.name === 'AbortError';
+      const msg = isAbort
+        ? locale === 'ur'
+          ? 'کلاؤڈ معائنے میں زیادہ وقت لگا (Timeout)۔ براہِ کرم انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔'
+          : 'Gemini Vision request timed out. Please check connection and retry.'
+        : err instanceof Error
+        ? err.message
+        : String(err);
+      setErrorMsg(msg);
     } finally {
       setAnalysing(false);
     }
+  };
+
+  const handleRetryAnalysis = () => {
+    if (!previewUrl) return;
+    setErrorMsg(null);
+    runAnalysisPipeline(previewUrl, selectedCrop, false);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -702,18 +719,108 @@ export default function ScanPage() {
           )}
         </AnimatePresence>
 
-        {/* Error State */}
+        {/* Error State - Cloud Vision Server Failure with Image Preservation & Retry */}
         {errorMsg && (
-          <div className="bg-alert-red/10 border border-alert-red/35 rounded-2xl p-4 text-sm text-ink space-y-3">
-            <p>{errorMsg}</p>
-            <button
-              type="button"
-              onClick={resetScan}
-              className="min-h-[44px] px-4 py-2 rounded-full bg-alert-red text-white font-bold text-xs"
-            >
-              {tApp('retry')}
-            </button>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl p-5 sm:p-6 shadow-soft border-2 border-red-500/35 text-start space-y-4"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center text-red-600 flex-shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-[11px] font-black uppercase text-red-600 bg-red-500/10 px-2.5 py-0.5 rounded-full inline-block mb-1">
+                  {locale === 'ur' ? 'کلاؤڈ وژن رابطہ منقطع' : 'Cloud Vision Disconnected'}
+                </span>
+                <h3 className="font-black text-base sm:text-lg text-ink">
+                  {locale === 'ur'
+                    ? 'جیمنائی کلاؤڈ وژن سرور سے رابطہ نہیں ہو سکا'
+                    : 'Gemini Cloud Vision Server Unavailable'}
+                </h3>
+              </div>
+            </div>
+
+            {/* Preserved Image Preview Bar */}
+            {previewUrl && (
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-canvas border border-olive/20">
+                <div className="w-14 h-14 rounded-xl overflow-hidden border border-olive/30 flex-shrink-0 bg-black/10">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={thumbnailUrl || previewUrl}
+                    alt="Preserved crop foliage"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 min-w-0 text-xs">
+                  <div className="flex items-center gap-1.5 text-emerald-800 font-extrabold text-[11px]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                    <span>
+                      {locale === 'ur' ? 'آپ کی تصویر محفوظ ہے' : 'Your photo is preserved'}
+                    </span>
+                  </div>
+                  <p className="text-ink/65 text-[11px] mt-0.5 leading-tight">
+                    {locale === 'ur'
+                      ? 'دوبارہ تصویر لینے کی ضرورت نہیں؛ نیچے دیئے گئے بٹن سے دوبارہ معائنہ کریں'
+                      : 'No need to retake photo; tap retry to re-analyze'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Technical Detail Note */}
+            <div className="bg-red-500/10 p-3 rounded-xl border border-red-500/20 text-xs text-ink/80 space-y-1">
+              <span className="font-extrabold text-[11px] text-red-700 block">
+                {locale === 'ur' ? 'تکنیکی تفصیل:' : 'Technical Details:'}
+              </span>
+              <p className="font-mono text-[11px] break-words text-red-900/90 leading-relaxed">
+                {errorMsg}
+              </p>
+            </div>
+
+            <p className="text-[11px] text-ink/70 leading-relaxed">
+              {locale === 'ur'
+                ? 'کلاؤڈ وژن سرور عارضی طور پر جواب نہیں دے رہا یا انٹرنیٹ میں رکاوٹ ہے۔ نیچے دیئے گئے بٹن سے فوری دوبارہ کوشش کریں۔'
+                : 'The cloud vision neural network could not be reached. Check your connection and retry.'}
+            </p>
+
+            {/* Action Buttons */}
+            <div className="space-y-2 pt-1">
+              {previewUrl && (
+                <button
+                  type="button"
+                  onClick={handleRetryAnalysis}
+                  disabled={analysing}
+                  className="w-full min-h-[50px] rounded-full bg-gradient-to-r from-emerald-600 to-olive hover:from-emerald-700 hover:to-olive-dark text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
+                >
+                  <RotateCcw className={`w-4 h-4 ${analysing ? 'animate-spin' : ''}`} />
+                  <span>
+                    {analysing
+                      ? locale === 'ur'
+                        ? 'معائنہ جاری ہے...'
+                        : 'Analyzing...'
+                      : locale === 'ur'
+                      ? 'دوبارہ کلاؤڈ معائنہ کریں (تصویر محفوظ ہے)'
+                      : 'Retry Cloud Analysis (Photo Preserved)'}
+                  </span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={resetScan}
+                className="w-full min-h-[44px] rounded-full bg-canvas hover:bg-ink/10 text-ink/80 font-bold text-xs flex items-center justify-center gap-2 border border-olive/20 transition-all"
+              >
+                <Camera className="w-3.5 h-3.5 text-ink/60" />
+                <span>
+                  {locale === 'ur'
+                    ? 'نئی تصویر لیں / کینسل کریں'
+                    : 'Take New Photo / Cancel'}
+                </span>
+              </button>
+            </div>
+          </motion.div>
         )}
 
         {/* CASE 1: CROP MISMATCH SCREEN (Section 1 & 9) */}

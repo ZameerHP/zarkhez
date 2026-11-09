@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CropAnalysisRequestSchema } from '@/lib/schemas';
 import { checkRateLimit } from '@/lib/ratelimit';
-import { analyzeCropImageWithGemini } from '@/lib/gemini';
+import { analyzeCropImageWithGemini, GeminiVisionError } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
   const ip =
@@ -9,7 +9,10 @@ export async function POST(req: NextRequest) {
   const rate = await checkRateLimit(ip);
   if (!rate.success) {
     return NextResponse.json(
-      { error: 'Too many scan requests. Please wait a moment.' },
+      {
+        error: 'Too many scan requests. Please wait a moment.',
+        code: 'RATE_LIMITED',
+      },
       { status: 429 }
     );
   }
@@ -40,11 +43,20 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json(diagnosis, { status: 200 });
-  } catch (err) {
-    console.error('Scan analyze error:', err);
+  } catch (err: unknown) {
+    console.error('[API /api/scan/analyze] Vision Analysis Error:', err);
+    const message = err instanceof Error ? err.message : 'Failed to analyze crop image';
+    const statusCode = err instanceof GeminiVisionError ? err.statusCode : 503;
+    const errorCode = err instanceof GeminiVisionError ? err.code : 'GEMINI_VISION_ERROR';
+
     return NextResponse.json(
-      { error: 'Failed to analyze crop image. Please retry.' },
-      { status: 500 }
+      {
+        error: 'gemini_vision_unavailable',
+        code: errorCode,
+        message,
+        details: 'Gemini Multimodal Cloud Vision inspection could not complete. Your photo is preserved for retry.',
+      },
+      { status: statusCode }
     );
   }
 }

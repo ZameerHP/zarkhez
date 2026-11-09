@@ -316,8 +316,21 @@ export function cleanBase64Payload(dataUrlOrBase64: string): string {
   return dataUrlOrBase64.replace(/^data:[^;]+;base64,/, '').trim();
 }
 
+export class GeminiVisionError extends Error {
+  statusCode: number;
+  code: string;
+
+  constructor(message: string, statusCode = 502, code = 'GEMINI_VISION_ERROR') {
+    super(message);
+    this.name = 'GeminiVisionError';
+    this.statusCode = statusCode;
+    this.code = code;
+  }
+}
+
 /**
  * Call Google Gemini REST API directly using standard fetch.
+ * Implements automated model fallback if the primary model returns 404/deprecated.
  */
 async function callGeminiApi({
   model,
@@ -342,44 +355,100 @@ async function callGeminiApi({
 }): Promise<string> {
   const apiKey = getGeminiApiKey(apiKeyOverride);
   if (!apiKey) {
-    throw new Error('Missing GEMINI_API_KEY');
+    throw new GeminiVisionError(
+      'Missing GEMINI_API_KEY. Please configure your Gemini API Key in server environment.',
+      503,
+      'MISSING_API_KEY'
+    );
   }
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  // Ordered list of candidate models with fallback (fastest high-availability models only)
+  const modelsToTry = Array.from(
+    new Set([
+      process.env.GEMINI_MODEL_FAST,
+      process.env.GEMINI_MODEL_DETAIL,
+      model,
+      'gemini-flash-lite-latest',
+      'gemini-3.5-flash-lite',
+    ])
+  ).filter(Boolean) as string[];
 
-  const payload: Record<string, unknown> = {
-    contents,
-    generationConfig: {
-      temperature,
-      response_mime_type: 'application/json',
-      ...(responseSchema ? { response_schema: responseSchema } : {}),
-    },
-  };
+  let lastError: Error | null = null;
 
-  if (systemInstruction) {
-    payload.system_instruction = {
-      parts: [{ text: systemInstruction }],
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const candidateModel = modelsToTry[i];
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${candidateModel}:generateContent?key=${apiKey}`;
+
+    const payload: Record<string, unknown> = {
+      contents,
+      generationConfig: {
+        temperature,
+        response_mime_type: 'application/json',
+        ...(responseSchema ? { response_schema: responseSchema } : {}),
+      },
     };
+
+    if (systemInstruction) {
+      payload.system_instruction = {
+        parts: [{ text: systemInstruction }],
+      };
+    }
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(25000),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        // If 404 (model not found / deprecated) or 503 (model overloaded) and there are fallback models, try next
+        if ((response.status === 404 || response.status === 503) && i < modelsToTry.length - 1) {
+          console.warn(
+            `[Gemini API] Model ${candidateModel} returned ${response.status}. Trying fallback model (${modelsToTry[i + 1]})...`
+          );
+          lastError = new GeminiVisionError(
+            `Gemini API error [${response.status}]: ${errorText}`,
+            response.status,
+            'MODEL_UNAVAILABLE'
+          );
+          continue;
+        }
+        throw new GeminiVisionError(
+          `Gemini API error [${response.status}]: ${errorText}`,
+          response.status,
+          'API_ERROR'
+        );
+      }
+
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        throw new GeminiVisionError('Empty response from Gemini API', 502, 'EMPTY_RESPONSE');
+      }
+      return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    } catch (err: unknown) {
+      if (err instanceof GeminiVisionError && err.code === 'MODEL_UNAVAILABLE' && i < modelsToTry.length - 1) {
+        continue;
+      }
+      const isTimeout = (err as any)?.name === 'TimeoutError' || (err as any)?.name === 'AbortError';
+      if (isTimeout && i < modelsToTry.length - 1) {
+        console.warn(`[Gemini API] Model ${candidateModel} timed out. Trying fallback model (${modelsToTry[i + 1]})...`);
+        continue;
+      }
+      if (err instanceof GeminiVisionError) {
+        throw err;
+      }
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (i === modelsToTry.length - 1) {
+        throw new GeminiVisionError(`Gemini API connection error: ${lastError.message}`, 503, 'NETWORK_ERROR');
+      }
+    }
   }
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(25000),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gemini API error [${response.status}]: ${errorText}`);
-  }
-
-  const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error('Empty response from Gemini API');
-  }
-  return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  throw lastError || new GeminiVisionError('All Gemini models failed to respond', 503, 'ALL_MODELS_FAILED');
 }
 
 /**
@@ -847,8 +916,11 @@ export async function analyzeCropImageWithGemini(
   const mimeType = extractImageMimeType(base64Image);
 
   if (!apiKey) {
-    // Return explicit Service Unavailable state - NEVER claim healthy!
-    return getServiceUnavailableDiagnosis(selectedCrop);
+    throw new GeminiVisionError(
+      'Gemini API key is not configured. Please add GEMINI_API_KEY in server environment settings.',
+      503,
+      'MISSING_API_KEY'
+    );
   }
 
   const model =
@@ -1177,11 +1249,15 @@ Return valid JSON matching the schema.`;
     return diagnosis;
   } catch (err: unknown) {
     console.error('[Gemini Crop Diagnosis Error]:', err);
-    const errMessage = err instanceof Error ? err.message : String(err);
-    if (/API_KEY|API key not valid|403|unauthenticated|Missing GEMINI_API_KEY/i.test(errMessage)) {
-      return getServiceUnavailableDiagnosis(selectedCrop);
+    if (err instanceof GeminiVisionError) {
+      throw err;
     }
-    return getFallbackCropDiagnosis(selectedCrop, confirmMismatchOverride, clientQuality);
+    const errMessage = err instanceof Error ? err.message : String(err);
+    throw new GeminiVisionError(
+      `Gemini Vision inspection failed: ${errMessage}`,
+      502,
+      'VISION_INSPECTION_FAILED'
+    );
   }
 }
 
