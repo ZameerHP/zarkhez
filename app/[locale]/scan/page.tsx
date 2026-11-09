@@ -24,6 +24,11 @@ import {
   ArrowRight,
   Info,
   Check,
+  Crosshair,
+  Eye,
+  FlaskConical,
+  Bug,
+  ShieldCheck,
 } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
@@ -60,6 +65,8 @@ export default function ScanPage() {
   const [savedToDiary, setSavedToDiary] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
+  const [viewMode, setViewMode] = useState<'annotated' | 'original'>('annotated');
+  const [explanationMode, setExplanationMode] = useState<'farmer' | 'scientific'>('farmer');
 
   // Quality check state
   const [pendingQualityData, setPendingQualityData] = useState<{
@@ -232,6 +239,8 @@ export default function ScanPage() {
           speechText = getLocalizedText(diagData.message, reportLang);
         } else if (diagData.diagnosis_status === 'invalid_image') {
           speechText = getLocalizedText(diagData.message, reportLang);
+        } else if (diagData.voice_script && getLocalizedText(diagData.voice_script, reportLang)) {
+          speechText = getLocalizedText(diagData.voice_script, reportLang);
         } else {
           const prob = getLocalizedText(diagData.problem_name, reportLang);
           const why = getLocalizedText(diagData.why_suspected, reportLang);
@@ -350,8 +359,10 @@ export default function ScanPage() {
   };
 
   const spokenDiagnosisText = diagnosis
-    ? diagnosis.diagnosis_status === 'crop_mismatch'
+    ? diagnosis.diagnosis_status === 'crop_mismatch' || diagnosis.diagnosis_status === 'invalid_image'
       ? getLocalizedText(diagnosis.message, reportLang)
+      : diagnosis.voice_script && getLocalizedText(diagnosis.voice_script, reportLang)
+      ? getLocalizedText(diagnosis.voice_script, reportLang)
       : `${getLocalizedText(diagnosis.problem_name, reportLang)}۔ ${getLocalizedText(
           diagnosis.why_suspected,
           reportLang
@@ -906,16 +917,75 @@ export default function ScanPage() {
 
               {/* Main Report Card */}
               <div className="bg-white rounded-3xl p-5 shadow-soft border border-olive/15 space-y-4">
-                {/* 1. Detected Crop, Plant Part, Stage, Confidence & Severity */}
-                <div className="flex items-start gap-3.5">
-                  {previewUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
+                {/* 1. Interactive Lesion Visualizer (Image with AI Hotspot Annotations) */}
+                {previewUrl && (
+                  <div className="relative rounded-2xl overflow-hidden border-2 border-olive/20 shadow-md bg-black select-none">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={previewUrl}
-                      alt="Scanned plant"
-                      className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500/40 flex-shrink-0 shadow-sm"
+                      alt="Scanned plant foliage"
+                      className="w-full h-64 sm:h-72 object-cover"
                     />
-                  )}
+
+                    {/* Detected Hotspot Overlays */}
+                    {viewMode === 'annotated' &&
+                      diagnosis.visual_inspection?.detected_hotspots &&
+                      diagnosis.visual_inspection.detected_hotspots.map((box, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            left: `${Math.max(0, Math.min(90, box.x))}%`,
+                            top: `${Math.max(0, Math.min(90, box.y))}%`,
+                            width: `${Math.max(10, Math.min(100 - box.x, box.w))}%`,
+                            height: `${Math.max(10, Math.min(100 - box.y, box.h))}%`,
+                          }}
+                          className="absolute border-2 border-red-500 bg-red-500/25 rounded-lg pointer-events-none transition-all flex flex-col justify-between p-1 z-10 shadow-[0_0_12px_rgba(239,68,68,0.5)]"
+                        >
+                          <span className="text-[9px] font-black text-white bg-black/80 px-1.5 py-0.5 rounded shadow self-start backdrop-blur-sm">
+                            {box.label || `Lesion #${idx + 1}`}
+                          </span>
+                        </div>
+                      ))}
+
+                    {/* View Mode Toggle Pill (Top-Right / Top-Left RTL) */}
+                    <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 flex items-center gap-1.5 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20 text-white text-[11px] font-extrabold z-20">
+                      <button
+                        type="button"
+                        onClick={() => setViewMode(viewMode === 'annotated' ? 'original' : 'annotated')}
+                        className="flex items-center gap-1.5 hover:text-emerald-300 transition-colors"
+                      >
+                        {viewMode === 'annotated' ? (
+                          <>
+                            <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>{reportLang === 'en' ? 'Hide AI Hotspots' : 'نشانات چھپائیں'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Crosshair className="w-3.5 h-3.5 text-red-400" />
+                            <span>{reportLang === 'en' ? 'Show AI Hotspots' : 'نشانات دکھائیں'}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Affected Foliar Area Gauge */}
+                    {diagnosis.visual_inspection?.affected_area_pct !== undefined &&
+                      diagnosis.visual_inspection.affected_area_pct > 0 && (
+                        <div className="absolute bottom-2.5 left-2.5 rtl:left-auto rtl:right-2.5 bg-black/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-white text-xs flex items-center gap-2 z-20 shadow-md">
+                          <div className="w-2 h-2 rounded-full bg-red-400 animate-ping" />
+                          <span className="font-bold">
+                            {reportLang === 'en' ? 'Affected Foliar Area:' : 'متاثرہ بافتی رقبہ:'}{' '}
+                            <strong className="text-emerald-400 font-black">
+                              {diagnosis.visual_inspection.affected_area_pct}%
+                            </strong>
+                          </span>
+                        </div>
+                      )}
+                  </div>
+                )}
+
+                {/* 2. Plant Species, Part, Pathogen Taxonomy & Severity */}
+                <div className="space-y-2">
                   <div className="flex-1 min-w-0 space-y-1.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {/* AI-Detected Crop Badge */}
@@ -950,6 +1020,25 @@ export default function ScanPage() {
                             : reportLang === 'roman_ur'
                             ? diagnosis.growth_stage_roman_ur || diagnosis.growth_stage
                             : diagnosis.growth_stage_ur}
+                        </span>
+                      )}
+
+                      {/* Pathogen Type Badge */}
+                      {diagnosis.pathogen_type && diagnosis.pathogen_type !== 'unknown' && (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300/60 uppercase">
+                          {diagnosis.pathogen_type === 'fungal'
+                            ? reportLang === 'en' ? 'Fungal' : 'پھپھوندی'
+                            : diagnosis.pathogen_type === 'bacterial'
+                            ? reportLang === 'en' ? 'Bacterial' : 'بیکٹیریا'
+                            : diagnosis.pathogen_type === 'viral'
+                            ? reportLang === 'en' ? 'Viral' : 'وائرس'
+                            : diagnosis.pathogen_type === 'pest'
+                            ? reportLang === 'en' ? 'Pest' : 'کیڑا'
+                            : diagnosis.pathogen_type === 'nutrient_deficiency'
+                            ? reportLang === 'en' ? 'Nutrient' : 'کھاد کی کمی'
+                            : diagnosis.pathogen_type === 'healthy'
+                            ? reportLang === 'en' ? 'Healthy' : 'تندرست'
+                            : diagnosis.pathogen_type}
                         </span>
                       )}
 
@@ -989,11 +1078,19 @@ export default function ScanPage() {
                       </span>
                     </div>
 
-                    <h2 className="font-black text-lg sm:text-xl text-ink leading-tight">
-                      {getLocalizedText(diagnosis.problem_name, reportLang)}
-                    </h2>
+                    {/* Problem Name & Scientific Name */}
+                    <div>
+                      <h2 className="font-black text-lg sm:text-xl text-ink leading-tight">
+                        {getLocalizedText(diagnosis.problem_name, reportLang)}
+                      </h2>
+                      {diagnosis.scientific_name && (
+                        <p className="text-xs italic text-ink/60 font-serif mt-0.5">
+                          {diagnosis.scientific_name}
+                        </p>
+                      )}
+                    </div>
 
-                    {/* Confidence Level Pill */}
+                    {/* Calibrated Confidence Level Pill */}
                     <div className="flex items-center gap-2 pt-0.5">
                       <div className="flex items-center gap-1 text-[11px] font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                         <Sparkles className="w-3 h-3 text-emerald-600" />
@@ -1006,11 +1103,33 @@ export default function ScanPage() {
                             : reportLang === 'roman_ur'
                             ? 'Yaqeen'
                             : 'اعتماد'}
+                          {diagnosis.confidence_category && ` (${diagnosis.confidence_category})`}
                         </span>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Severity Scope Warning: Single Leaf vs. Field Spread */}
+                {diagnosis.severity_scope && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3.5 text-xs text-ink space-y-1">
+                    <div className="flex items-center gap-1.5 text-amber-900 font-black uppercase text-[10px]">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                      <span>
+                        {reportLang === 'en'
+                          ? 'Single Leaf vs. Whole Field Assessment'
+                          : reportLang === 'sd'
+                          ? 'ھڪ پن بمقابله سڄي فيلڊ'
+                          : reportLang === 'roman_ur'
+                          ? 'Sirf Ek Patta vs Pura Khet'
+                          : 'انفرادی پتا بمقابلہ پورا کھیت'}
+                      </span>
+                    </div>
+                    <p className="text-ink/85 leading-relaxed font-medium">
+                      {getLocalizedText(diagnosis.severity_scope.scope_note, reportLang)}
+                    </p>
+                  </div>
+                )}
 
                 {/* Spoken Audio Banner (Reads Aloud in Selected Language) */}
                 <div className="rounded-2xl p-3.5 bg-gradient-to-r from-emerald-500/10 via-olive/10 to-emerald-500/10 border border-emerald-500/20 flex items-center justify-between gap-3">
@@ -1046,26 +1165,76 @@ export default function ScanPage() {
                   />
                 </div>
 
-                {/* 2. Overall Condition */}
-                <div className="bg-canvas/80 p-3.5 rounded-2xl border border-olive/15 space-y-1">
-                  <span className="text-[11px] font-black text-ink/60 uppercase block">
-                    {reportLang === 'en'
-                      ? 'Overall Condition:'
-                      : reportLang === 'sd'
-                      ? 'مجموعي حالت:'
-                      : reportLang === 'roman_ur'
-                      ? 'Majmooi Halat:'
-                      : 'پودے کی مجموعی حالت:'}
-                  </span>
-                  <p className="text-xs sm:text-sm text-ink/90 font-medium leading-relaxed">
-                    {reportLang === 'en'
-                      ? diagnosis.plant_condition
-                      : reportLang === 'sd'
-                      ? diagnosis.plant_condition_sd || diagnosis.plant_condition_ur
-                      : reportLang === 'roman_ur'
-                      ? diagnosis.plant_condition_roman_ur || diagnosis.plant_condition
-                      : diagnosis.plant_condition_ur}
-                  </p>
+                {/* Dual Explanation Mode Toggle (Farmer Mode vs. Scientific Mode) */}
+                <div className="space-y-2">
+                  <div className="bg-canvas rounded-2xl p-1 border border-olive/20 grid grid-cols-2 gap-1 text-xs font-black">
+                    <button
+                      type="button"
+                      onClick={() => setExplanationMode('farmer')}
+                      className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                        explanationMode === 'farmer'
+                          ? 'bg-[#062409] text-white shadow-sm'
+                          : 'text-ink/70 hover:text-ink hover:bg-olive/10'
+                      }`}
+                    >
+                      <Sprout className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>
+                        {reportLang === 'en' ? '👨‍🌾 Farmer Explanation' : '👨‍🌾 کسان فہم'}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setExplanationMode('scientific')}
+                      className={`py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                        explanationMode === 'scientific'
+                          ? 'bg-[#062409] text-white shadow-sm'
+                          : 'text-ink/70 hover:text-ink hover:bg-olive/10'
+                      }`}
+                    >
+                      <FlaskConical className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>
+                        {reportLang === 'en' ? '🔬 Scientific Pathology' : '🔬 زرعی تحقیق و پیتھالوجی'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {explanationMode === 'farmer' ? (
+                    <div className="bg-canvas/80 p-3.5 rounded-2xl border border-olive/15 space-y-1">
+                      <span className="text-[11px] font-black text-ink/60 uppercase block">
+                        {reportLang === 'en' ? 'Simple Farmer Explanation:' : 'سادہ کسان فہم خلاصہ:'}
+                      </span>
+                      <p className="text-xs sm:text-sm text-ink/90 font-medium leading-relaxed">
+                        {diagnosis.explanations?.farmer_friendly
+                          ? getLocalizedText(diagnosis.explanations.farmer_friendly, reportLang)
+                          : diagnosis.plant_condition}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-canvas/90 p-3.5 rounded-2xl border border-olive/20 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black text-olive-dark uppercase">
+                          {reportLang === 'en' ? 'Scientific Etiology & Pathology:' : 'سائنسی بافتی تجزیہ و ماخذ:'}
+                        </span>
+                        {diagnosis.scientific_name && (
+                          <span className="font-serif italic font-bold text-ink/70">
+                            {diagnosis.scientific_name}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-ink/90 leading-relaxed font-medium">
+                        {diagnosis.explanations?.scientific
+                          ? getLocalizedText(diagnosis.explanations.scientific, reportLang)
+                          : diagnosis.plant_condition}
+                      </p>
+                      {diagnosis.confidence_limitations && (
+                        <div className="bg-white/80 p-2.5 rounded-xl border border-olive/15 text-[11px] text-ink/75 flex items-start gap-1.5">
+                          <Info className="w-3.5 h-3.5 text-olive flex-shrink-0 mt-0.5" />
+                          <span>{getLocalizedText(diagnosis.confidence_limitations, reportLang)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 3. Visual Lesion & Symptom Inspection Details */}
@@ -1160,6 +1329,25 @@ export default function ScanPage() {
                           </span>
                         </div>
                       )}
+
+                    {/* Pathological Tissue Indicators */}
+                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5 text-[10px] font-bold">
+                      {diagnosis.visual_inspection.chlorosis_detected && (
+                        <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md border border-amber-300">
+                          {reportLang === 'en' ? 'Chlorosis / Yellowing' : 'کلوروسس (پتے کا پیلا پن)'}
+                        </span>
+                      )}
+                      {diagnosis.visual_inspection.necrosis_detected && (
+                        <span className="bg-red-100 text-red-900 px-2 py-0.5 rounded-md border border-red-300">
+                          {reportLang === 'en' ? 'Necrosis / Dead Tissue' : 'نیکروسس (مردہ بافتیں)'}
+                        </span>
+                      )}
+                      {diagnosis.visual_inspection.wilting_detected && (
+                        <span className="bg-orange-100 text-orange-900 px-2 py-0.5 rounded-md border border-orange-300">
+                          {reportLang === 'en' ? 'Wilting' : 'مرجھاؤ'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -1208,8 +1396,98 @@ export default function ScanPage() {
                   </div>
                 )}
 
-                {/* 6. Alternative Diagnoses */}
-                {diagnosis.alternative_diagnoses &&
+                {/* 6. Differential Diagnosis (Similar Crop Diseases Compared) */}
+                {diagnosis.differential_diagnoses &&
+                  diagnosis.differential_diagnoses.length > 0 && (
+                    <div className="space-y-2">
+                      <h3 className="font-black text-xs sm:text-sm text-ink flex items-center gap-1.5">
+                        <Layers className="w-4 h-4 text-olive" />
+                        <span>
+                          {reportLang === 'en'
+                            ? 'Differential Diagnosis (Similar Diseases):'
+                            : reportLang === 'sd'
+                            ? 'تشخيصي تقابل (ٻيون هڪجهڙيون بيماريون):'
+                            : reportLang === 'roman_ur'
+                            ? 'Tashkheesi Taqabal (Milti Julti Beemariyan):'
+                            : 'تشخیصی تقابل (ملتی جلتی دیگر بیماریوں سے موازنہ):'}
+                        </span>
+                      </h3>
+
+                      <div className="space-y-2.5">
+                        {diagnosis.differential_diagnoses.map((diff, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-canvas/90 p-3.5 rounded-2xl border border-olive/15 space-y-2 text-xs"
+                          >
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div>
+                                <span className="font-extrabold text-sm text-ink block">
+                                  {diff.name}
+                                </span>
+                                {diff.scientific_name && (
+                                  <span className="text-[11px] italic text-ink/60 font-serif">
+                                    {diff.scientific_name}
+                                  </span>
+                                )}
+                              </div>
+                              <span
+                                className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                  diff.likelihood === 'less_likely'
+                                    ? 'bg-amber-500/15 text-amber-800'
+                                    : diff.likelihood === 'possible_coinfection'
+                                    ? 'bg-purple-500/15 text-purple-800'
+                                    : 'bg-canvas text-ink/60 border border-ink/20'
+                                }`}
+                              >
+                                {diff.likelihood === 'less_likely'
+                                  ? reportLang === 'en' ? 'Less Likely' : 'کم امکان'
+                                  : diff.likelihood === 'possible_coinfection'
+                                  ? reportLang === 'en' ? 'Possible Co-infection' : 'مشترکہ حملہ'
+                                  : reportLang === 'en' ? 'Unlikely' : 'بعید از قیاس'}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                              <div className="bg-white/80 p-2 rounded-xl border border-olive/10">
+                                <span className="text-[10px] font-bold text-ink/50 block">
+                                  {reportLang === 'en' ? 'Similarities:' : 'یکساں علامات:'}
+                                </span>
+                                <span className="text-ink/85">
+                                  {getLocalizedText(diff.similarities, reportLang)}
+                                </span>
+                              </div>
+                              <div className="bg-white/80 p-2 rounded-xl border border-olive/10">
+                                <span className="text-[10px] font-bold text-ink/50 block">
+                                  {reportLang === 'en' ? 'Key Differences:' : 'بنیادی فرق:'}
+                                </span>
+                                <span className="text-ink/85">
+                                  {getLocalizedText(diff.differences, reportLang)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {diff.field_distinction_tip && (
+                              <div className="bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20 text-[11px] text-emerald-950 flex items-start gap-1.5 font-medium">
+                                <Sparkles className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                                <span>
+                                  <strong>
+                                    {reportLang === 'en'
+                                      ? 'Field Distinction Tip: '
+                                      : 'کھیت میں تفریق کا طریقہ: '}
+                                  </strong>
+                                  {getLocalizedText(diff.field_distinction_tip, reportLang)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Legacy Alternative Diagnoses (if differential_diagnoses not present) */}
+                {(!diagnosis.differential_diagnoses || diagnosis.differential_diagnoses.length === 0) &&
+                  diagnosis.alternative_diagnoses &&
                   diagnosis.alternative_diagnoses.length > 0 && (
                     <div className="bg-canvas/60 p-3 rounded-2xl border border-olive/10 space-y-1 text-xs">
                       <span className="text-[10px] font-black text-ink/60 uppercase block">
@@ -1242,8 +1520,140 @@ export default function ScanPage() {
                   </div>
                 )}
 
-                {/* 8. What To Do Now (Immediate Cultural & Protective Steps) */}
-                {diagnosis.recommendations &&
+                {/* 8. Comprehensive 4-Pillar Treatment Plan */}
+                {diagnosis.treatment_pillars &&
+                  (diagnosis.treatment_pillars.immediate_actions.length > 0 ||
+                    diagnosis.treatment_pillars.cultural_management.length > 0 ||
+                    diagnosis.treatment_pillars.biological_management.length > 0 ||
+                    diagnosis.treatment_pillars.chemical_management.length > 0) && (
+                    <div className="space-y-3 pt-2">
+                      <h3 className="font-black text-sm sm:text-base text-ink flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <span>
+                          {reportLang === 'en'
+                            ? 'Comprehensive 4-Pillar Treatment Plan:'
+                            : reportLang === 'sd'
+                            ? 'چار رخي مڪمل علاج جو منصوبو:'
+                            : reportLang === 'roman_ur'
+                            ? '4-Pillar Mukammal Ilaj Plan:'
+                            : 'چار ستونی جامع زرعی علاج و تدابیر:'}
+                        </span>
+                      </h3>
+
+                      {/* Pillar 1: Immediate Actions */}
+                      {diagnosis.treatment_pillars.immediate_actions.length > 0 && (
+                        <div className="bg-red-500/10 border border-red-500/25 rounded-2xl p-3.5 space-y-2">
+                          <h4 className="font-black text-xs text-red-900 flex items-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                            <span>
+                              {reportLang === 'en'
+                                ? '1. Immediate Actions (Do This Today):'
+                                : '1۔ فوری ہنگامی اقدامات (آج ہی کریں):'}
+                            </span>
+                          </h4>
+                          <ul className="space-y-1.5 text-xs text-red-950 font-medium">
+                            {diagnosis.treatment_pillars.immediate_actions.map((act, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="w-4 h-4 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">
+                                  {i + 1}
+                                </span>
+                                <span>{getLocalizedText(act, reportLang)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Pillar 2: Cultural Management */}
+                      {diagnosis.treatment_pillars.cultural_management.length > 0 && (
+                        <div className="bg-canvas border border-olive/20 rounded-2xl p-3.5 space-y-2">
+                          <h4 className="font-black text-xs text-olive-dark flex items-center gap-1.5">
+                            <Sprout className="w-3.5 h-3.5 text-olive" />
+                            <span>
+                              {reportLang === 'en'
+                                ? '2. Cultural & Agronomic Management:'
+                                : '2۔ زرعی و ثقافتی انسداد (آبپاشی، صفائی، بیج):'}
+                            </span>
+                          </h4>
+                          <ul className="space-y-1.5 text-xs text-ink/85 font-medium">
+                            {diagnosis.treatment_pillars.cultural_management.map((cul, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="text-olive font-black">•</span>
+                                <span>{getLocalizedText(cul, reportLang)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Pillar 3: Biological Management */}
+                      {diagnosis.treatment_pillars.biological_management.length > 0 && (
+                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-3.5 space-y-2">
+                          <h4 className="font-black text-xs text-emerald-900 flex items-center gap-1.5">
+                            <Bug className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>
+                              {reportLang === 'en'
+                                ? '3. Biological Management (Bio-control):'
+                                : '3۔ حیاتیاتی انسداد (مفید جراثیم و قدرتی کنٹرول):'}
+                            </span>
+                          </h4>
+                          <ul className="space-y-1.5 text-xs text-emerald-950 font-medium">
+                            {diagnosis.treatment_pillars.biological_management.map((bio, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="text-emerald-700 font-black">•</span>
+                                <span>{getLocalizedText(bio, reportLang)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Pillar 4: Chemical Active Ingredients */}
+                      {diagnosis.treatment_pillars.chemical_management.length > 0 && (
+                        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3.5 space-y-2.5">
+                          <h4 className="font-black text-xs text-amber-950 flex items-center gap-1.5">
+                            <FlaskConical className="w-3.5 h-3.5 text-amber-700" />
+                            <span>
+                              {reportLang === 'en'
+                                ? '4. Registered Chemical Active Ingredients:'
+                                : '4۔ منظور شدہ کیمیائی ادویاتی گروپس:'}
+                            </span>
+                          </h4>
+                          {diagnosis.treatment_pillars.chemical_management.map((chem, i) => (
+                            <div
+                              key={i}
+                              className="bg-white/90 p-3 rounded-xl border border-amber-500/20 space-y-1 text-xs"
+                            >
+                              <span className="font-black text-sm text-ink block">
+                                {chem.active_ingredient}
+                              </span>
+                              <p className="text-ink/80 text-[11px] leading-relaxed">
+                                <strong>{reportLang === 'en' ? 'Purpose: ' : 'مقصد: '}</strong>
+                                {getLocalizedText(chem.purpose, reportLang)}
+                              </p>
+                              <p className="text-amber-900 text-[11px] leading-relaxed bg-amber-500/10 p-2 rounded-lg font-medium">
+                                <strong>
+                                  {reportLang === 'en' ? 'Safety & PHI: ' : 'حفاظتی تدابیر و وقفہ: '}
+                                </strong>
+                                {getLocalizedText(chem.safety_precautions, reportLang)}
+                              </p>
+                            </div>
+                          ))}
+                          <p className="text-[10px] text-amber-950/80 italic font-medium leading-tight pt-1">
+                            {reportLang === 'en'
+                              ? '⚠️ Note: Active ingredients must follow official container labels and be verified by your local agricultural extension officer.'
+                              : '⚠️ انتباہ: دوا کی مقدار ہمیشہ ڈبے کے لیبل سے پڑھیں اور سپرے سے قبل مقامی زرعی توسیعی افسر سے تصدیق کروائیں۔'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                {/* Legacy Fallback Recommendations (if treatment pillars empty) */}
+                {(!diagnosis.treatment_pillars ||
+                  (diagnosis.treatment_pillars.immediate_actions.length === 0 &&
+                    diagnosis.treatment_pillars.chemical_management.length === 0)) &&
+                  diagnosis.recommendations &&
                   diagnosis.recommendations.length > 0 && (
                     <div className="space-y-2">
                       <h3 className="font-black text-xs sm:text-sm text-ink flex items-center gap-1.5">

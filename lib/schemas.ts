@@ -58,14 +58,54 @@ export const AlternativeDiagnosisSchema = z.object({
   reason: LocalizedStringSchema,
 });
 
+export const HotspotBoxSchema = z.object({
+  x: z.number().min(0).max(100), // percentage coordinates (0-100)
+  y: z.number().min(0).max(100),
+  w: z.number().min(0).max(100),
+  h: z.number().min(0).max(100),
+  label: z.string().optional().default('Lesion'),
+});
+export type HotspotBox = z.infer<typeof HotspotBoxSchema>;
+
+export const DifferentialDiagnosisSchema = z.object({
+  name: z.string(),
+  scientific_name: z.string().optional().default(''),
+  similarities: LocalizedStringSchema,
+  differences: LocalizedStringSchema,
+  likelihood: z.enum(['less_likely', 'possible_coinfection', 'unlikely']).default('less_likely'),
+  field_distinction_tip: LocalizedStringSchema,
+});
+export type DifferentialDiagnosis = z.infer<typeof DifferentialDiagnosisSchema>;
+
+export const ChemicalRecommendationSchema = z.object({
+  active_ingredient: z.string(),
+  purpose: LocalizedStringSchema,
+  safety_precautions: LocalizedStringSchema,
+});
+export type ChemicalRecommendation = z.infer<typeof ChemicalRecommendationSchema>;
+
+export const TreatmentPillarsSchema = z.object({
+  immediate_actions: z.array(LocalizedStringSchema).default([]),
+  cultural_management: z.array(LocalizedStringSchema).default([]),
+  biological_management: z.array(LocalizedStringSchema).default([]),
+  chemical_management: z.array(ChemicalRecommendationSchema).default([]),
+});
+export type TreatmentPillars = z.infer<typeof TreatmentPillarsSchema>;
+
 export const VisualInspectionSchema = z.object({
   lesion_detected: z.boolean().default(false),
   lesion_count: z.string().default('none'),
   lesion_shape: z.string().default('none'),
+  lesion_size_est: z.string().optional().default('none'),
   lesion_colors: z.array(z.string()).default([]),
   lesion_margins: z.string().default('none'),
   lesion_distribution: z.string().default('none'),
   tissue_damage: z.string().default('none'),
+  chlorosis_detected: z.boolean().optional().default(false),
+  necrosis_detected: z.boolean().optional().default(false),
+  wilting_detected: z.boolean().optional().default(false),
+  affected_area_pct: z.number().min(0).max(100).optional().default(0),
+  detected_hotspots: z.array(HotspotBoxSchema).optional().default([]),
 });
 
 export type VisualInspection = z.infer<typeof VisualInspectionSchema>;
@@ -91,10 +131,16 @@ export const CropDiagnosisSchema = z.object({
     lesion_detected: false,
     lesion_count: 'none',
     lesion_shape: 'none',
+    lesion_size_est: 'none',
     lesion_colors: [],
     lesion_margins: 'none',
     lesion_distribution: 'none',
     tissue_damage: 'none',
+    chlorosis_detected: false,
+    necrosis_detected: false,
+    wilting_detected: false,
+    affected_area_pct: 0,
+    detected_hotspots: [],
   }),
   diagnosis_status: z.enum([
     'healthy_no_symptoms',
@@ -106,6 +152,24 @@ export const CropDiagnosisSchema = z.object({
     'crop_mismatch',
     'invalid_image',
   ]),
+  scientific_name: z.string().optional().default(''),
+  pathogen_type: z.enum([
+    'fungal',
+    'bacterial',
+    'viral',
+    'pest',
+    'nutrient_deficiency',
+    'environmental_stress',
+    'healthy',
+    'unknown',
+  ]).optional().default('unknown'),
+  confidence_category: z.enum(['high', 'moderate', 'low', 'uncertain']).optional().default('moderate'),
+  confidence_limitations: LocalizedStringSchema.optional().default({
+    en: 'Visual AI inspection cannot replace laboratory microscopic spore analysis or fungal culture.',
+    ur: 'بصری اے آئی معائنہ خوردبینی جراثیمی تجزیے یا لیبارٹری ٹیسٹ کا متبادل نہیں ہے۔',
+    roman_ur: 'Basri AI muaina laboratory microscopic test ka mutabadil nahi hai.',
+    sd: 'بصري اي آءِ معائنو ليبارٽري ٽيسٽ جو متبادل ناهي.',
+  }),
   plant_condition: z.string(),
   plant_condition_ur: z.string(),
   plant_condition_roman_ur: z.string().optional().default(''),
@@ -113,6 +177,7 @@ export const CropDiagnosisSchema = z.object({
   problem_name: LocalizedStringSchema,
   possible_disease: z.array(PossibleDiseaseItemSchema).default([]),
   alternative_diagnoses: z.array(AlternativeDiagnosisSchema).optional().default([]),
+  differential_diagnoses: z.array(DifferentialDiagnosisSchema).optional().default([]),
   why_suspected: LocalizedStringSchema.optional().default({
     en: 'Based on visual inspection of foliage and symptom patterns.',
     ur: 'پودے کے پتے کے تفصیلی بصری معائنے اور علامات کی بنا پر۔',
@@ -122,20 +187,74 @@ export const CropDiagnosisSchema = z.object({
   observed_symptoms: z.array(LocalizedStringSchema).default([]),
   possible_causes: z.array(LocalizedStringSchema).default([]),
   severity: z.enum(['low', 'medium', 'high', 'not_assessed']),
+  severity_level: z.enum([
+    'healthy_none',
+    'low',
+    'medium',
+    'high',
+    'critical',
+    'unable_to_determine',
+  ]).optional().default('low'),
   severity_explanation: LocalizedStringSchema.optional().default({
     en: 'Evaluated from lesion extent and risk to foliage.',
     ur: 'دھبوں کے سائز، پھیلاؤ اور پتے کو خطرے کی بنیاد پر جائزہ۔',
     roman_ur: 'Dhabbun ke phailao aur nuqsan ka andaza.',
     sd: 'نشانن جي پکيڙ جي بنياد تي اندازو.',
   }),
+  severity_scope: z.object({
+    leaf_affected_pct: z.number().min(0).max(100).optional().default(0),
+    scope_note: LocalizedStringSchema.optional().default({
+      en: 'Assessment reflects only this photographed leaf. Scout 20+ plants in an X-pattern to estimate field-level spread.',
+      ur: 'یہ اندازہ صرف اس پتے کا ہے۔ پورے کھیت کے نقصان کا پتہ لگانے کے لیے کم از کم 20 پودوں کا معائنہ کریں۔',
+      roman_ur: 'Yeh andaza sirf is patte ka hai. Pure khet ka andaza lagane ke liye 20 podon ka muaina karein.',
+      sd: 'هي اندازو صرف هن پن جو آهي. پوري ٻنيءَ جي اندازي لاءِ 20 ٻوٽن جي چڪاس ڪريو.',
+    }),
+  }).optional().default({
+    leaf_affected_pct: 0,
+    scope_note: {
+      en: 'Assessment reflects only this photographed leaf. Scout 20+ plants in an X-pattern to estimate field-level spread.',
+      ur: 'یہ اندازہ صرف اس پتے کا ہے۔ پورے کھیت کے نقصان کا پتہ لگانے کے لیے کم از کم 20 پودوں کا معائنہ کریں۔',
+      roman_ur: 'Yeh andaza sirf is patte ka hai. Pure khet ka andaza lagane ke liye 20 podon ka muaina karein.',
+      sd: 'هي اندازو صرف هن پن جو آهي. پوري ٻنيءَ جي اندازي لاءِ 20 ٻوٽن جي چڪاس ڪريو.',
+    },
+  }),
   recommendations: z.array(LocalizedStringSchema).default([]),
   what_to_do_now: z.array(LocalizedStringSchema).optional().default([]),
+  treatment_pillars: TreatmentPillarsSchema.optional().default({
+    immediate_actions: [],
+    cultural_management: [],
+    biological_management: [],
+    chemical_management: [],
+  }),
   prevention: z.array(LocalizedStringSchema).default([]),
   when_to_consult_expert: LocalizedStringSchema.optional().default({
     en: 'Consult local agricultural extension officer if symptoms spread or worsen.',
     ur: 'اگر علامات میں اضافہ ہو یا پھیلاؤ بڑھے تو فوراً مقامی زرعی توسیعی افسر سے تصدیق کروائیں۔',
     roman_ur: 'Agar alamaat barhein to foran muqami zaria afsar se rabta karein.',
     sd: 'جيڪڏهن بيماري پکڙجي ته فوري طور مقامي زرعي عملدار سان رابطو ڪريو.',
+  }),
+  explanations: z.object({
+    farmer_friendly: LocalizedStringSchema,
+    scientific: LocalizedStringSchema,
+  }).optional().default({
+    farmer_friendly: {
+      en: 'Inspect your crop closely and follow sanitation practices.',
+      ur: 'اپنی فصل کا باقاعدگی سے معائنہ کریں اور کھیت کی صفائی کا خیال رکھیں۔',
+      roman_ur: 'Apni fasal ka baqaidgi se muaina karein aur khet saf rakhein.',
+      sd: 'پنهنجي فصل جو باقاعدي معائنو ڪريو.',
+    },
+    scientific: {
+      en: 'Foliar pathology assessment based on observable macroscopic tissue alterations.',
+      ur: 'پتے کے بافتی بگاڑ اور علامات کے مشاہدے پر مبنی زرعی تجزیہ۔',
+      roman_ur: 'Patte ke bafti bigar par mabni zaria tajzia.',
+      sd: 'پن جي تاندورن جي بگاڙ تي ٻڌل زرعي تجزيو.',
+    },
+  }),
+  voice_script: LocalizedStringSchema.optional().default({
+    en: 'Diagnosis completed. Please check your recommendations.',
+    ur: 'معائنہ مکمل ہو گیا ہے۔ تفصیلی تجاویز نیچے ملاحظہ فرمائیں۔',
+    roman_ur: 'Muaina mukammal ho gaya hai. Tajaveez neeche dekhein.',
+    sd: 'معائنو مڪمل ٿي ويو. تجويزون هيٺ ڏسو.',
   }),
   requires_retake: z.boolean(),
   requires_expert_review: z.boolean(),

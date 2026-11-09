@@ -599,14 +599,29 @@ export function getServiceUnavailableDiagnosis(selectedCrop: string): CropDiagno
     growth_stage_roman_ur: 'Barhotri ka marhala',
     growth_stage_sd: 'واڌ ويجهه جو مرحلو',
     identification_confidence: 0,
+    scientific_name: '',
+    pathogen_type: 'unknown',
+    confidence_category: 'uncertain',
+    confidence_limitations: {
+      en: 'AI server connection is offline. Visual analysis cannot replace lab culture or microscopic test.',
+      ur: 'اے آئی تشخیصی سروس عارضی طور پر آف لائن ہے۔ بصری معائنہ لیبارٹری تجزیے کا متبادل نہیں ہے۔',
+      roman_ur: 'AI service offline hai. Basri muaina lab test ka mutabadil nahi hai.',
+      sd: 'اي آءِ سروس آف لائن آهي. بصري چڪاس ليبارٽري تجزيي جو متبادل ناهي.',
+    },
     visual_inspection: {
       lesion_detected: false,
       lesion_count: 'unassessed',
       lesion_shape: 'none',
+      lesion_size_est: 'none',
       lesion_colors: [],
       lesion_margins: 'none',
       lesion_distribution: 'none',
       tissue_damage: 'Server AI vision temporarily reconnecting',
+      chlorosis_detected: false,
+      necrosis_detected: false,
+      wilting_detected: false,
+      affected_area_pct: 0,
+      detected_hotspots: [],
     },
     diagnosis_status: 'uncertain',
     plant_condition: 'AI pathology server is temporarily reconnecting. Real-time pixel pathology inspection could not run.',
@@ -621,6 +636,7 @@ export function getServiceUnavailableDiagnosis(selectedCrop: string): CropDiagno
     },
     possible_disease: [],
     alternative_diagnoses: [],
+    differential_diagnoses: [],
     why_suspected: {
       en: 'Cloud vision pathology server is busy or reconnecting. Please retry in a few moments or consult your local agriculture extension officer.',
       ur: 'تشخیصی سرور اس وقت مصروف ہے۔ براہِ کرم چند لمحوں بعد دوبارہ تصویر اسکین کریں یا مقامی زرعی افسر سے مشورہ کریں۔',
@@ -630,11 +646,21 @@ export function getServiceUnavailableDiagnosis(selectedCrop: string): CropDiagno
     observed_symptoms: [],
     possible_causes: [],
     severity: 'not_assessed',
+    severity_level: 'unable_to_determine',
     severity_explanation: {
       en: 'Cannot assess disease severity without active cloud AI connection.',
       ur: 'کلاؤڈ اے آئی کے بغیر بیماری کی شدت کا اندازہ ممکن نہیں۔',
       roman_ur: 'Cloud AI ke baghair shiddat ka andaza nahi lagaya ja sakta.',
       sd: 'ڪلائوڊ بنا شدت جو اندازو ممڪن ناهي.',
+    },
+    severity_scope: {
+      leaf_affected_pct: 0,
+      scope_note: {
+        en: 'Server reconnecting. Differentiate single leaf from field: scout 20+ plants in an X-pattern.',
+        ur: 'سرور دوبارہ جڑ رہا ہے۔ ایک پتے کو پورے کھیت پر قیاس نہ کریں؛ کھیت میں 20 پودوں کا معائنہ کریں۔',
+        roman_ur: 'Server reconnect ho raha hai. Khet ke liye 20 podon ka muaina karein.',
+        sd: 'سرور ڳنڍجي پيو. سڄي ٻنيءَ جي اندازي لاءِ 20 ٻوٽن جي چڪاس ڪريو.',
+      },
     },
     recommendations: [
       {
@@ -645,12 +671,45 @@ export function getServiceUnavailableDiagnosis(selectedCrop: string): CropDiagno
       },
     ],
     what_to_do_now: [],
+    treatment_pillars: {
+      immediate_actions: [
+        {
+          en: 'Hold off any chemical spraying until live diagnosis is obtained or extension officer inspects the plant.',
+          ur: 'جب تک حتمی معائنہ نہ ہو کسی بھی کیمیائی دوا کا سپرے نہ کریں۔',
+          roman_ur: 'Jab tak mukammal muaina na ho koi spray na karein.',
+          sd: 'جيستائين مڪمل چڪاس نه ٿئي، ڪنهن به دوا جو اسپري نه ڪريو.',
+        },
+      ],
+      cultural_management: [],
+      biological_management: [],
+      chemical_management: [],
+    },
     prevention: [],
     when_to_consult_expert: {
       en: 'If your plant shows visible lesions, consult your local agricultural extension officer immediately.',
       ur: 'اگر پودے پر دھبے موجود ہیں تو مقامی زرعی توسیعی افسر سے تصدیق کروائیں۔',
       roman_ur: 'Agar poda bimar hai to muqami zaria afsar ko dikhayein.',
       sd: 'جيڪڏهن ٻوٽي تي نشان آهن ته زرعي آفيسر کي ڏيکاريو.',
+    },
+    explanations: {
+      farmer_friendly: {
+        en: 'Our agricultural AI server is temporarily busy. Please wait a moment and scan again, or consult your local field extension officer.',
+        ur: 'ہمارا زرعی تشخیصی سرور اس وقت مصروف ہے۔ براہ کرم کچھ دیر بعد دوبارہ اسکین کریں یا قریبی زرعی دفتر سے رہنمائی لیں۔',
+        roman_ur: 'Zaria AI server masroof hai. Kuch dair baad dobara scan karein.',
+        sd: 'اسان جو زرعي سرور هن وقت مصروف آهي. مهرباني ڪري ڪجهه دير بعد وري ڪوشش ڪريو.',
+      },
+      scientific: {
+        en: 'Telemetry link to multimodal vision service was interrupted. Quantitative foliar pathology metrics and differential diagnoses are suspended.',
+        ur: 'کلاؤڈ وژن سروس سے رابطہ منقطع ہے۔ پتے کے بافتی بگاڑ کی پیمائش اور تشخیصی تقابل معطل ہے۔',
+        roman_ur: 'Cloud vision connection munkata hai. Muaina filwaqt moattal hai.',
+        sd: 'ڪلائوڊ ويزن سان رابطو ڪٽجي ويو. تجزيو في الحال معطل آهي.',
+      },
+    },
+    voice_script: {
+      en: 'Diagnostic service is temporarily reconnecting. Please wait a moment and try again.',
+      ur: 'تشخیصی سروس عارضی طور پر مصروف ہے۔ براہ کرم چند لمحوں بعد دوبارہ اسکین کریں۔',
+      roman_ur: 'Tashkheesi service masroof hai. Barah-e-karam dobara koshish karein.',
+      sd: 'تشخيصي سروس مصروف آهي. مهرباني ڪري ڪجهه دير بعد وري ڪوشش ڪريو.',
     },
     requires_retake: false,
     requires_expert_review: true,
@@ -686,14 +745,14 @@ export async function analyzeCropImageWithGemini(
     process.env.GEMINI_MODEL_FAST ||
     'gemini-3.5-flash-lite';
 
-  const systemInstruction = `You are Zarkhez's Senior Agricultural Computer Vision Specialist and Chief Plant Pathologist serving Pakistani farmers.
-Your mission is to perform an honest, rigorous, evidence-based two-stage visual analysis of the uploaded farm photograph.
+  const systemInstruction = `You are Zarkhez's Senior Agricultural Computer Vision Specialist, Senior Plant Pathologist, and Full-Stack Agronomy Engineer serving Pakistani farmers across Punjab, Sindh, Khyber Pakhtunkhwa, and Balochistan.
+Your mission is to perform an honest, rigorous, scientifically sound, multi-stage visual intelligence analysis of the uploaded farm photograph.
 
-IMPORTANT PRINCIPLES:
+CORE SCIENTIFIC PRINCIPLES:
 1. USER SELECTION IS NOT VISUAL PROOF:
-   The user selected "${selectedCrop}". NEVER force or assume the uploaded photo belongs to this crop! You must independently identify the actual visible crop purely from pixel evidence.
+   The user selected "${selectedCrop}". NEVER force or assume the uploaded photo belongs to this crop! Independently identify the actual visible crop purely from pixel evidence.
 2. ACCURATE PLANT PART DETECTION:
-   Identify the real visible organ: "Leaf" (پتا), "Stem" (تنا), "Roots" (جڑیں), "Fruit" (پھل), "Flower" (پھول), "Seed" (بیج), or "Whole plant" (پورا پودا). Never call a stem, fruit, or root a leaf!
+   Identify the real visible organ: "Leaf" (پتا), "Stem" (تنا), "Roots" (جڑیں), "Fruit" (پھل), "Flower" (پھول), "Seed" (بیج), or "Whole plant" (پورا پودا). Never misclassify stems, fruits, or roots as leaves!
 3. CROP MISMATCH PROTECTION:
    Compare the detected crop with selected_crop: "${selectedCrop}".
    If they do NOT match (e.g. user selected Wheat, but image shows Rice or Tomato):
@@ -702,7 +761,7 @@ IMPORTANT PRINCIPLES:
        Set diagnosis_status = "crop_mismatch".
        Set problem_name = { "en": "Crop Mismatch Detected", "ur": "فصل کی عدم مطابقت", "roman_ur": "Fasal ki adam mutabiqat", "sd": "فصل جي غير مطابقت" }
        Set plant_condition = "Not assessed pending crop confirmation", plant_condition_ur = "فصل کی تصدیق تک معائنہ روک دیا گیا ہے", plant_condition_roman_ur = "Fasal ki tasdeeq tak muaina rok diya gaya hai", plant_condition_sd = "فصل جي تصديق تائين چڪاس روڪي وئي آهي"
-       Set severity = "not_assessed"
+       Set severity = "not_assessed", severity_level = "unable_to_determine"
        Set message = {
          "en": "The image appears to show a " + detected_crop + " (" + detected_plant_part + "), but " + selectedCrop + " was selected. Please confirm your crop before diagnosis.",
          "ur": "تصویر میں " + detected_crop_ur + " کا " + detected_plant_part_ur + " نظر آرہا ہے، جبکہ آپ نے " + selectedCrop + " منتخب کی ہے۔ براہِ کرم درست فصل کی تصدیق کریں۔",
@@ -710,57 +769,98 @@ IMPORTANT PRINCIPLES:
          "sd": "تصوير ۾ " + (detected_crop_sd || detected_crop) + " جو " + (detected_plant_part_sd || detected_plant_part) + " نظر اچي پيو، جڏهن ته اوهان " + selectedCrop + " چونڊيو آهي. مهرباني ڪري تصديق ڪريو."
        }
        Do NOT report disease diagnosis for the mismatched crop!
-4. STAGE 1: IMAGE VALIDITY & QUALITY:
+4. STAGE 1: IMAGE VALIDITY & QUALITY INSPECTION:
    - Check if the image contains a real agricultural plant or crop. If it shows an electronic screen, mobile phone, animal, person, car, furniture, or non-plant object:
      Set image_valid = false, diagnosis_status = "invalid_image", requires_retake = true.
      Set problem_name = { "en": "Invalid Plant Image", "ur": "پودے کی غیر متعلقہ تصویر", "roman_ur": "Poday ki ghair mutaliqa tasveer", "sd": "ٻوٽي جي غير لاڳاپيل تصوير" }
      Set message = { "en": "The photograph does not appear to show a farm crop. Please photograph your actual crop foliage or stem.", "ur": "اپلوڈ کی گئی تصویر میں کوئی فصل یا پودا نظر نہیں آ رہا۔ براہِ کرم اپنی فصل کی واضح تصویر لیں۔", "roman_ur": "Uploaded tasveer mein koi fasal ya poda nazar nahi araha. Fasal ki saf tasveer lein.", "sd": "اپلوڊ ٿيل تصوير ۾ ڪوبه ٻوٽو يا فصل ناهي. مهرباني ڪري پنهنجي فصل جي تصوير ڪڍو." }
      Return immediately.
    - Check focus and lighting: If the image is excessively blurry, dark, or distant:
-     Set requires_retake = true, diagnosis_status = "uncertain".
+     Set requires_retake = true, diagnosis_status = "uncertain", confidence_category = "uncertain".
 
-5. STAGE 2: MANDATORY VISUAL LESION INSPECTION (TOKEN OUTPUT FIRST):
-   You must inspect the leaf/stem tissue at pixel level before deciding the diagnosis status:
-   - Are there abnormal spots, specks, or lesions?
-   - Number of visible lesions: Count or estimate (e.g. "5 to 8 discrete lesions", "single large patch", "numerous spots", "none").
-   - Lesion shape: "spindle_shaped" (diamond/eye-shaped), "circular_oval", "elongated_irregular", "water_soaked_streaks", or "none".
-   - Lesion colors: e.g. ["whitish_grey_center", "dark_brown_margin", "chlorotic_yellow_halo"].
-   - Lesion margins: distinct dark brown border, diffuse water-soaked, haloed.
-   - Lesion distribution: scattered across leaf blade, along veins, at tips, on leaf sheath.
-   - Tissue necrosis: drying, dead tissue, chlorosis/yellowing, holes.
+5. STAGE 2: ADVANCED MACROSCOPIC SYMPTOM & LESION DETECTION:
+   Before deciding the diagnosis status, inspect foliar/stem tissue at pixel level:
+   - Identify lesion count or estimated range (e.g. "4 to 7 discrete lesions", "dense coalescing spots", "none").
+   - Lesion geometry & shape: "spindle_shaped" (diamond/eye-shaped with pointed ends), "circular_oval", "elongated_irregular", "water_soaked_streaks", "angular_vein_delimited", "target_board_bullseye", or "none".
+   - Lesion size estimate: e.g. "2 to 6 mm diameter", "large patch > 20 mm", "none".
+   - Colors: e.g. ["whitish_grey_center", "dark_reddish_brown_margin", "chlorotic_yellow_halo"].
+   - Margins: distinct necrotic border, diffuse water-soaked, chlorotic halo.
+   - Distribution: scattered across lamina, along midrib/veins, at tip/margins, lower canopy.
+   - Tissue damage & necrosis: chlorosis_detected (boolean), necrosis_detected (boolean), wilting_detected (boolean), affected_area_pct (0 to 100).
+   - Hotspot localization: detected_hotspots: [{ "x": number, "y": number, "w": number, "h": number, "label": "string" }] where x,y,w,h are normalized percentage coordinates (0-100) bounding the visible lesion clusters on the image.
 
-6. STRICT HEALTHY CLASSIFICATION RULE (CRITICAL INVARIANT):
-   - The AI must NEVER classify a plant as "healthy_no_symptoms" if visible abnormal lesions, spots, yellowing, or necrosis are detected!
-   - Green leaf background color is NEVER proof of health! An upright green rice leaf with 4-5 spindle lesions has active Rice Blast and is SICK, NOT healthy!
-   - Do NOT confuse surrounding green foliage with the condition of the specific leaf being scanned.
+6. STRICT HEALTHY INVARIANT (NON-NEGOTIABLE):
+   - NEVER classify a plant as "healthy_no_symptoms" if visible abnormal lesions, spots, yellowing, chlorosis, or necrotic damage are detected!
+   - Green background is NEVER proof of health! An upright green rice leaf with spindle lesions has active Rice Blast and is SICK, NOT healthy!
    - If visible lesions or symptoms exist, diagnosis_status MUST BE "possible_disease", "possible_pest", "possible_nutrient_deficiency", or "uncertain".
-   - Only if tissue is completely intact with uniform green color, zero spots, and zero lesions should diagnosis_status be "healthy_no_symptoms".
+   - Only when tissue is completely intact with uniform green color, zero spots, and zero lesions should diagnosis_status be "healthy_no_symptoms".
 
-7. RICE DISEASE PATTERNS:
-   - Rice blast (Magnaporthe oryzae): Characteristic spindle-shaped (diamond/eye-shaped) lesions with greyish or whitish centers and dark brown or reddish margins. In severe cases, lesions coalesce and desiccate the leaf.
-   - Brown spot (Bipolaris oryzae): Circular to oval dark brown spots, often with grey/light center and yellow chlorotic halo.
-   - Bacterial leaf blight (Xanthomonas oryzae): Wavy water-soaked yellowing stripes extending along leaf veins and edges, drying to dirty white or grey.
-   - Sheath blight (Rhizoctonia solani): Oval/elliptical greenish-grey water-soaked lesions on lower leaf sheaths and blades with dark brown irregular borders.
-   - Leaf scald (Microdochium oryzae): Zonate lesions with alternating light and dark brown chevron-like bands starting from leaf tips.
-   - Narrow brown leaf spot (Cercospora janseana): Short, linear narrow dark brown lesions parallel to leaf veins.
+7. CROP-SPECIFIC PATHOLOGICAL KNOWLEDGE (PAKISTAN REGION):
+   - RICE (دھان / چاول):
+     * Blast (Magnaporthe oryzae): Characteristic spindle-shaped (eye/diamond) lesions with whitish-grey center and dark brown/reddish margins.
+     * Brown Spot (Bipolaris oryzae): Circular to oval dark brown spots, often with lighter center and yellow halo; worsened by potassium/zinc deficit.
+     * Bacterial Leaf Blight (Xanthomonas oryzae pv. oryzae): Wavy water-soaked yellowing stripes extending along leaf margins drying to grayish-white.
+     * Sheath Blight (Rhizoctonia solani): Oval/elliptical greenish-grey water-soaked lesions on lower leaf sheaths with dark brown borders.
+   - WHEAT (گندم):
+     * Stripe / Yellow Rust (Puccinia striiformis): Linear stripes of bright yellow-orange powdery pustules along leaf veins.
+     * Leaf / Brown Rust (Puccinia triticina): Scattered, round orange-brown pustules randomly on upper leaf surface.
+     * Stem / Black Rust (Puccinia graminis): Elongated reddish-brown ragged pustules on stems and leaf sheaths.
+     * Powdery Mildew (Blumeria graminis): White to gray powdery fungal patches on foliage.
+     * Loose Smut (Ustilago tritici): Ear heads completely replaced by black powdery mass of fungal spores.
+   - COTTON (کپاس):
+     * Cotton Leaf Curl Virus (CLCuV): Thickening of veins, upward/downward leaf curling, enations (leaf outgrowths) under leaf. Transmitted by Whitefly (Bemisia tabaci).
+     * Bacterial Blight / Angular Leaf Spot (Xanthomonas citri pv. malvacearum): Angular water-soaked lesions delimited by veinlets, turning dark brown, black arm on stems.
+     * Sucking Pest Damage (Jassid / Thrips / Whitefly): Downward edge cupping, marginal scorching, hopper burn, silvery underside.
+   - SUGARCANE (کماد / گنا):
+     * Red Rot (Colletotrichum falcatum): Longitudinal reddening of internal stalk pith with characteristic white transverse patches; yellowing and withering of leaves.
+     * Whip Smut (Sporisorium scitamineum): Curved black whip-like apical shoot.
+     * Pokkah Boeng (Fusarium moniliforme): Malformed, twisted, crumpled leaf bases with chlorosis.
+   - MAIZE (مکئی):
+     * Fall Armyworm (Spodoptera frugiperda): Large ragged feeding holes in whorl with abundant moist sawdust-like frass; windowpane leaf damage.
+     * Turcicum Leaf Blight (Exserohilum turcicum): Long elliptical grayish-green cigar-shaped lesions.
+     * Maydis Leaf Blight (Bipolaris maydis): Rectangular or diamond-shaped lesions between veins.
+   - TOMATO (ٹماٹر):
+     * Early Blight (Alternaria solani): Concentric target-board (bullseye) rings surrounded by yellow chlorotic halo on older foliage.
+     * Late Blight (Phytophthora infestans): Irregular water-soaked greasy brown lesions rapidly expanding, white downy sporulation on underside in humid cool weather.
+     * Tomato Yellow Leaf Curl Virus (TYLCV): Upward leaf cupping, severe stunting, chlorotic margins (vectored by whitefly).
+   - POTATO (آلو):
+     * Late Blight (Phytophthora infestans): Greasy water-soaked lesions starting from tips/margins, rapidly rotting foliage.
+     * Early Blight (Alternaria solani): Brown concentric rings on foliage.
+     * Potato Virus Y (PVY): Severe mosaic mottling, vein necrosis.
+   - CHILI (مرچ):
+     * Anthracnose / Dieback (Colletotrichum capsici): Sunken circular necrotic lesions with concentric rings of black acervuli, twig dieback from tip down.
+     * Chili Leaf Curl Virus: Severe upward leaf curling, puckering, reduction of leaf blade.
+   - MANGO (آم):
+     * Anthracnose (Colletotrichum gloeosporioides): Dark brown to black angular spots on leaves, tear-staining on fruit.
+     * Powdery Mildew (Oidium mangiferae): Whitish powdery coating on young leaves and blossoms.
+   - CITRUS (کنو / مالٹا / لیموں):
+     * Citrus Canker (Xanthomonas axonopodis pv. citri): Raised corky brownish crater-like pustules surrounded by oily water-soaked margin and yellow halo on leaves and fruit.
+     * Citrus Greening (Huanglongbing / HLB): Asymmetric blotchy mottle crossing leaf veins, upright small yellowing leaves.
+   - ONION (پیاز):
+     * Purple Blotch (Alternaria porri): Water-soaked lesions turning brown, developing purple/violet concentric centers with chlorotic halos.
+     * Thrips (Thrips tabaci): Silvery speckling and blotches on foliage.
 
-8. FORCE EVIDENCE-BASED DIAGNOSIS:
-   - Every diagnosis must populate "why_suspected" explaining why that condition is suspected based on lesion count, shape, colors, and margins.
-   - Provide "alternative_diagnoses" (e.g. Brown spot or nutrient stress) to reflect real biological nuance.
-   - Provide "severity": "low" | "medium" | "high" with "severity_explanation".
-   - Tailor "what_to_do_now" and "recommendations" strictly to the detected crop and symptoms.
-     * NO GENERIC FILLER: Never auto-insert generic "monitor water depth" or "split nitrogen doses" across every scan.
-     * For suspected rice blast: recommend immediate field inspection across tillers to estimate percentage, halting excess urea/nitrogen which accelerates blast spread, regulating field water depth, and consulting the local agricultural extension officer.
-     * Name ONLY chemical active ingredient classes (e.g. tricyclazole class, isoprothiolane class, copper fungicide class), NEVER toxic brand names or hazardous doses.
-   - Provide "prevention" for next season (certified disease-free seed, balanced fertilization, spacing).
-   - Provide "when_to_consult_expert" with a concrete threshold (e.g. "If lesions spread to more than 5% of tillers or approach flag leaf").
+8. SCIENTIFIC CONFIDENCE & SEVERITY ASSESSMENT:
+   - Differentiate AI model confidence from laboratory confirmation. Set confidence_category ("high" | "moderate" | "low" | "uncertain") and populate confidence_limitations explicitly stating that visual inspection is not a laboratory culture.
+   - Set severity_level: "healthy_none" | "low" | "medium" | "high" | "critical" | "unable_to_determine".
+   - Differentiate single-leaf severity from field-level severity! Set severity_scope: { leaf_affected_pct: number, scope_note: LocalizedString }. Never extrapolate field infection rate from one leaf.
 
-9. MULTI-LANGUAGE REQUIREMENT:
-   Every user-facing string must be provided in four languages:
-   - "en": English
-   - "ur": Urdu (in authentic Pakistani agricultural Urdu)
-   - "roman_ur": Roman Urdu (easy-to-read phonetic Latin script)
-   - "sd": Sindhi (in authentic Sindhi script)
+9. DIFFERENTIAL DIAGNOSIS:
+   - Always supply top 1 to 3 relevant alternative diagnoses in differential_diagnoses. For each: name, scientific_name, similarities, differences, likelihood ("less_likely" | "possible_coinfection" | "unlikely"), and field_distinction_tip.
+
+10. 4-PILLAR TREATMENT MODEL (GROUNDED IN PAKISTANI EXTENSION REALITY):
+   - Immediate Actions: Urgent steps the farmer must take today (e.g. stop excess urea, isolate infected plants, scout field).
+   - Cultural Management: Field hygiene, water management, balanced NPK fertilization, plant spacing, resistant varieties.
+   - Biological Management: Evidence-backed biocontrols (e.g. Trichoderma, Bacillus subtilis, neem/azadirachtin extracts).
+   - Chemical Management: Active ingredient classes registered in Pakistan (e.g. tricyclazole, isoprothiolane, azoxystrobin, propiconazole, copper oxychloride). NEVER fabricate dangerous dosages; state purpose, safety precautions, PPE, and mandatory instruction to consult the local agriculture extension officer and product container label.
+
+11. DUAL EXPLANATIONS & VOICE SCRIPT:
+   - farmer_friendly: Empathetic, simple, actionable language for ordinary farmers in all 4 languages.
+   - scientific: Formal phytopathological terminology, etiology, taxonomy, and microscopic considerations for agronomists.
+   - voice_script: Natural, flowing spoken sentence summarizing diagnosis, seriousness, and what to do now.
+
+12. MULTI-LANGUAGE REQUIREMENT:
+   Every localized string must support "en", "ur" (Pakistani agricultural Urdu), "roman_ur" (phonetic Latin Urdu), and "sd" (authentic Sindhi).
 
 OUTPUT FORMAT:
 Return ONLY a valid JSON object matching this schema:
@@ -781,14 +881,26 @@ Return ONLY a valid JSON object matching this schema:
   "growth_stage_roman_ur": "string",
   "growth_stage_sd": "string",
   "identification_confidence": number between 0 and 1,
+  "scientific_name": "string",
+  "pathogen_type": "fungal" | "bacterial" | "viral" | "pest" | "nutrient_deficiency" | "environmental_stress" | "healthy" | "unknown",
+  "confidence_category": "high" | "moderate" | "low" | "uncertain",
+  "confidence_limitations": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
   "visual_inspection": {
     "lesion_detected": boolean,
     "lesion_count": "string",
-    "lesion_shape": "spindle_shaped" | "circular_oval" | "elongated_irregular" | "water_soaked_streaks" | "none",
+    "lesion_shape": "spindle_shaped" | "circular_oval" | "elongated_irregular" | "water_soaked_streaks" | "angular_vein_delimited" | "target_board_bullseye" | "none",
+    "lesion_size_est": "string",
     "lesion_colors": ["string"],
     "lesion_margins": "string",
     "lesion_distribution": "string",
-    "tissue_damage": "string"
+    "tissue_damage": "string",
+    "chlorosis_detected": boolean,
+    "necrosis_detected": boolean,
+    "wilting_detected": boolean,
+    "affected_area_pct": number between 0 and 100,
+    "detected_hotspots": [
+      { "x": number, "y": number, "w": number, "h": number, "label": "string" }
+    ]
   },
   "diagnosis_status": "healthy_no_symptoms" | "possible_disease" | "possible_pest" | "possible_nutrient_deficiency" | "environmental_stress" | "uncertain" | "crop_mismatch" | "invalid_image",
   "plant_condition": "string",
@@ -802,6 +914,16 @@ Return ONLY a valid JSON object matching this schema:
   "alternative_diagnoses": [
     { "name": "string", "reason": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" } }
   ],
+  "differential_diagnoses": [
+    {
+      "name": "string",
+      "scientific_name": "string",
+      "similarities": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
+      "differences": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
+      "likelihood": "less_likely" | "possible_coinfection" | "unlikely",
+      "field_distinction_tip": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
+    }
+  ],
   "why_suspected": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
   "observed_symptoms": [
     { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
@@ -810,10 +932,33 @@ Return ONLY a valid JSON object matching this schema:
     { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
   ],
   "severity": "low" | "medium" | "high" | "not_assessed",
+  "severity_level": "healthy_none" | "low" | "medium" | "high" | "critical" | "unable_to_determine",
   "severity_explanation": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
+  "severity_scope": {
+    "leaf_affected_pct": number,
+    "scope_note": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
+  },
   "what_to_do_now": [
     { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
   ],
+  "treatment_pillars": {
+    "immediate_actions": [
+      { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
+    ],
+    "cultural_management": [
+      { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
+    ],
+    "biological_management": [
+      { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
+    ],
+    "chemical_management": [
+      {
+        "active_ingredient": "string",
+        "purpose": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
+        "safety_precautions": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
+      }
+    ]
+  },
   "recommendations": [
     { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
   ],
@@ -821,6 +966,11 @@ Return ONLY a valid JSON object matching this schema:
     { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
   ],
   "when_to_consult_expert": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
+  "explanations": {
+    "farmer_friendly": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
+    "scientific": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
+  },
+  "voice_script": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
   "requires_retake": boolean,
   "requires_expert_review": boolean,
   "message": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
@@ -974,14 +1124,29 @@ export function getFallbackCropDiagnosis(
       growth_stage_roman_ur: 'Maloom nahi',
       growth_stage_sd: 'معلوم ناهي',
       identification_confidence: 0.35,
+      scientific_name: '',
+      pathogen_type: 'unknown',
+      confidence_category: 'uncertain',
+      confidence_limitations: {
+        en: 'Optical sharpness is degraded due to motion blur or inadequate daylight focus.',
+        ur: 'کیمرے کے ہلنے یا روشنی کی کمی کی وجہ سے تصویر میں بافتوں کی نفاست ختم ہو گئی ہے۔',
+        roman_ur: 'Camera hilne ki wajah se tasveer saaf nahi hai.',
+        sd: 'ڪئميرا لڏڻ يا روشني جي کوٽ ڪري تصوير صاف ناهي.',
+      },
       visual_inspection: {
         lesion_detected: false,
         lesion_count: 'uncertain',
         lesion_shape: 'none',
+        lesion_size_est: 'none',
         lesion_colors: [],
         lesion_margins: 'none',
         lesion_distribution: 'none',
         tissue_damage: 'blurred focus',
+        chlorosis_detected: false,
+        necrosis_detected: false,
+        wilting_detected: false,
+        affected_area_pct: 0,
+        detected_hotspots: [],
       },
       diagnosis_status: 'uncertain',
       plant_condition: 'Photograph is blurry or out of focus.',
@@ -996,6 +1161,7 @@ export function getFallbackCropDiagnosis(
       },
       possible_disease: [],
       alternative_diagnoses: [],
+      differential_diagnoses: [],
       why_suspected: {
         en: 'High motion blur or camera shake detected. Edge sharpness is insufficient.',
         ur: 'کیمرے کے ہلنے سے تصویر دھندلی ہو گئی ہے؛ پتے کے کنارے واضح نہیں۔',
@@ -1005,11 +1171,21 @@ export function getFallbackCropDiagnosis(
       observed_symptoms: [],
       possible_causes: [],
       severity: 'not_assessed',
+      severity_level: 'unable_to_determine',
       severity_explanation: {
         en: 'Cannot assess severity from blurry photo.',
         ur: 'دھندلی تصویر سے شدت کا اندازہ نہیں لگایا جا سکتا۔',
         roman_ur: 'Dhundli tasveer se shiddat ka andaza nahi lagaya ja sakta.',
         sd: 'ڌنڌلي تصوير مان اندازو نٿو لڳائي سگهجي.',
+      },
+      severity_scope: {
+        leaf_affected_pct: 0,
+        scope_note: {
+          en: 'Retake photo with sharp focus to evaluate leaf and field severity.',
+          ur: 'پتے اور کھیت کے نقصان کے جائزے کے لیے واضح فوکس کے ساتھ دوبارہ تصویر لیں۔',
+          roman_ur: 'Saaf tasveer lein.',
+          sd: 'صاف تصوير ڪڍو.',
+        },
       },
       recommendations: [
         {
@@ -1020,12 +1196,45 @@ export function getFallbackCropDiagnosis(
         },
       ],
       what_to_do_now: [],
+      treatment_pillars: {
+        immediate_actions: [
+          {
+            en: 'Retake a crisp close-up photo in morning daylight.',
+            ur: 'صبح کے وقت دن کی قدرتی روشنی میں قریب سے صاف تصویر لیں۔',
+            roman_ur: 'Subah ke waqt saaf tasveer lein.',
+            sd: 'صبح جو صاف تصوير ڪڍو.',
+          },
+        ],
+        cultural_management: [],
+        biological_management: [],
+        chemical_management: [],
+      },
       prevention: [],
       when_to_consult_expert: {
         en: 'Retake photo in daylight before consulting expert.',
         ur: 'زرعی افسر کو دکھانے سے پہلے دن کی روشنی میں صاف تصویر لیں۔',
         roman_ur: 'Saf tasveer lein.',
         sd: 'صاف تصوير ڪڍو.',
+      },
+      explanations: {
+        farmer_friendly: {
+          en: 'The photograph is blurry. Please hold the phone steady with both hands in bright daylight and take a closer photo.',
+          ur: 'تصویر دھندلی آئی ہے۔ براہ کرم موبائل کو دونوں ہاتھوں سے مضبوط پکڑیں اور دن کی اچھی روشنی میں دوبارہ تصویر لیں۔',
+          roman_ur: 'Tasveer dhundli hai. Mobile pakar kar dobara saaf tasveer lein.',
+          sd: 'تصوير ڌنڌلي آهي. مهرباني ڪري صاف تصوير ٻيهر ڪڍو.',
+        },
+        scientific: {
+          en: 'Laplacian edge variance is below the acceptable optical threshold (< 180). Foliar micro-features are unresolvable.',
+          ur: 'تصویر کا شارپنس سکور کم ہے جس کی وجہ سے پتے کے خدوخال کا تجزیہ ممکن نہیں۔',
+          roman_ur: 'Image sharpness kam hai.',
+          sd: 'تصوير جو معيار گهٽ آهي.',
+        },
+      },
+      voice_script: {
+        en: 'The photograph is blurry. Please hold your phone steady in bright daylight and take another photo.',
+        ur: 'تصویر دھندلی ہے؛ براہِ کرم کیمرہ مضبوطی سے تھام کر دن کی روشنی میں دوبارہ تصویر لیں۔',
+        roman_ur: 'Tasveer dhundli hai. Dobara saaf tasveer lein.',
+        sd: 'تصوير ڌنڌلي آهي. مهرباني ڪري صاف تصوير ٻيهر ڪڍو.',
       },
       requires_retake: true,
       requires_expert_review: false,
@@ -1062,14 +1271,32 @@ export function getFallbackCropDiagnosis(
         growth_stage_roman_ur: 'Shagofay nikalne ka marhala',
         growth_stage_sd: 'شاخون نڪرڻ جو مرحلو',
         identification_confidence: 0.92,
+        scientific_name: 'Magnaporthe oryzae',
+        pathogen_type: 'fungal',
+        confidence_category: 'moderate',
+        confidence_limitations: {
+          en: 'Visual AI inspection cannot replace laboratory microscopic spore analysis or fungal culture.',
+          ur: 'بصری اے آئی معائنہ خوردبینی جراثیمی تجزیے یا لیبارٹری ٹیسٹ کا متبادل نہیں ہے۔',
+          roman_ur: 'Basri AI muaina laboratory test ka mutabadil nahi hai.',
+          sd: 'بصري اي آءِ معائنو ليبارٽري ٽيسٽ جو متبادل ناهي.',
+        },
         visual_inspection: {
           lesion_detected: true,
-          lesion_count: 'Multiple discrete lesions visible across leaf blade',
+          lesion_count: 'Multiple discrete lesions (approx 4-7 visible) across leaf blade',
           lesion_shape: 'spindle_shaped',
+          lesion_size_est: '4 to 8 mm length',
           lesion_colors: ['whitish_grey_center', 'dark_brown_margins', 'yellow_halo'],
           lesion_margins: 'Distinct dark brown necrotic border',
           lesion_distribution: 'Scattered across mid and upper leaf blade',
           tissue_damage: 'Focal necrotic lesions with center desiccation',
+          chlorosis_detected: true,
+          necrosis_detected: true,
+          wilting_detected: false,
+          affected_area_pct: 12,
+          detected_hotspots: [
+            { x: 30, y: 35, w: 22, h: 14, label: 'Blast Spindle Lesion (12% leaf area)' },
+            { x: 48, y: 56, w: 18, h: 12, label: 'Secondary Necrotic Spot' },
+          ],
         },
         diagnosis_status: 'possible_disease',
         plant_condition: 'Rice foliage exhibits visible necrotic lesions with contrasting margins.',
@@ -1111,6 +1338,54 @@ export function getFallbackCropDiagnosis(
             },
           },
         ],
+        differential_diagnoses: [
+          {
+            name: 'Rice Brown Spot',
+            scientific_name: 'Bipolaris oryzae',
+            similarities: {
+              en: 'Produces dark brown foliar necrotic lesions with lighter centers.',
+              ur: 'پتوں پر گہرے بھورے مردہ دھبے اور اندرونی ہلکا رنگ۔',
+              roman_ur: 'Patton par gehre bhoore dhabbe.',
+              sd: 'پنن تي ناسي داغ.',
+            },
+            differences: {
+              en: 'Brown spot lesions are strictly circular or oval with rounded ends, whereas blast creates pointed spindle/diamond geometry.',
+              ur: 'براؤن سپاٹ کے دھبے گول یا بیضوی ہوتے ہیں، جبکہ بلاسٹ کے دھبے تکلا نما (آنکھ جیسے نوکدار) ہوتے ہیں۔',
+              roman_ur: 'Brown spot gol hota hai jabke blast spindle numa nokdar hota hai.',
+              sd: 'ناسي داغ گول هوندا آهن، جڏهن ته بلاست جا داغ اک جهڙا نوڪدار هوندا آهن.',
+            },
+            likelihood: 'less_likely',
+            field_distinction_tip: {
+              en: 'Inspect leaf blade under hand lens: pointed eye-shaped geometry with gray ash center indicates blast.',
+              ur: 'ہینڈ لینس سے دیکھیں: اگر دھبے کے دونوں سرے نوکدار اور درمیان سرمئی راکھ جیسا ہو تو یہ بلاسٹ ہے۔',
+              roman_ur: 'Lens se dekhein: nokdar spindle shape blast ki nishani hai.',
+              sd: 'لينس سان ڏسو: نوڪدار نشان بلاست جي پڪي سڃاڻپ آهي.',
+            },
+          },
+          {
+            name: 'Bacterial Leaf Blight',
+            scientific_name: 'Xanthomonas oryzae pv. oryzae',
+            similarities: {
+              en: 'Causes leaf desiccation and chlorotic foliar yellowing.',
+              ur: 'پتوں کا سوکھاؤ اور پیلا پن۔',
+              roman_ur: 'Patton ka sookhao aur peela pan.',
+              sd: 'پنن جو سڪڻ ۽ پيلو ٿيڻ.',
+            },
+            differences: {
+              en: 'Bacterial blight starts as wavy water-soaked marginal stripes progressing along veins from the tip, not discrete spindle spots.',
+              ur: 'بیکٹیریل بلائیٹ پتے کے کناروں سے لہراتی پٹیوں کی شکل میں شروع ہوتا ہے، انفرادی تکلا دھبے نہیں بناتا۔',
+              roman_ur: 'Bacterial blight kinaray se lehrati pattiyan banata hai.',
+              sd: 'بيڪٽيريل بلائيٽ ڪنارن کان پٽيون ٺاهيندو آهي.',
+            },
+            likelihood: 'unlikely',
+            field_distinction_tip: {
+              en: 'Cut leaf tip in water; bacterial ooze streams out in BLB, absent in blast.',
+              ur: 'پتے کے کنارے کو صاف پانی کے گلاس میں کاٹ کر رکھیں؛ بیکٹیریا کی سفید لکیر نکلے تو بیکٹیریل بلائیٹ ہے۔',
+              roman_ur: 'Paani mein patta kaat kar dekhein; safaid dhaar bacterial ooze BLB hai.',
+              sd: 'پاڻي ۾ پن وجهي چڪاس ڪريو.',
+            },
+          },
+        ],
         why_suspected: {
           en: 'Spindle-shaped lesions with greyish centers and dark brown margins observed on the rice leaf blade are visually characteristic of Rice Blast; differentiated from healthy leaves by focal tissue necrosis.',
           ur: 'دھان کے پتے پر تکلا نما (Spindle-shaped) دھبے جن کا درمیانی حصہ سرمئی اور کنارے گہرے بھورے ہیں، رائس بلاسٹ کی خاص علامت ہیں۔',
@@ -1140,11 +1415,21 @@ export function getFallbackCropDiagnosis(
           },
         ],
         severity: 'medium',
+        severity_level: 'medium',
         severity_explanation: {
           en: 'Foliage blast requires prompt intervention to prevent spread to stem nodes and emerging panicles.',
           ur: 'پتوں کا بلاسٹ اگر بروقت نہ روکا جائے تو یہ تنے اور مونجھ تک پھیل کر پیداوار کو متاثر کر سکتا ہے۔',
           roman_ur: 'Patton ka blast agar barwaqt na roka jaye to sitti tak phel sakta hai.',
           sd: 'پنن جو بلاست جيڪڏهن وقت تي نه روڪيو ويو ته ٻڙي تائين پکڙجي سگهي ٿو.',
+        },
+        severity_scope: {
+          leaf_affected_pct: 12,
+          scope_note: {
+            en: 'Leaf-level damage is approximately 12%. Scout 20+ hills across the field in an X-pattern to estimate field-level percentage before spraying.',
+            ur: 'اس پتے پر تقریباً 12 فیصد رقبہ متاثر ہے۔ سپرے سے قبل پورے کھیت میں 20 مختلف پودوں کا ایکس پیٹرن میں معائنہ کریں۔',
+            roman_ur: 'Patte par 12% nuqsan hai. Pure khet mein 20 podon ka muaina karein.',
+            sd: 'هن پن تي لڳ ڀڳ 12 سيڪڙو نقصان آهي. سڄي فيلڊ ۾ 20 ٻوٽن جي جاچ ڪريو.',
+          },
         },
         recommendations: [
           {
@@ -1173,6 +1458,61 @@ export function getFallbackCropDiagnosis(
           },
         ],
         what_to_do_now: [],
+        treatment_pillars: {
+          immediate_actions: [
+            {
+              en: 'Halt all Urea / high-nitrogen fertilizer top-dressing immediately; free nitrogen drastically accelerates fungal hyphal invasion.',
+              ur: 'یوریا کھاد کا استعمال فوری روک دیں؛ زیادہ نائٹروجن سے بلاسٹ کی پھپھوندی کا پھیلاؤ بجلی کی رفتار سے بڑھتا ہے۔',
+              roman_ur: 'Urea ka istemal foran rokein; nitrogen se fungus tezi se phailti hai.',
+              sd: 'يوريا جو استعمال فوري بند ڪريو، وڌيڪ نائٽروجن سان بيماري تيزي سان وڌندي.',
+            },
+            {
+              en: 'Scout 20 hills across your field in an X-pattern to assess if more than 3-5% leaves show active spindle lesions.',
+              ur: 'کھیت میں ایکس (X) ترتیب سے 20 پودوں کا معائنہ کریں تاکہ پتہ چلے کہ کتنے فیصد پتے متاثر ہیں۔',
+              roman_ur: 'Khet mein 20 podon ka muaina karein takay nuqsan ka sahi andaza ho.',
+              sd: 'ٻنيءَ ۾ 20 ٻوٽن جو معائنو ڪريو ته نقصان جو پتو پوي.',
+            },
+          ],
+          cultural_management: [
+            {
+              en: 'Maintain shallow standing water (2 to 3 inches); avoid field desiccation which induces severe drought stress and blast susceptibility.',
+              ur: 'کھیت میں 2 سے 3 انچ پانی کھڑا رکھیں؛ زمین کو سوکا نہ لگنے دیں کیونکہ خشکی سے بلاسٹ بڑھتا ہے۔',
+              roman_ur: 'Khet mein 2-3 inch pani khara rakhein; zameen sukne na dein.',
+              sd: 'ٻنيءَ ۾ 2 کان 3 انچ پاڻي رکو؛ زمين کي سڪڻ نه ڏيو.',
+            },
+            {
+              en: 'Remove severely blighted leaves from borders and bury outside the field.',
+              ur: 'کھیت کے کناروں پر شدید متاثرہ پتے کاٹ کر مٹی میں دبا دیں۔',
+              roman_ur: 'Shadeed mutasira patte khet se bahar dafan karein.',
+              sd: 'سخت متاثر پن ڪٽي کڏ ۾ پوري ڇڏيو.',
+            },
+          ],
+          biological_management: [
+            {
+              en: 'Biocontrol agents such as Trichoderma harzianum or Bacillus subtilis formulations can suppress airborne sporulation when applied preventatively.',
+              ur: 'حیاتیاتی پھپھوندی کش جیسے ٹرائیکوڈرما (Trichoderma) یا بیسلس بیکٹیریا کے سپرے سے پھپھوندی کی روک تھام میں مدد ملتی ہے۔',
+              roman_ur: 'Trichoderma ya Bacillus bio-fungicide se madad milti hai.',
+              sd: 'ٽرائيڪوڊرما يا بايو فنجي سائيڊ جو استعمال مددگار ٿي سگهي ٿو.',
+            },
+          ],
+          chemical_management: [
+            {
+              active_ingredient: 'Tricyclazole 75% WP (or Isoprothiolane 40% EC)',
+              purpose: {
+                en: 'Systemic melanin-biosynthesis inhibitor specifically targeting Magnaporthe blast spores.',
+                ur: 'سسٹمک پھپھوندی کش دوا جو بلاسٹ کی پھپھوندی کے پھیلاؤ کو اندرونی طور پر روکتی ہے۔',
+                roman_ur: 'Systemic fungicide jo blast ko rokne ke liye makhsoos hai.',
+                sd: 'سسٽمڪ فنجي سائيڊ جيڪا بلاست جي روڪٿام لاءِ مخصوص آهي.',
+              },
+              safety_precautions: {
+                en: 'Wear face mask, gloves, and protective gear. Observe 14-day pre-harvest interval (PHI). Follow product label and verify with local extension officer.',
+                ur: 'ماسک، دستانے اور حفاظتی لباس پہن کر سپرے کریں۔ کٹائی سے 14 دن قبل سپرے بند کر دیں۔ مقدار لیبل سے پڑھیں اور زرعی افسر سے مشورہ کریں۔',
+                roman_ur: 'Mask aur gloves pehanein. 14 din ka waqfa rakhein. Zaria afsar se mashwara karein.',
+                sd: 'ماسک ۽ دستانا پائي اسپري ڪريو. 14 ڏينهن اڳ اسپري بند ڪريو.',
+              },
+            },
+          ],
+        },
         prevention: [
           {
             en: 'Sow certified blast-resistant varieties and treat seed with registered fungicide before seeding.',
@@ -1192,6 +1532,26 @@ export function getFallbackCropDiagnosis(
           ur: 'اگر تکلا نما دھبے 3 سے 5 فیصد پتوں پر ظاہر ہوں یا مونجھ کے قریب پہنچیں تو بغیر تاخیر مقامی زرعی افسر سے معائنہ کروائیں۔',
           roman_ur: 'Agar dhabbe 3-5% patton par zahir hon to foran zaria afsar ko dikhayein.',
           sd: 'جيڪڏهن نشان 3 کان 5 سيڪڙو پنن تي ظاهر ٿين ته ترت زرعي عملدار کي ڏيکاريو.',
+        },
+        explanations: {
+          farmer_friendly: {
+            en: 'Your rice leaf shows classic signs of Blast (Jhulsao). It creates eye-shaped spots with gray centers. Please stop applying Urea immediately and confirm with your agriculture extension officer before spraying.',
+            ur: 'محترم کسان بھائی، آپ کے دھان کے پتے پر بلاسٹ (جھلساؤ) کے دھبے نظر آرہے ہیں۔ اس میں دھبے تکلا نما ہوتے ہیں اور اندر سے سرمئی ہوتے ہیں۔ یوریا کھاد فوری روک دیں اور زرعی افسر کے مشورے سے منظور شدہ سپرے کریں۔',
+            roman_ur: 'Dhan ke patte par blast (jhulsao) ke dhabbe hain. Urea foran rokein aur zaria afsar se mashwara karein.',
+            sd: 'چانورن جي پن تي بلاست جي بيماري آهي. يوريا جو استعمال ترت بند ڪريو ۽ زرعي عملدار سان صلاح ڪريو.',
+          },
+          scientific: {
+            en: 'Foliar blast caused by Magnaporthe oryzae (ascomycete). Diagnostic diamond/spindle-shaped lesions display ash-gray necrotic center surrounded by reddish-brown border bounded by leaf venation.',
+            ur: 'دھان کا بلاسٹ، میگنا پور تھی اورائزائی پھپھوندی کا حملہ۔ بیضوی تکلا نما دھبے جن کا مرکز سرمئی اور حاشیہ گہرا بھورا ہے۔',
+            roman_ur: 'Magnaporthe oryzae fungus blast. Spindle lesions with ash-gray center.',
+            sd: 'ميگناپورٿي اورائزائي فنگس جو حملو. تڪلا نما نشان جن جي وچ راک جهڙي آهي.',
+          },
+        },
+        voice_script: {
+          en: 'Rice leaf blast symptoms detected with multiple spindle lesions. Halt urea application immediately, regulate field water depth, and consult your local agriculture extension officer.',
+          ur: 'دھان کے پتے پر بلاسٹ بیماری کی علامات دیکھی گئی ہیں۔ یوریا کا استعمال روک دیں، کھیت میں وتر برقرار رکھیں اور قریبی زرعی افسر سے تصدیق کر کے مناسب سپرے کریں۔',
+          roman_ur: 'Dhan ke patte par blast ki alamaat hain. Urea ka istemal rokein aur zaria afsar se rabta karein.',
+          sd: 'چانورن جي پن تي بلاست جون نشانيون آهن. يوريا بند ڪريو ۽ زرعي عملدار سان رابطو ڪريو.',
         },
         requires_retake: false,
         requires_expert_review: true,
@@ -1230,14 +1590,29 @@ export function getFallbackCropDiagnosis(
       growth_stage_roman_ur: 'Barhotri ka marhala',
       growth_stage_sd: 'واڌ ويجهه جو مرحلو',
       identification_confidence: 0.94,
+      scientific_name: '',
+      pathogen_type: 'healthy',
+      confidence_category: 'high',
+      confidence_limitations: {
+        en: 'Visual AI scan confirms no macroscopic lesions. Latent micro-spores or root vascular pathogens cannot be seen from surface photography.',
+        ur: 'بصری معائنے میں کوئی ظاہری دھبے نہیں ملے۔ زمین کے اندر جڑوں یا رگوں کی پوشیدہ بیماریاں سطح کی تصویر سے نہیں دیکھی جا سکتیں۔',
+        roman_ur: 'Basri muainay mein koi dhabba nahi mila. Posheeda jarron ki bemari tasveer se nahi dikhti.',
+        sd: 'ظاهري چڪاس ۾ ڪوبه داغ ناهي. پوريل بيماريون فوٽو مان نه ٿيون ڏسجن.',
+      },
       visual_inspection: {
         lesion_detected: false,
         lesion_count: 'none',
         lesion_shape: 'none',
+        lesion_size_est: 'none',
         lesion_colors: [],
         lesion_margins: 'none',
         lesion_distribution: 'none',
         tissue_damage: 'intact vigorous green tissue',
+        chlorosis_detected: false,
+        necrosis_detected: false,
+        wilting_detected: false,
+        affected_area_pct: 0,
+        detected_hotspots: [],
       },
       diagnosis_status: 'healthy_no_symptoms',
       plant_condition: 'No obvious visible symptoms detected. Plant tissue appears normal, green, and vigorous.',
@@ -1252,6 +1627,7 @@ export function getFallbackCropDiagnosis(
       },
       possible_disease: [],
       alternative_diagnoses: [],
+      differential_diagnoses: [],
       why_suspected: {
         en: 'Uniform green coloration across leaf lamina with zero necrotic spots, zero blast spindles, and no visible pest feeding.',
         ur: 'پتے کی سطح پر یکساں سبز رنگت، کسی قسم کے دھبوں یا کیڑوں کے بغیر مکمل صحت مند کیفیت۔',
@@ -1268,11 +1644,21 @@ export function getFallbackCropDiagnosis(
         },
       ],
       severity: 'low',
+      severity_level: 'healthy_none',
       severity_explanation: {
         en: 'No active tissue damage or disease lesions observed.',
         ur: 'بافتوں کا کوئی نقصان یا بیماری کے دھبے موجود نہیں ہیں۔',
         roman_ur: 'Pattay ko koi nuqsan nahi pohancha.',
         sd: 'ٻوٽي کي ڪوبه نقصان ناهي پهتو.',
+      },
+      severity_scope: {
+        leaf_affected_pct: 0,
+        scope_note: {
+          en: 'Photographed leaf is healthy (0% damage). Continue regular field scouting across the block.',
+          ur: 'تصویر والا پتا تندرست ہے (0 فیصد نقصان)۔ کھیت کا معمول کا معائنہ جاری رکھیں۔',
+          roman_ur: 'Patta tandrust hai. Khet ka muaina jari rakhein.',
+          sd: 'پن صحتمند آهي. فيلڊ جو چڪاس جاري رکو.',
+        },
       },
       recommendations: [
         {
@@ -1295,6 +1681,33 @@ export function getFallbackCropDiagnosis(
         },
       ],
       what_to_do_now: [],
+      treatment_pillars: {
+        immediate_actions: [
+          {
+            en: 'No emergency chemical action needed. Continue routine monitoring.',
+            ur: 'کسی ہنگامی سپرے کی ضرورت نہیں ہے۔ معمول کی دیکھ بھال جاری رکھیں۔',
+            roman_ur: 'Kisi spray ki zaroorat nahi hai.',
+            sd: 'ڪنهن به اسپري جي ضرورت ناهي.',
+          },
+        ],
+        cultural_management: [
+          {
+            en: 'Maintain clean field borders and balanced fertilization.',
+            ur: 'کھیت کی وٹیں صاف رکھیں اور متوازن کھاد دیں۔',
+            roman_ur: 'Khet saf rakhein aur mutawazan khad dein.',
+            sd: 'ٻني صاف رکو ۽ متوازن ڀاڻ ڏيو.',
+          },
+        ],
+        biological_management: [
+          {
+            en: 'Conserve beneficial natural predator insects (ladybird beetles, spiders).',
+            ur: 'دوست کیڑوں (لیڈی برڈ بیٹل، مکڑیاں) کی حفاظت کریں۔',
+            roman_ur: 'Dost keeron ki hifazat karein.',
+            sd: 'دوست جيتن جو تحفظ ڪريو.',
+          },
+        ],
+        chemical_management: [],
+      },
       prevention: [
         {
           en: 'Practice field hygiene and keep weed hosts clear around field borders.',
@@ -1314,6 +1727,26 @@ export function getFallbackCropDiagnosis(
         ur: 'اگر ہفتہ وار معائنے کے دوران کسی پتے پر دھبے یا مڑاؤ نظر آئے تو زرعی افسر سے مشورہ کریں۔',
         roman_ur: 'Agar haftawar muainay ke dauran dhabbe nazar ayein to zaria afsar se mashwara karein.',
         sd: 'جيڪڏهن هفتيوار معائني دوران ڪو داغ نظر اچي ته زرعي آفيسر سان صلاح ڪريو.',
+      },
+      explanations: {
+        farmer_friendly: {
+          en: 'Your crop leaf is healthy, green, and vigorous. No disease lesions or pest damage observed. Keep up routine care and avoid unnecessary pesticide sprays.',
+          ur: 'ماشاءاللہ آپ کی فصل کا یہ پتا بالکل تندرست اور سرسبز ہے۔ اس پر کوئی بیماری یا کیڑا نہیں ملا۔ بلاوجہ سپرے سے پرہیز کریں اور معمول کی دیکھ بھال جاری رکھیں۔',
+          roman_ur: 'Aap ki fasal ka patta bilkul tandrust aur sabz hai. Kisi spray ki zaroorat nahi hai.',
+          sd: 'توهان جي فصل جو هي پن بلڪل صحتمند آهي. واڌو اسپري کان پاسو ڪريو.',
+        },
+        scientific: {
+          en: 'Macroscopic foliar architecture displays intact cellular integrity, uniform chlorophyll pigmentation, zero visible stomatal necrotic lesions, and absence of insect feeding punctures.',
+          ur: 'پتے کے خلیات اور کلوروفل کی بافتیں مکمل طور پر سلامت ہیں۔ کسی قسم کا بافتی بگاڑ یا کیڑوں کے چبانے کے نشانات موجود نہیں۔',
+          roman_ur: 'Pattay ke bafti khaliyaat mukammal salamat hain.',
+          sd: 'پن جون بافتون بلڪل صحتمند آهن.',
+        },
+      },
+      voice_script: {
+        en: 'Scanned plant appears healthy with zero visible lesions. Routine crop care and scouting are recommended.',
+        ur: 'اسکین شدہ پودا بظاہر بالکل تندرست ہے۔ کسی سپرے کی ضرورت نہیں، معمول کی دیکھ بھال جاری رکھیں۔',
+        roman_ur: 'Poda tandrust hai. Kisi spray ki zaroorat nahi hai.',
+        sd: 'ٻوٽو صحتمند آهي، عام سنڀال جاري رکو.',
       },
       requires_retake: false,
       requires_expert_review: false,
@@ -1344,14 +1777,29 @@ export function getFallbackCropDiagnosis(
     growth_stage_roman_ur: 'Barhotri ka marhala',
     growth_stage_sd: 'واڌ ويجهه جو مرحلو',
     identification_confidence: 0.60,
+    scientific_name: '',
+    pathogen_type: 'unknown',
+    confidence_category: 'uncertain',
+    confidence_limitations: {
+      en: 'Analysis was performed in offline baseline mode without active cloud neural pathology network.',
+      ur: 'یہ معائنہ کلاؤڈ نیورل نیٹ ورک کے بغیر بنیادی موڈ میں ہوا ہے۔',
+      roman_ur: 'Yeh muaina basic mode mein hua hai.',
+      sd: 'هي چڪاس بنيادي موڊ ۾ ٿي آهي.',
+    },
     visual_inspection: {
       lesion_detected: false,
       lesion_count: 'uncertain',
       lesion_shape: 'none',
+      lesion_size_est: 'none',
       lesion_colors: [],
       lesion_margins: 'none',
       lesion_distribution: 'none',
       tissue_damage: 'inconclusive without active AI vision',
+      chlorosis_detected: false,
+      necrosis_detected: false,
+      wilting_detected: false,
+      affected_area_pct: 0,
+      detected_hotspots: [],
     },
     diagnosis_status: 'uncertain',
     plant_condition: 'Visual pathology analysis is inconclusive without active Gemini AI cloud inspection. If your plant has visible spots, wilting, or yellowing, do not assume it is healthy.',
@@ -1366,6 +1814,7 @@ export function getFallbackCropDiagnosis(
     },
     possible_disease: [],
     alternative_diagnoses: [],
+    differential_diagnoses: [],
     why_suspected: {
       en: 'Basic offline heuristics did not detect acute macro-damage, but Gemini Multimodal Vision is required to inspect subtle blast spindles, fungal spots, and leaf blight.',
       ur: 'بنیادی آف لائن چیک میں بڑا نقصان نہیں ملا، لیکن پتے کے باریک دھبے اور بلاسٹ جانچنے کے لیے جیمنائی وژن درکار ہے۔',
@@ -1382,11 +1831,21 @@ export function getFallbackCropDiagnosis(
       },
     ],
     severity: 'not_assessed',
+    severity_level: 'unable_to_determine',
     severity_explanation: {
       en: 'Severity cannot be confirmed without active Gemini AI vision inspection.',
       ur: 'جیمنائی اے آئی کے بغیر بیماری کی شدت کا حتمی اندازہ نہیں لگایا جا سکتا۔',
       roman_ur: 'Gemini ke baghair shiddat ka andaza nahi lagaya ja sakta.',
       sd: 'جيمنائي بنا بيماري جي شدت جو حتمي اندازو نٿو لڳائي سگهجي.',
+    },
+    severity_scope: {
+      leaf_affected_pct: 0,
+      scope_note: {
+        en: 'Inconclusive offline state. Do not extrapolate to whole field without physical extension scouting.',
+        ur: 'غیر حتمی کیفیت۔ فیلڈ زرعی افسر کے معائنے کے بغیر پورے کھیت پر قیاس نہ کریں۔',
+        roman_ur: 'Zaria afsar ke muainay ke baghair khet ka andaza na lagayein.',
+        sd: 'زرعي آفيسر جي چڪاس بنا پوري فيلڊ جو اندازو نه لڳايو.',
+      },
     },
     recommendations: [
       {
@@ -1397,12 +1856,45 @@ export function getFallbackCropDiagnosis(
       },
     ],
     what_to_do_now: [],
+    treatment_pillars: {
+      immediate_actions: [
+        {
+          en: 'Inspect leaf foliage closely for spots or discoloration.',
+          ur: 'پتوں کا قریب سے معائنہ کریں کہ کہیں دھبے یا سوکھاؤ تو نہیں۔',
+          roman_ur: 'Patton ka qareeb se muaina karein.',
+          sd: 'پنن جي ويجهو کان چڪاس ڪريو.',
+        },
+      ],
+      cultural_management: [],
+      biological_management: [],
+      chemical_management: [],
+    },
     prevention: [],
     when_to_consult_expert: {
       en: 'If suspicious lesions or leaf spots are visible, consult your local agricultural extension officer.',
       ur: 'اگر پتے پر دھبے نظر آ رہے ہیں تو مقامی زرعی توسیعی افسر کو دکھائیں۔',
       roman_ur: 'Agar dhabbe nazar arahe hain to zaria afsar ko dikhayein.',
       sd: 'جيڪڏهن پن تي داغ آهن ته زرعي آفيسر کي ڏيکاريو.',
+    },
+    explanations: {
+      farmer_friendly: {
+        en: 'The scan could not connect to the cloud vision server. If your crop has visible spots or problems, please show it to your local agricultural extension officer.',
+        ur: 'کلاؤڈ سرور سے مکمل رابطہ نہ ہو سکا۔ اگر پتے پر کوئی دھبے یا خرابی نظر آرہی ہے تو اپنے قریبی زرعی توسیعی دفتر سے رابطہ فرمائیں۔',
+        roman_ur: 'Server se rabta nahi ho saka. Agar poda bimar hai to zaria afsar ko dikhayein.',
+        sd: 'ڪلائوڊ سرور سان رابطو نٿي سگهيو. جيڪڏهن ٻوٽو بيمار آهي ته زرعي عملدار کي ڏيکاريو.',
+      },
+      scientific: {
+        en: 'Offline heuristic inference fallback was utilized. Deep visual feature extraction requires active API connectivity.',
+        ur: 'آف لائن فال بیک کا استعمال کیا گیا ہے۔ مکمل بافتی تجزیے کے لیے انٹرنیٹ کنکشن درکار ہے۔',
+        roman_ur: 'Offline fallback istemal hua hai.',
+        sd: 'آف لائن تجزيو استعمال ٿيو.',
+      },
+    },
+    voice_script: {
+      en: 'Offline scan inconclusive. If your crop foliage has abnormal spots, please consult your local agriculture officer.',
+      ur: 'آف لائن معائنہ غیر حتمی ہے۔ اگر پتے پر مشتبہ دھبے ہیں تو مقامی زرعی افسر سے مشورہ فرمائیں۔',
+      roman_ur: 'Offline muaina ghair yaqeeni hai. Zaria afsar se mashwara karein.',
+      sd: 'آف لائن چڪاس غير حتمي آهي. زرعي آفيسر سان صلاح ڪريو.',
     },
     requires_retake: false,
     requires_expert_review: true,

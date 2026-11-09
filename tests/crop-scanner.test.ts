@@ -681,6 +681,188 @@ testCase('TEST 13: Fallback Crop Scanner prevents False Negatives when client op
   assert.equal(fallbackClean.visual_inspection.lesion_detected, false);
 });
 
+testCase('TEST 14: Extreme AI Plant Scan Schema: Scientific Name, Pathogen Type, Calibrated Confidence, Hotspots & Dual Explanations', () => {
+  const diag = validateDiagnosis({
+    image_valid: true,
+    detected_crop: 'Wheat',
+    detected_crop_ur: 'گندم',
+    selected_crop: 'Wheat',
+    crop_match: true,
+    detected_plant_part: 'Leaf',
+    detected_plant_part_ur: 'پتا',
+    growth_stage: 'Booting',
+    growth_stage_ur: 'گوبھ کا مرحلہ',
+    identification_confidence: 0.94,
+    scientific_name: 'Puccinia striiformis',
+    pathogen_type: 'fungal',
+    confidence_category: 'high',
+    confidence_limitations: {
+      en: 'Visual AI scan confirms striping pustule morphology but cannot replace spore microscopy.',
+      ur: 'بصری معائنہ پیلی کنگی کی پٹیوں کی تصدیق کرتا ہے مگر مائکروسکوپ کا متبادل نہیں۔',
+    },
+    visual_inspection: {
+      lesion_detected: true,
+      lesion_count: 'Linear yellow pustule stripes along parallel leaf veins',
+      lesion_shape: 'elongated_irregular',
+      lesion_size_est: '1 to 2 mm width in continuous linear stripes',
+      lesion_colors: ['bright_yellow', 'orange_yellow'],
+      lesion_margins: 'vein_delimited',
+      lesion_distribution: 'parallel to leaf veins on upper blade',
+      tissue_damage: 'epidermal rupture with yellow urediniospores',
+      chlorosis_detected: true,
+      necrosis_detected: false,
+      wilting_detected: false,
+      affected_area_pct: 18,
+      detected_hotspots: [
+        { x: 25, y: 30, w: 20, h: 45, label: 'Yellow Rust Stripe' },
+      ],
+    },
+    diagnosis_status: 'possible_disease',
+    plant_condition: 'Wheat foliage exhibits classic yellow stripe rust linear pustules.',
+    plant_condition_ur: 'گندم کے پتے پر پیلی کنگی کی زرد پٹیاں دیکھی گئیں۔',
+    problem_name: {
+      en: 'Stripe / Yellow Rust (Puccinia striiformis)',
+      ur: 'گندم کی زرد / پیلی کنگی (Yellow Rust)',
+    },
+    possible_disease: [
+      { name: 'Yellow Rust (Puccinia striiformis)', name_ur: 'پیلی کنگی', confidence: 0.94, is_primary: true },
+    ],
+    severity: 'high',
+    severity_level: 'high',
+    severity_scope: {
+      leaf_affected_pct: 18,
+      scope_note: {
+        en: 'Photographed leaf has 18% pustule coverage. Scout 20+ plants in an X-pattern.',
+        ur: 'اس پتے پر 18 فیصد کنگی ہے۔ پورے کھیت میں 20 پودوں کا معائنہ کریں۔',
+      },
+    },
+    recommendations: [
+      { en: 'Apply registered triazole class fungicide.', ur: 'منظور شدہ ٹرائیازول گروپ سپرے کریں۔' },
+    ],
+    treatment_pillars: {
+      immediate_actions: [
+        { en: 'Inspect surrounding fields for yellow pustule dust.', ur: 'کھیت کے گرد زرد پاؤڈر چیک کریں۔' },
+      ],
+      cultural_management: [
+        { en: 'Plant certified rust-resistant wheat varieties (e.g. Akbar-19, Dilkash-20).', ur: 'قوتِ مدافعت رکھنے والی اقسام کاشت کریں۔' },
+      ],
+      biological_management: [],
+      chemical_management: [
+        {
+          active_ingredient: 'Propiconazole 25% EC (or Tebuconazole)',
+          purpose: { en: 'Ergosterol biosynthesis inhibitor suppressing rust mycelium.', ur: 'کنگی کا پھیلاؤ روکنے والی دوا۔' },
+          safety_precautions: { en: 'Observe 21-day PHI, wear PPE.', ur: 'حفاظتی تدابیر اپنائیں۔' },
+        },
+      ],
+    },
+    prevention: [
+      { en: 'Avoid late sowing which exposes crop to high spring humidity.', ur: 'پچھیتی کاشت سے گریز کریں۔' },
+    ],
+    explanations: {
+      farmer_friendly: {
+        en: 'Your wheat shows yellow rust. Spores spread rapidly by wind in cool moist weather.',
+        ur: 'گندم کے پتے پر پیلی کنگی کا حملہ ہے۔ یہ ٹھنڈے اور مرطوب موسم میں ہوا سے تیزی سے پھیلتی ہے۔',
+      },
+      scientific: {
+        en: 'Puccinia striiformis f. sp. tritici obligate biotrophic rust with parallel uredinial pustules.',
+        ur: 'پکسینیا سٹرائی فورمس کنگی کا حملہ۔ پتے کی رگوں کے متوازی زرد پٹیاں۔',
+      },
+    },
+    voice_script: {
+      en: 'Wheat yellow rust detected. Prompt fungicide application is advised.',
+      ur: 'گندم پر پیلی کنگی کا حملہ ہے۔ فوری طور پر توسیعی افسر کے مشورے سے سپرے کریں۔',
+    },
+    requires_retake: false,
+    requires_expert_review: true,
+    message: { en: 'Yellow rust pustules detected on wheat foliage.', ur: 'پیلی کنگی دیکھی گئی۔' },
+  });
+
+  assert.equal(diag.scientific_name, 'Puccinia striiformis');
+  assert.equal(diag.pathogen_type, 'fungal');
+  assert.equal(diag.confidence_category, 'high');
+  assert.equal(diag.severity_level, 'high');
+  assert.equal(diag.visual_inspection.detected_hotspots?.length, 1);
+  assert.equal(diag.visual_inspection.affected_area_pct, 18);
+  assert.ok(diag.treatment_pillars?.chemical_management.length! > 0);
+  assert.ok(diag.explanations?.farmer_friendly.ur.includes('پیلی کنگی'));
+});
+
+testCase('TEST 15: Differential Diagnosis Engine validates comparisons and field distinction tips', () => {
+  const diag = validateDiagnosis({
+    image_valid: true,
+    detected_crop: 'Tomato',
+    detected_crop_ur: 'ٹماٹر',
+    selected_crop: 'Tomato',
+    crop_match: true,
+    detected_plant_part: 'Leaf',
+    detected_plant_part_ur: 'پتا',
+    growth_stage: 'Fruiting',
+    growth_stage_ur: 'پھل لگنے کا مرحلہ',
+    identification_confidence: 0.91,
+    scientific_name: 'Alternaria solani',
+    pathogen_type: 'fungal',
+    confidence_category: 'moderate',
+    diagnosis_status: 'possible_disease',
+    plant_condition: 'Concentric bullseye rings visible on lower tomato leaves.',
+    plant_condition_ur: 'نچلے پتوں پر ہدف نما دائرے دیکھے گئے۔',
+    problem_name: { en: 'Tomato Early Blight', ur: 'ٹماٹر کا اگیتا جھلساؤ' },
+    possible_disease: [{ name: 'Early Blight', name_ur: 'اگیتا جھلساؤ', confidence: 0.91 }],
+    differential_diagnoses: [
+      {
+        name: 'Tomato Late Blight',
+        scientific_name: 'Phytophthora infestans',
+        similarities: { en: 'Both cause dark foliar lesions.', ur: 'دونوں پتوں پر سیاہ دھبے بناتے ہیں۔' },
+        differences: { en: 'Early blight forms concentric bullseye rings; late blight causes irregular greasy lesions with white mold underside.', ur: 'اگیتا جھلساؤ میں گول دائرے بنتے ہیں جبکہ پچھیتا میں گریس جیسے دھبے اور نیچے سفید پھپھوندی ہوتی ہے۔' },
+        likelihood: 'less_likely',
+        field_distinction_tip: { en: 'Check lesion pattern: target rings = early blight; white downy mold underside = late blight.', ur: 'ہدف نما دائرے ہوں تو اگیتا جھلساؤ، نیچے سفید پھپھوندی ہو تو پچھیتا جھلساؤ ہے۔' },
+      },
+    ],
+    severity: 'medium',
+    severity_level: 'medium',
+    recommendations: [{ en: 'Remove lower leaves.', ur: 'نچلے پتے توڑ دیں۔' }],
+    prevention: [],
+    requires_retake: false,
+    requires_expert_review: false,
+    message: { en: 'Early blight detected.', ur: 'اگیتا جھلساؤ ملا۔' },
+  });
+
+  assert.equal(diag.differential_diagnoses?.length, 1);
+  assert.equal(diag.differential_diagnoses![0].scientific_name, 'Phytophthora infestans');
+  assert.equal(diag.differential_diagnoses![0].likelihood, 'less_likely');
+  assert.ok(diag.differential_diagnoses![0].field_distinction_tip.en.includes('target rings'));
+});
+
+testCase('TEST 16: Fallback Crop Scanner generates full extreme intelligence fields for Rice Blast', async () => {
+  const { getFallbackCropDiagnosis } = await import('../lib/gemini');
+  const fallback = getFallbackCropDiagnosis('Rice', false, {
+    isBlurry: false,
+    isDark: false,
+    isOverexposed: false,
+    isTooSmall: false,
+    blurScore: 90,
+    brightnessScore: 120,
+    subjectRatio: 0.5,
+    greenRatio: 0.5,
+    yellowRatio: 0.02,
+    lesionRatio: 0.02,
+    hasVisibleLesions: true,
+    overallScore: 0.9,
+    isAcceptable: true,
+  });
+
+  assert.equal(fallback.scientific_name, 'Magnaporthe oryzae');
+  assert.equal(fallback.pathogen_type, 'fungal');
+  assert.equal(fallback.confidence_category, 'moderate');
+  assert.equal(fallback.severity_level, 'medium');
+  assert.equal(fallback.severity_scope?.leaf_affected_pct, 12);
+  assert.ok(fallback.visual_inspection.detected_hotspots?.length! >= 1);
+  assert.ok(fallback.differential_diagnoses?.length! >= 1);
+  assert.ok(fallback.treatment_pillars?.immediate_actions.length! >= 1);
+  assert.ok(fallback.treatment_pillars?.chemical_management.length! >= 1);
+  assert.ok(fallback.explanations?.farmer_friendly.ur.includes('بلاسٹ'));
+  assert.ok(fallback.voice_script?.ur.includes('دھان کے پتے'));
+});
+
 console.log(`\n🎉 Unit Test Summary: ${passed} passed, ${failed} failed.\n`);
 if (failed > 0) {
   process.exit(1);
