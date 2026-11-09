@@ -143,27 +143,14 @@ export function FarmerPersonaCard({
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <h3 className="font-extrabold text-xl text-white truncate">
-              {profile.fullName}
-            </h3>
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-olive-fresh/25 text-cream border border-olive-fresh/40">
-              <CheckCircle2 className="w-3 h-3 text-olive-fresh" />
-              {t('verifiedFarmer')}
-            </span>
-          </div>
+          <h3 className="font-extrabold text-xl text-white truncate">
+            {profile.fullName}
+          </h3>
 
           {profile.fatherOrFarmName && (
             <p className="text-xs text-cream/90 font-medium mt-0.5">
               {profile.fatherOrFarmName}
             </p>
-          )}
-
-          {profile.email && (
-            <div className="inline-flex items-center gap-1.5 text-xs text-white/75 mt-1">
-              <GoogleLogoSvg className="w-3.5 h-3.5" />
-              <bdi dir="ltr">{profile.email}</bdi>
-            </div>
           )}
         </div>
       </div>
