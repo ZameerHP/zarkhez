@@ -203,6 +203,153 @@
     ],
     "see_expert": false
   },
+  "rice_blast": {
+    "crop": "rice",
+    "problem_name": {
+      "en": "Rice Leaf Blast (Magnaporthe oryzae)",
+      "ur": "دھان کا بلاسٹ / پتوں کا جھلساؤ",
+      "roman_ur": "Dhan ka Blast (Jhulsao)",
+      "sd": "چانورن جو بلاست / سڙھ"
+    },
+    "severity": "high",
+    "summary": {
+      "en": "Characteristic diamond or spindle-shaped lesions with whitish-gray centers and distinct brown margins visible on rice foliage.",
+      "ur": "دھان کے پتے پر تکلا نما (Spindle-shaped) دھبے جن کا درمیانی حصہ سرمئی یا سفید اور کنارے گہرے بھورے ہوتے ہیں۔",
+      "roman_ur": "Dhan ke patte par spindle-shaped dhabbe jinka center gray aur kinare brown hotay hain.",
+      "sd": "چانورن جي پن تي بيضوي يا تڪلا نما نشان جن جي وچ واري جاءِ اڇي يا سرمائي ۽ ڪنارا ناسي هوندا آهن."
+    },
+    "steps": [
+      {
+        "en": "Scout neighboring tillers and nurseries immediately to check lesion spread percentage.",
+        "ur": "کھیت کے دیگر حصوں اور پودوں کا فوراً معائنہ کریں تاکہ بیماری کے پھیلاؤ کا پتہ چل سکے۔",
+        "roman_ur": "Khet ke baqi hisso ka foran muaina karein takay phailao ka andaza lagaya ja sakay.",
+        "sd": "فيلڊ جي ٻين حصن جو فوري معائنو ڪريو ته جيئن بيماري جي پکيڙ جي خبر پوي."
+      },
+      {
+        "en": "Immediately stop or delay excess top-dressed Urea; high nitrogen drastically accelerates blast fungal development.",
+        "ur": "یوریا کھاد کا اضافی استعمال فوری روک دیں؛ زیادہ نائٹروجن سے بلاسٹ کا حملہ انتہائی تیز ہو جاتا ہے۔",
+        "roman_ur": "Urea ki izafi miqdar foran rok dein kyunkay zyada nitrogen se blast tezi se phailta hai.",
+        "sd": "يوريا جو واڌو استعمال ترت بند ڪريو ڇو ته وڌيڪ نائٽروجن سان بلاست تيزي سان پکڙجي ٿو."
+      },
+      {
+        "en": "Maintain continuous shallow field moisture to prevent drought-induced susceptibility; avoid field drainage that stresses roots.",
+        "ur": "کھیت میں معتدل وتر برقرار رکھیں تاکہ پودا سوکے کے تناؤ میں نہ آئے۔",
+        "roman_ur": "Khet mein munasib watar barqarar rakhein takay poda sokhay ke dabao mein na aye.",
+        "sd": "فيلڊ ۾ پاڻي جو مناسب وتر برقرار رکو."
+      },
+      {
+        "en": "Consult local agricultural extension officer for recommended blast fungicide class (e.g., tricyclazole, isoprothiolane, or kasugamycin active ingredients per label).",
+        "ur": "محکمہ زراعت توسیعی افسر سے بلاسٹ کش پھپھوندی کش دوا کے گروپ (جیسے ٹرائی سائیکلازول یا آئسوپروتھائیولین) کے متعلق فوری رہنمائی لیں۔",
+        "roman_ur": "Zaria extension officer se blast fungicide group (tricyclazole/isoprothiolane) ke mutaliq rehnumai lein.",
+        "sd": "زرعي عملدار سان بيماري کي روڪڻ واري فنجي سائيڊ بابت فوري صلاح ڪريو."
+      }
+    ],
+    "prevention": [
+      {
+        "en": "Use certified blast-resistant paddy varieties and treat seed with registered fungicide prior to nursery seeding.",
+        "ur": "قوتِ مدافعت رکھنے والی تصدیق شدہ اقسام کاشت کریں اور پنیری سے قبل بیج کو زہر آلود کریں۔",
+        "roman_ur": "Certified blast-resistant beej istemal karein aur paneeri se pehle beej ko zehar aalood karein.",
+        "sd": "تصديق ٿيل بيماري کان پاڪ ٻج پوکيو ۽ پوکڻ کان اڳ فنجي سائيڊ سان علاج ڪريو."
+      },
+      {
+        "en": "Avoid excessive plant density; maintain recommended nursery seedling hill spacing (9 inches) for adequate sunlight and airflow.",
+        "ur": "پودوں کا باہمی فاصلہ (تقریباً 9 انچ) مناسب رکھیں تاکہ ہوا اور دھوپ پتوں تک پہنچتی رہے۔",
+        "roman_ur": "Podon ka darmiyani fasla (9 inch) munasib rakhein takay dhoop aur hawa lagti rahe.",
+        "sd": "ٻوٽن جي وچ ۾ مناسب فاصلو رکو ته جيئن هوا ۽ سج جي روشني لڳندي رهي."
+      }
+    ],
+    "see_expert": true,
+    "expert_reason": {
+      "en": "Rice blast can spread rapidly to node and neck blast, threatening entire grain fill. Immediate extension officer inspection is recommended.",
+      "ur": "رائس بلاسٹ تیزی سے سٹے اور تنے تک پھیل سکتا ہے جس سے فصل کو شدید خطرہ ہوتا ہے۔ مقامی زرعی افسر کا معائنہ لازمی ہے۔",
+      "roman_ur": "Blast tezi se sitti tak phel sakta hai. Local zaria afsar ka muaina zaroori hai.",
+      "sd": "بلاسنٽ تمام تيزي سان ٻڙي تائين پکڙجي سگهي ٿو، مقامي زرعي عملدار جو معائنو ضروري آهي."
+    }
+  },
+  "rice_bacterial_blight": {
+    "crop": "rice",
+    "problem_name": {
+      "en": "Bacterial Leaf Blight (Xanthomonas oryzae)",
+      "ur": "بیکٹیریل پتوں کا جھلساؤ (BLB)",
+      "roman_ur": "Bacterial Leaf Blight (BLB)",
+      "sd": "چانورن جو بيڪٽيريا سڙھ"
+    },
+    "severity": "high",
+    "summary": {
+      "en": "Water-soaked to yellowish-orange wavy lesions extending along leaf veins and edges, later turning dirty white or greyish.",
+      "ur": "پتوں کے کناروں سے لہراتی پیلی یا نارنجی پٹیاں بنتی ہیں جو بعد میں خشک ہو کر سفید یا سرمئی ہو جاتی ہیں۔",
+      "roman_ur": "Patton ke kinaray se lehrati peeli pattiyan banti hain jo baad mein gray ho jati hain.",
+      "sd": "پنن جي ڪنارن تان پيلا لڪير وارا نشان ٺهن ٿا جيڪي پوءِ اڇا ٿي وڃن ٿا."
+    },
+    "steps": [
+      {
+        "en": "Drain excess stagnant standing water from infected plots; do not drain into clean nursery fields.",
+        "ur": "متاثرہ کھیت سے اضافی پانی نکالیں اور اسے دوسری صاف فصل میں نہ جانے دیں۔",
+        "roman_ur": "Mutasira khet se pani nikal kar doosri fasal mein na jane dein.",
+        "sd": "بيمار فصل مان پاڻي ٻي صاف فصل ڏانهن وڃڻ نه ڏيو."
+      },
+      {
+        "en": "Halt top-dressed nitrogen fertilizer applications immediately.",
+        "ur": "نائٹروجن والی کھاد کا استعمال فوری طور پر معطل کریں۔",
+        "roman_ur": "Nitrogen khad ka istemal foran rokein.",
+        "sd": "يوريا کاد جو استعمال فوري معطل ڪريو."
+      },
+      {
+        "en": "Consult local agricultural extension officer for bactericide / copper-based formulation advice.",
+        "ur": "کاپر بیسڈ توسیعی سفارشات کے لیے مقامی زرعی افسر سے مشورہ کریں۔",
+        "roman_ur": "Copper based safarishat ke liye muqami zaria afsar se rabta karein.",
+        "sd": "ڪاپر وارين دوائن لاءِ مقامي زرعي آفيسر سان رابطو ڪريو."
+      }
+    ],
+    "prevention": [
+      {
+        "en": "Use certified disease-free seeds and balanced potash to increase tissue resilience.",
+        "ur": "صاف تصدیق شدہ بیج اور پوٹاش کھاد کا متوازن استعمال کریں تاکہ پودا مضبوط بنے۔",
+        "roman_ur": "Saf beej aur potash ka istemal karein takay poda mazboot banay.",
+        "sd": "صاف ٻج ۽ پوٽاش استعمال ڪريو."
+      }
+    ],
+    "see_expert": true
+  },
+  "rice_sheath_blight": {
+    "crop": "rice",
+    "problem_name": {
+      "en": "Rice Sheath Blight (Rhizoctonia solani)",
+      "ur": "دھان کے تنے اور غلاف کا جھلساؤ (Sheath Blight)",
+      "roman_ur": "Dhan ke Tanay ka Sheath Blight",
+      "sd": "چانورن جي تڙ جو سڙھ"
+    },
+    "severity": "medium",
+    "summary": {
+      "en": "Greenish-grey water-soaked oval to irregular lesions with dark reddish-brown borders on leaf sheaths near water line.",
+      "ur": "پانی کی سطح کے قریب تنے کے غلاف پر بیضوی سرمئی سبز دھبے جن کے گرد گہرا بھورا حاشیہ ہوتا ہے۔",
+      "roman_ur": "Pani ki satah ke qareeb tanay ke ghilaf par sabz gray dhabbe jinke ird gird brown border hota hai.",
+      "sd": "پاڻي جي مٿاڇري ويجهو تڙ تي بيضوي سرمائي داغ جنهن جا ڪنارا ناسي هوندا آهن."
+    },
+    "steps": [
+      {
+        "en": "Lower water depth to allow sunlight and aeration into the lower canopy.",
+        "ur": "کھیت میں کھڑے پانی کی سطح کم کریں تاکہ نچلے حصے کو ہوا اور دھوپ مل سکے۔",
+        "roman_ur": "Khet mein pani ki satah kam karein takay hawa lag sakay.",
+        "sd": "فيلڊ ۾ پاڻي گهٽ ڪريو ته جيئن ٻوٽي کي هوا لڳي."
+      },
+      {
+        "en": "Consult agriculture officer for azoxystrobin / validamycin class fungicide application at boot leaf stage.",
+        "ur": "گوبھ کی حالت پر زرعی افسر کے مشورے سے منظور شدہ پھپھوندی کش دوا کا سپرے کریں۔",
+        "roman_ur": "Gobh ki halat par zaria afsar ke mashwaray se spray karein.",
+        "sd": "زرعي عملدار جي مشوري سان فنجي سائيڊ اسپري ڪريو."
+      }
+    ],
+    "prevention": [
+      {
+        "en": "Clear stubble and weed residues from previous harvest.",
+        "ur": "پچھلی فصل کے مڈھ اور باقیات تلف کریں۔",
+        "roman_ur": "Pichli fasal ke mudd talaf karein.",
+        "sd": "پوئين فصل جا سڙيل حصا صاف ڪريو."
+      }
+    ],
+    "see_expert": true
+  },
   "rice_brown_spot": {
     "crop": "rice",
     "problem_name": { "en": "Rice Brown Leaf Spot", "ur": "دھان کے بھورے دھبوں کی بیماری (براؤن سپاٹ)" },
@@ -224,20 +371,26 @@
   },
   "rice_healthy": {
     "crop": "rice",
-    "problem_name": { "en": "Healthy Rice Leaf", "ur": "صحت مند دھان کا پتا" },
+    "problem_name": {
+      "en": "Healthy Rice Leaf (No Symptoms Detected)",
+      "ur": "صحت مند دھان کا پتا (کوئی علامات نہیں)",
+      "roman_ur": "Sehatmand Dhan ka Patta",
+      "sd": "صحتمند چانورن جو پن"
+    },
     "severity": "low",
     "summary": {
-      "en": "Healthy upright green paddy leaf with no blast spindles or brown spot lesions.",
-      "ur": "دھان کا یہ پتا بالکل صحت مند اور سرسبز ہے اور اس پر بلاسٹ یا بھورے دھبے نہیں ہیں۔"
+      "en": "Genuinely healthy rice leaf with intact green tissue, uniform coloration, and zero abnormal lesions, blast spindles, or necrotic spots.",
+      "ur": "دھان کا یہ پتا بالکل صحت مند اور سرسبز ہے؛ ٹشوز مکمل سلامت ہیں اور کسی قسم کے دھبے یا بلاسٹ نہیں ہیں۔",
+      "roman_ur": "Dhan ka patta bilkul sehatmand aur sar-sabz hai, koi dhabba ya blast mojood nahi.",
+      "sd": "چانورن جو پن بلڪل صحتمند ۽ سائي رنگ جو آهي، ڪوبه نشان يا بيماري ناهي."
     },
     "steps": [
-      { "en": "Monitor water depth and follow alternate wetting and drying as advised.", "ur": "پانی کی سطح مناسب رکھیں اور ضرورت کے مطابق آبپاشی کریں۔" },
-      { "en": "Check stems and folded leaves weekly for borer or leaf folder caterpillars.", "ur": "ہفتے میں ایک بار تنے کی سنڈی اور پتا لپیٹ سنڈی کا معائنہ کریں۔" },
-      { "en": "Apply split nitrogen doses on time before panicle initiation.", "ur": "مونجھ نکلنے سے پہلے یوریا کی اقساط وقت پر مکمل کریں۔" }
+      { "en": "Perform routine morning scouting to monitor for any new symptoms early.", "ur": "صبح کے وقت پودوں کا باقاعدگی سے معائنہ جاری رکھیں۔" },
+      { "en": "Maintain balanced field irrigation without prolonged dry cracking or excess water stagnation.", "ur": "کھیت میں مناسب وتر برقرار رکھیں اور زمین کو چٹخنے نہ دیں۔" }
     ],
     "prevention": [
-      { "en": "Avoid excessive late Urea application which attracts pests and blast.", "ur": "پچھیتی یا ضرورت سے زیادہ یوریا نہ ڈالیں کیونکہ اس سے بیماری اور کیڑے بڑھتے ہیں۔" },
-      { "en": "Keep bunds and water channels clean of weeds.", "ur": "وٹوں اور کھالوں کو جڑی بوٹیوں سے صاف رکھیں۔" }
+      { "en": "Follow balanced NPK and zinc nutrition; avoid late heavy nitrogen surges.", "ur": "پوٹاش اور متوازن کھاد دیں اور پچھیتی یوریا سے پرہیز کریں۔" },
+      { "en": "Keep water channels and field bunds clean of wild grass hosts.", "ur": "کھالوں اور وٹوں کو گھاس اور جڑی بوٹیوں سے صاف رکھیں۔" }
     ],
     "see_expert": false
   },

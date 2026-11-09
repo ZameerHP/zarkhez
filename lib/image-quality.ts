@@ -18,6 +18,10 @@ export interface ImageQualityReport {
   blurScore: number;
   brightnessScore: number;
   subjectRatio: number;
+  greenRatio?: number;
+  yellowRatio?: number;
+  lesionRatio?: number;
+  hasVisibleLesions?: boolean;
   overallScore: number; // 0 to 1
   isAcceptable: boolean;
   friendlyMessageUr?: string;
@@ -61,6 +65,9 @@ export function analyzeImageData(
   const gray = new Float32Array(pixelCount);
   let totalLuminance = 0;
   let foliagePixels = 0;
+  let greenPixels = 0;
+  let yellowPixels = 0;
+  let lesionPixels = 0;
 
   for (let i = 0, p = 0; i < data.length; i += 4, p++) {
     const r = data[i];
@@ -73,15 +80,26 @@ export function analyzeImageData(
     // Detect plant organ colors (leaves, stems, lesions, soil-contrasted roots)
     const isGreen = g > r * 0.95 && g > b * 1.05 && g > 30;
     const isYellowBrown = (r > 110 && g > 90 && b < 100 && Math.abs(r - g) < 60) || (r > 70 && g > 40 && b < 65 && r > b * 1.15);
-    const isLesionOrRoot = (r > 60 && g > 35 && b < 50) || (r > 140 && g > 50 && b < 60);
+    const isLesionOrRoot = (r > 60 && g > 35 && b < 50) || (r > 140 && g > 50 && b < 60) || (r > 80 && g > 70 && b > 60 && Math.abs(r - g) < 20 && y > 60 && y < 180 && !isGreen);
 
-    if (isGreen || isYellowBrown || isLesionOrRoot) {
+    if (isGreen) {
+      greenPixels++;
+      foliagePixels++;
+    } else if (isYellowBrown) {
+      yellowPixels++;
+      foliagePixels++;
+    } else if (isLesionOrRoot) {
+      lesionPixels++;
       foliagePixels++;
     }
   }
 
   const meanLuminance = totalLuminance / pixelCount;
   const subjectRatio = foliagePixels / pixelCount;
+  const greenRatio = greenPixels / pixelCount;
+  const yellowRatio = yellowPixels / pixelCount;
+  const lesionRatio = lesionPixels / pixelCount;
+  const hasVisibleLesions = lesionRatio > 0.005 && subjectRatio > 0.1;
 
   // 2. Compute Laplacian variance (Blur check)
   // Standard 3x3 discrete Laplacian operator:
@@ -162,6 +180,10 @@ export function analyzeImageData(
     blurScore,
     brightnessScore: Math.round(meanLuminance),
     subjectRatio: Number(subjectRatio.toFixed(3)),
+    greenRatio: Number(greenRatio.toFixed(3)),
+    yellowRatio: Number(yellowRatio.toFixed(3)),
+    lesionRatio: Number(lesionRatio.toFixed(3)),
+    hasVisibleLesions,
     overallScore: score,
     isAcceptable,
     friendlyMessageUr,

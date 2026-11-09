@@ -340,6 +340,347 @@ testCase('TEST 8: Independent Scan Sessions: Sequential scans do not bleed or cr
   assert.notEqual(scanA.detected_crop, scanB.detected_crop);
 });
 
+// ==============================================================================
+// SECTION 7 REGRESSION SUITE: FALSE NEGATIVE PREVENTION & VISUAL LESION SCREENING
+// ==============================================================================
+
+testCase('TEST 9 (REGRESSION): Rice leaf with spindle lesions (grey center, brown margin) -> Diagnoses Rice blast-like symptoms, NEVER healthy', () => {
+  const diag = validateDiagnosis({
+    image_valid: true,
+    detected_crop: 'Rice',
+    detected_crop_ur: 'دھان (چاول)',
+    detected_crop_roman_ur: 'Dhan / Chawal',
+    detected_crop_sd: 'چانور',
+    selected_crop: 'Rice',
+    crop_match: true,
+    detected_plant_part: 'Leaf',
+    detected_plant_part_ur: 'پتا',
+    detected_plant_part_roman_ur: 'Patta',
+    detected_plant_part_sd: 'پن',
+    growth_stage: 'Tillering',
+    growth_stage_ur: 'شگوفے نکلنے کا مرحلہ',
+    identification_confidence: 0.94,
+    visual_inspection: {
+      lesion_detected: true,
+      lesion_count: '6 to 10 discrete lesions across leaf blade',
+      lesion_shape: 'spindle_shaped',
+      lesion_colors: ['whitish_grey_center', 'dark_brown_margins', 'yellow_halo'],
+      lesion_margins: 'Distinct dark brown necrotic border',
+      lesion_distribution: 'Scattered across mid and upper leaf blade',
+      tissue_damage: 'Focal necrotic spots with center desiccation',
+    },
+    diagnosis_status: 'possible_disease',
+    plant_condition: 'Visible leaf lesions with necrotic desiccation on rice foliage blade.',
+    plant_condition_ur: 'دھان کے پتے پر گہرے حاشیے والے واضح دھبے اور بافتوں کا سوکھاؤ۔',
+    problem_name: {
+      en: 'Suspected Rice Leaf Blast (Magnaporthe oryzae)',
+      ur: 'دھان کا بلاسٹ / پتوں کا جھلساؤ (Rice Blast)',
+      roman_ur: 'Dhan ka Blast (Rice Blast)',
+      sd: 'چانورن جو بلاست',
+    },
+    possible_disease: [
+      {
+        name: 'Rice Leaf Blast (Magnaporthe oryzae)',
+        name_ur: 'دھان کا بلاسٹ',
+        confidence: 0.91,
+        is_primary: true,
+      },
+      {
+        name: 'Rice Brown Spot (Bipolaris oryzae)',
+        name_ur: 'دھان کا بھورا دھبہ',
+        confidence: 0.65,
+        is_primary: false,
+      },
+    ],
+    alternative_diagnoses: [
+      {
+        name: 'Rice Brown Spot (Bipolaris oryzae)',
+        reason: {
+          en: 'Brown spot typically forms more circular/oval lesions often associated with zinc or potassium deficiency.',
+          ur: 'براؤن سپاٹ گول بیضوی دھبے بناتا ہے جو پوٹاش یا زنک کی کمی سے بڑھتے ہیں۔',
+        },
+      },
+    ],
+    why_suspected: {
+      en: 'Spindle-shaped lesions with whitish-grey center and dark brown margin observed on the leaf blade are visually characteristic of Rice Blast; differentiated from healthy leaves by focal necrotic tissue damage.',
+      ur: 'دھان کے پتے پر تکلا نما (Spindle-shaped) دھبے جن کا درمیانی حصہ سرمئی اور کنارے گہرے بھورے ہیں، رائس بلاسٹ کی خاص علامت ہیں۔',
+    },
+    observed_symptoms: [
+      {
+        en: 'Multiple spindle-shaped lesions observed across foliage blade.',
+        ur: 'پتے کی سطح پر تکلا نما دھبے دیکھے گئے۔',
+      },
+      {
+        en: 'Whitish-grey necrotic center surrounded by dark brown margin.',
+        ur: 'درمیان سے سرمئی مائل سفید اور چاروں طرف گہرا بھورا حاشیہ۔',
+      },
+    ],
+    possible_causes: [
+      {
+        en: 'Magnaporthe oryzae fungal infection favored by high humidity and excess nitrogen.',
+        ur: 'زیادہ نمی اور نائٹروجن کی زیادتی میں پھپھوندی کا حملہ۔',
+      },
+    ],
+    severity: 'medium',
+    severity_explanation: {
+      en: 'Foliage blast requires prompt intervention to prevent spread to stem nodes and emerging panicles.',
+      ur: 'پتوں کا بلاسٹ اگر بروقت نہ روکا جائے تو یہ تنے اور مونجھ تک پھیل سکتا ہے۔',
+    },
+    recommendations: [
+      {
+        en: 'Scout adjacent tillers and nursery beds immediately to determine the percentage of infected plants.',
+        ur: 'کھیت کے باقی حصوں کا فوراً معائنہ کریں تاکہ بیماری کے پھیلاؤ کا صحیح اندازہ ہو سکے۔',
+      },
+      {
+        en: 'Immediately halt excess top-dressing of Urea; high nitrogen drastically fuels blast fungal development.',
+        ur: 'یوریا کھاد کا اضافی استعمال فوری روک دیں؛ زیادہ نائٹروجن سے بلاسٹ کا حملہ انتہائی تیز ہو جاتا ہے۔',
+      },
+      {
+        en: 'Consult local agricultural extension officer for registered blast fungicide class advice (e.g. tricyclazole active ingredient per label).',
+        ur: 'محکمہ زراعت توسیعی افسر سے منظور شدہ بلاسٹ کش گروپ (جیسے ٹرائی سائیکلازول) کے متعلق فوری رہنمائی حاصل کریں۔',
+      },
+    ],
+    prevention: [
+      {
+        en: 'Sow certified blast-resistant varieties and treat seed with registered fungicide before seeding.',
+        ur: 'قوتِ مدافعت رکھنے والی تصدیق شدہ اقسام کاشت کریں اور پنیری سے قبل بیج کو زہر آلود کریں۔',
+      },
+    ],
+    when_to_consult_expert: {
+      en: 'Consult local extension officer immediately if spindle lesions appear on more than 3-5% of foliage.',
+      ur: 'اگر تکلا نما دھبے 3 سے 5 فیصد پتوں پر ظاہر ہوں تو فوری زرعی افسر کو دکھائیں۔',
+    },
+    requires_retake: false,
+    requires_expert_review: true,
+    message: {
+      en: 'Visible spindle-shaped lesions observed on rice leaf. Blast-like symptoms detected; follow cultural hygiene and consult extension officer.',
+      ur: 'دھان کے پتے پر بلاسٹ نما تکلا دھبے دیکھے گئے ہیں۔ یوریا کھاد روکیں اور مقامی زرعی توسیعی افسر سے معائنہ کروائیں۔',
+    },
+  });
+
+  assert.equal(diag.detected_crop, 'Rice');
+  assert.equal(diag.detected_plant_part, 'Leaf');
+  assert.equal(diag.diagnosis_status, 'possible_disease');
+  assert.equal(diag.visual_inspection?.lesion_detected, true);
+  assert.equal(diag.visual_inspection?.lesion_shape, 'spindle_shaped');
+  assert.notEqual(diag.diagnosis_status, 'healthy_no_symptoms');
+  assert.doesNotMatch(diag.problem_name.en.toLowerCase(), /healthy/);
+  assert.doesNotMatch(diag.message.en.toLowerCase(), /no obvious disease/);
+});
+
+testCase('TEST 10: Genuinely healthy rice leaf -> Confirms healthy_no_symptoms with zero lesions', () => {
+  const diag = validateDiagnosis({
+    image_valid: true,
+    detected_crop: 'Rice',
+    detected_crop_ur: 'دھان',
+    selected_crop: 'Rice',
+    crop_match: true,
+    detected_plant_part: 'Leaf',
+    detected_plant_part_ur: 'پتا',
+    growth_stage: 'Vegetative',
+    growth_stage_ur: 'بڑھوتری کا مرحلہ',
+    identification_confidence: 0.96,
+    visual_inspection: {
+      lesion_detected: false,
+      lesion_count: 'none',
+      lesion_shape: 'none',
+      lesion_colors: [],
+      lesion_margins: 'none',
+      lesion_distribution: 'none',
+      tissue_damage: 'intact vigorous green tissue',
+    },
+    diagnosis_status: 'healthy_no_symptoms',
+    plant_condition: 'Uniform green foliage with intact margins and zero lesions.',
+    plant_condition_ur: 'پتے کی بافتیں تندرست، یکساں سبز اور کسی قسم کے دھبے کے بغیر ہیں۔',
+    problem_name: {
+      en: 'No Obvious Symptoms Detected (Appears Healthy)',
+      ur: 'کوئی واضح علامات ظاہر نہیں ہوئیں (بظاہر تندرست)',
+    },
+    possible_disease: [],
+    alternative_diagnoses: [],
+    why_suspected: {
+      en: 'Uniform green coloration across leaf lamina with zero necrotic spots and zero blast spindles.',
+      ur: 'پتے کی سطح پر یکساں سبز رنگت اور کسی قسم کے دھبوں کے بغیر مکمل صحت مند کیفیت۔',
+    },
+    observed_symptoms: [],
+    possible_causes: [
+      {
+        en: 'Healthy crop growth under current seasonal management.',
+        ur: 'موجودہ موسمی و زرعی حالات میں پودے کی معمول کی تندرست بڑھوتری۔',
+      },
+    ],
+    severity: 'low',
+    recommendations: [
+      {
+        en: 'Maintain regular morning scouting to detect any initial pests or airborne mildews early.',
+        ur: 'روزانہ صبح کے وقت کھیت کا معائنہ جاری رکھیں تاکہ کسی بھی بیماری کا بروقت پتہ چل سکے۔',
+      },
+    ],
+    prevention: [],
+    requires_retake: false,
+    requires_expert_review: false,
+    message: {
+      en: 'No obvious disease or pest symptoms observed. Note: visual inspection does not guarantee 100% absence of latent micro-pathogens.',
+      ur: 'اس پودے پر کوئی واضح بیماری نہیں ملی۔ معمول کی دیکھ بھال جاری رکھیں۔',
+    },
+  });
+
+  assert.equal(diag.diagnosis_status, 'healthy_no_symptoms');
+  assert.equal(diag.visual_inspection?.lesion_detected, false);
+});
+
+testCase('TEST 11: Rice leaf with brown spot symptoms -> Accurately diagnoses Brown Spot', () => {
+  const diag = validateDiagnosis({
+    image_valid: true,
+    detected_crop: 'Rice',
+    detected_crop_ur: 'دھان',
+    selected_crop: 'Rice',
+    crop_match: true,
+    detected_plant_part: 'Leaf',
+    detected_plant_part_ur: 'پتا',
+    growth_stage: 'Tillering',
+    growth_stage_ur: 'شگوفے نکلنے کا مرحلہ',
+    identification_confidence: 0.92,
+    visual_inspection: {
+      lesion_detected: true,
+      lesion_count: 'Several discrete oval spots',
+      lesion_shape: 'circular_oval',
+      lesion_colors: ['dark_brown', 'yellow_halo'],
+      lesion_margins: 'Defined brown border with chlorotic halo',
+      lesion_distribution: 'Scattered across leaf surface',
+      tissue_damage: 'Oval necrotic lesions',
+    },
+    diagnosis_status: 'possible_disease',
+    plant_condition: 'Oval brown spots with yellow halos across leaf blade.',
+    plant_condition_ur: 'پتے پر پیلے حلقے والے بیضوی بھورے دھبے۔',
+    problem_name: {
+      en: 'Rice Brown Spot (Bipolaris oryzae)',
+      ur: 'دھان کا بھورا دھبہ (Brown Spot)',
+    },
+    possible_disease: [
+      {
+        name: 'Rice Brown Spot (Bipolaris oryzae)',
+        name_ur: 'دھان کا بھورا دھبہ',
+        confidence: 0.89,
+        is_primary: true,
+      },
+    ],
+    severity: 'medium',
+    recommendations: [
+      {
+        en: 'Apply balanced potassium and zinc nutrition; avoid severe drought stress.',
+        ur: 'متوازن پوٹاش اور زنک کھاد دیں اور وتر برقرار رکھیں۔',
+      },
+    ],
+    prevention: [],
+    requires_retake: false,
+    requires_expert_review: false,
+    message: {
+      en: 'Brown spot symptoms observed on rice foliage.',
+      ur: 'دھان کے پتے پر بھورے دھبے دیکھے گئے۔',
+    },
+  });
+
+  assert.equal(diag.diagnosis_status, 'possible_disease');
+  assert.equal(diag.visual_inspection?.lesion_shape, 'circular_oval');
+  assert.ok(diag.problem_name.en.includes('Brown Spot'));
+});
+
+testCase('TEST 12: Rice leaf with chlorosis / yellowing -> Flags nutrient or environmental stress, NOT healthy', () => {
+  const diag = validateDiagnosis({
+    image_valid: true,
+    detected_crop: 'Rice',
+    detected_crop_ur: 'دھان',
+    selected_crop: 'Rice',
+    crop_match: true,
+    detected_plant_part: 'Leaf',
+    detected_plant_part_ur: 'پتا',
+    growth_stage: 'Tillering',
+    growth_stage_ur: 'شگوفے نکلنے کا مرحلہ',
+    identification_confidence: 0.90,
+    visual_inspection: {
+      lesion_detected: false,
+      lesion_count: 'none',
+      lesion_shape: 'none',
+      lesion_colors: ['yellow_chlorotic'],
+      lesion_margins: 'diffuse',
+      lesion_distribution: 'generalized across older leaves',
+      tissue_damage: 'chlorosis / loss of chlorophyll',
+    },
+    diagnosis_status: 'possible_nutrient_deficiency',
+    plant_condition: 'Generalized interveinal yellowing without necrotic lesions.',
+    plant_condition_ur: 'بغیر دھبوں کے پتوں پر عمومی پیلا پن۔',
+    problem_name: {
+      en: 'Nutrient Deficiency / Nitrogen Chlorosis',
+      ur: 'غذائی کمی / نائٹروجن کی کمی (کلوروسس)',
+    },
+    possible_disease: [],
+    severity: 'low',
+    recommendations: [
+      {
+        en: 'Apply planned split urea application with shallow irrigation.',
+        ur: 'ہلکی آبپاشی کے ساتھ یوریا کی مقررہ قسط دیں۔',
+      },
+    ],
+    prevention: [],
+    requires_retake: false,
+    requires_expert_review: false,
+    message: {
+      en: 'Yellowing indicates nutrient chlorosis rather than fungal spots.',
+      ur: 'پیلا پن پھپھوندی کے بجائے خوراک کی کمی کی طرف اشارہ کرتا ہے۔',
+    },
+  });
+
+  assert.equal(diag.diagnosis_status, 'possible_nutrient_deficiency');
+  assert.notEqual(diag.diagnosis_status, 'healthy_no_symptoms');
+});
+
+testCase('TEST 13: Fallback Crop Scanner prevents False Negatives when client optical pre-scan detects lesions', async () => {
+  const { getFallbackCropDiagnosis } = await import('../lib/gemini');
+
+  const fallbackWithLesions = getFallbackCropDiagnosis('Rice', false, {
+    isBlurry: false,
+    isDark: false,
+    isOverexposed: false,
+    isTooSmall: false,
+    blurScore: 85,
+    brightnessScore: 120,
+    subjectRatio: 0.55,
+    greenRatio: 0.50,
+    yellowRatio: 0.03,
+    lesionRatio: 0.025,
+    hasVisibleLesions: true,
+    overallScore: 0.95,
+    isAcceptable: true,
+  });
+
+  assert.equal(fallbackWithLesions.detected_crop, 'Rice');
+  assert.equal(fallbackWithLesions.diagnosis_status, 'possible_disease');
+  assert.equal(fallbackWithLesions.visual_inspection.lesion_detected, true);
+  assert.notEqual(fallbackWithLesions.diagnosis_status, 'healthy_no_symptoms');
+  assert.ok(fallbackWithLesions.problem_name.en.includes('Blast'));
+
+  // Conversely, clean foliage without lesions returns healthy
+  const fallbackClean = getFallbackCropDiagnosis('Rice', false, {
+    isBlurry: false,
+    isDark: false,
+    isOverexposed: false,
+    isTooSmall: false,
+    blurScore: 90,
+    brightnessScore: 125,
+    subjectRatio: 0.60,
+    greenRatio: 0.60,
+    yellowRatio: 0.005,
+    lesionRatio: 0.001,
+    hasVisibleLesions: false,
+    overallScore: 1.0,
+    isAcceptable: true,
+  });
+
+  assert.equal(fallbackClean.diagnosis_status, 'healthy_no_symptoms');
+  assert.equal(fallbackClean.visual_inspection.lesion_detected, false);
+});
+
 console.log(`\n🎉 Unit Test Summary: ${passed} passed, ${failed} failed.\n`);
 if (failed > 0) {
   process.exit(1);
