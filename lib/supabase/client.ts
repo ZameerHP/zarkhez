@@ -109,6 +109,10 @@ export interface SavedScan {
   id: string;
   field_id?: string | null;
   crop: string;
+  selected_crop?: string;
+  detected_crop?: string;
+  plant_part?: string;
+  diagnosis_status?: string;
   thumbnailDataUrl: string;
   label: string;
   confidence: number;

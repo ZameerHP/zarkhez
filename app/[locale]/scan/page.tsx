@@ -11,9 +11,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   RotateCcw,
-  Eye,
   Sun,
-  Maximize2,
   Leaf,
   X,
   Volume2,
@@ -22,20 +20,18 @@ import {
   Sprout,
   CircleDot,
   Apple,
+  ShieldAlert,
+  ArrowRight,
+  Info,
+  Check,
 } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
 import { ZarkhezLogo } from '@/components/layout/ZarkhezLogo';
 import { ReadAloudButton } from '@/components/voice/ReadAloudButton';
-import {
-  predictLeafDisease,
-  prepareLeafImage,
-  ScanPredictionResult,
-} from '@/lib/model';
-import { Advice, SecondOpinion } from '@/lib/schemas';
+import { CropDiagnosis, Advice } from '@/lib/schemas';
 import { getSavedProfile, saveScanRecord } from '@/lib/supabase/client';
 import { speakText, stopSpeaking, unlockAudio } from '@/lib/voice';
-import { getStaticFallbackAdvice } from '@/lib/gemini';
 import { GuestPromptSheet } from '@/components/auth/GuestPromptSheet';
 import {
   compressAndAssessLeafImage,
@@ -43,11 +39,11 @@ import {
 } from '@/lib/image-quality';
 
 /**
- * Zarkhez 1-Image Fast Scan Screen:
- * - Accepts 1 photo of ANY plant organ (Leaf, Stem, Roots, Fruit/Flower, or Whole Plant).
- * - Gemini Multimodal Vision accurately identifies crop, organ, disease, severity & treatments.
- * - Human-sounding spoken Urdu reads results aloud automatically with high reliability.
- * - OffscreenCanvas quality assessment flags blur/lighting without hard-blocking.
+ * Zarkhez Two-Stage Intelligent Crop Scanner:
+ * 1. Independent Image & Crop Recognition: Never forces user-selected crop.
+ * 2. Visual Plant Part Detection: Leaf, Stem, Roots, Fruit, Flower, Whole Plant.
+ * 3. Crop Mismatch Protection: Warns if selected crop doesn't match actual image.
+ * 4. Evidence-based Agricultural Diagnosis & Safe Treatment Advice in Urdu & English.
  */
 export default function ScanPage() {
   const t = useTranslations('scan');
@@ -59,13 +55,12 @@ export default function ScanPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string>('');
   const [analysing, setAnalysing] = useState(false);
-  const [prediction, setPrediction] = useState<ScanPredictionResult | null>(null);
-  const [advice, setAdvice] = useState<Advice | null>(null);
-  const [secondOpinion, setSecondOpinion] = useState<SecondOpinion | null>(null);
-  const [loadingSecondOpinion, setLoadingSecondOpinion] = useState(false);
+  const [diagnosis, setDiagnosis] = useState<CropDiagnosis | null>(null);
   const [savedToDiary, setSavedToDiary] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
+
+  // Quality check state
   const [pendingQualityData, setPendingQualityData] = useState<{
     fileOrUrl: File | string;
     quality: ImageQualityReport;
@@ -80,20 +75,23 @@ export default function ScanPage() {
 
   const supportedCrops = [
     { key: 'wheat', en: 'Wheat', ur: 'گندم' },
-    { key: 'rice', en: 'Rice', ur: 'دھان' },
+    { key: 'rice', en: 'Rice', ur: 'دھان (چاول)' },
     { key: 'cotton', en: 'Cotton', ur: 'کپاس' },
     { key: 'maize', en: 'Maize', ur: 'مکئی' },
-    { key: 'sugarcane', en: 'Sugarcane', ur: 'کماد' },
+    { key: 'sugarcane', en: 'Sugarcane', ur: 'کماد (گنا)' },
     { key: 'tomato', en: 'Tomato', ur: 'ٹماٹر' },
     { key: 'potato', en: 'Potato', ur: 'آلو' },
     { key: 'chili', en: 'Chili', ur: 'مرچ' },
+    { key: 'mango', en: 'Mango', ur: 'آم' },
+    { key: 'citrus', en: 'Citrus', ur: 'کنو / مالٹا' },
+    { key: 'onion', en: 'Onion', ur: 'پیاز' },
   ] as const;
 
   const organGuides = [
-    { icon: Leaf, ur: 'پتا (اوپر یا نیچے)', en: 'Leaf (top or under)' },
-    { icon: Sprout, ur: 'تنا یا شاخ', en: 'Stem & branch' },
-    { icon: CircleDot, ur: 'جڑیں یا بنیاد', en: 'Roots & base' },
-    { icon: Apple, ur: 'پھل یا پھول', en: 'Fruit or flower' },
+    { icon: Leaf, ur: 'پتا', en: 'Leaf' },
+    { icon: Sprout, ur: 'تنا یا شاخ', en: 'Stem' },
+    { icon: CircleDot, ur: 'جڑیں', en: 'Roots' },
+    { icon: Apple, ur: 'پھل / پھول', en: 'Fruit/Flower' },
     { icon: Layers, ur: 'پورا پودا', en: 'Whole plant' },
   ];
 
@@ -169,7 +167,7 @@ export default function ScanPage() {
     cropKey: string
   ) => {
     try {
-      // Quality check on phone (blur & lighting)
+      // OffscreenCanvas Quality Check (blur & lighting)
       const compressed = await compressAndAssessLeafImage(fileOrDataUrl);
       if (!compressed.quality.isAcceptable) {
         setPendingQualityData({
@@ -178,116 +176,88 @@ export default function ScanPage() {
         });
         return;
       }
-      runAnalysisPipeline(compressed.fullDataUrl, cropKey);
+      runAnalysisPipeline(compressed.fullDataUrl, cropKey, false);
     } catch {
-      runAnalysisPipeline(fileOrDataUrl, cropKey);
+      runAnalysisPipeline(fileOrDataUrl, cropKey, false);
     }
   };
 
   const runAnalysisPipeline = async (
     fileOrDataUrl: File | string,
-    cropKey: string
+    cropKey: string,
+    confirmMismatchOverride = false
   ) => {
     unlockAudio();
     setPendingQualityData(null);
     setErrorMsg(null);
     setAnalysing(true);
-    setPrediction(null);
-    setAdvice(null);
-    setSecondOpinion(null);
+    setDiagnosis(null);
     setSavedToDiary(false);
 
     try {
-      const prepared = await prepareLeafImage(fileOrDataUrl);
-      setPreviewUrl(prepared.resizedDataUrl);
-      setThumbnailUrl(prepared.thumbnailDataUrl);
+      const compressed = await compressAndAssessLeafImage(fileOrDataUrl);
+      setPreviewUrl(compressed.fullDataUrl);
+      setThumbnailUrl(compressed.thumbnailDataUrl);
 
-      // 1. Fast on-device model guess (instant baseline)
-      let onDevicePred: ScanPredictionResult | null = null;
-      try {
-        onDevicePred = await predictLeafDisease(
-          prepared.imageElement,
-          cropKey
-        );
-        setPrediction(onDevicePred);
-      } catch {
-        // Continue to Gemini Multimodal
+      // Two-Stage Gemini Vision Analysis (/api/scan/analyze)
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 22000);
+
+      const res = await fetch('/api/scan/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: compressed.fullDataUrl,
+          selectedCrop: cropKey,
+          confirmMismatchOverride,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (!res.ok) {
+        throw new Error(`Server returned status ${res.status}`);
       }
 
-      // 2. Multimodal AI Analysis with Gemini (understands leaf, stem, roots, fruit, whole plant)
-      let fetchedAdvice: Advice | null = null;
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
+      const diagData: CropDiagnosis = await res.json();
+      setDiagnosis(diagData);
 
-        const res = await fetch('/api/advice', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            label: onDevicePred?.topLabel || 'unclear',
-            confidence: onDevicePred?.confidence || 0.85,
-            crop: cropKey,
-            image: prepared.resizedDataUrl,
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.advice) {
-            fetchedAdvice = data.advice;
-          }
-        }
-      } catch (fetchErr) {
-        console.warn('API advice fetch error, falling back:', fetchErr);
-      }
-
-      if (!fetchedAdvice) {
-        fetchedAdvice = getStaticFallbackAdvice(
-          onDevicePred?.topLabel || 'unclear',
-          onDevicePred?.confidence || 0.8
-        );
-      }
-
-      setAdvice(fetchedAdvice);
-
-      // Sync prediction confidence if AI returned a confidence score
-      if (fetchedAdvice.confidence && onDevicePred) {
-        setPrediction({
-          ...onDevicePred,
-          confidence: fetchedAdvice.confidence,
-          tier: fetchedAdvice.confidence >= 0.75 ? 'confident' : 'likely',
-        });
-      }
-
-      // 3. Spoken Urdu Voice Readout (Fluent, Natural, Human Sounding)
+      // Spoken Urdu Voice Readout
       const profile = getSavedProfile();
-      if (profile.autoSpeakVoice !== false && fetchedAdvice) {
-        const plantIntro = fetchedAdvice.plant_name
-          ? `${fetchedAdvice.plant_name[locale]} کا معائنہ۔ `
-          : '';
-        const organIntro = fetchedAdvice.organ
-          ? `${fetchedAdvice.organ[locale]} پر `
-          : '';
-        const spoken = `${plantIntro}${organIntro}${fetchedAdvice.problem_name[locale]}۔ ${
-          fetchedAdvice.summary[locale]
-        }۔ تدابیر: ${fetchedAdvice.steps
-          .map((s, i) => `${i + 1}۔ ${s[locale]}`)
-          .join(' ')}`;
+      if (profile.autoSpeakVoice !== false) {
+        let speechText = '';
+        if (diagData.diagnosis_status === 'crop_mismatch') {
+          speechText = diagData.message[locale];
+        } else if (diagData.diagnosis_status === 'invalid_image') {
+          speechText = diagData.message[locale];
+        } else {
+          const cropPartIntro = `${diagData.detected_crop_ur} کے ${diagData.detected_plant_part_ur} کا معائنہ۔ `;
+          const prob = `${diagData.problem_name[locale]}۔ `;
+          const condition = `${diagData.plant_condition_ur}۔ `;
+          const stepsIntro =
+            diagData.recommendations.length > 0
+              ? `سفارشات: ${diagData.recommendations
+                  .map((r, i) => `${i + 1}۔ ${r[locale]}`)
+                  .join(' ')}`
+              : '';
+          speechText = `${cropPartIntro}${prob}${condition}${stepsIntro}`;
+        }
 
         setTimeout(() => {
-          speakText(spoken, locale);
+          speakText(speechText, locale);
         }, 150);
       }
 
-      // Guest prompt if unauthenticated
-      const currentProfile = getSavedProfile();
-      if (!currentProfile.isAuthenticated) {
+      if (!profile.isAuthenticated) {
         setTimeout(() => setShowGuestPrompt(true), 2800);
       }
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : t('permissionError'));
+      console.error('Scan error:', err);
+      setErrorMsg(
+        locale === 'ur'
+          ? 'معائنہ مکمل نہیں ہو سکا۔ براہِ کرم انٹرنیٹ کنکشن چیک کر کے دوبارہ کوشش کریں۔'
+          : 'Analysis could not be completed. Please check connection and retry.'
+      );
     } finally {
       setAnalysing(false);
     }
@@ -301,39 +271,69 @@ export default function ScanPage() {
     e.target.value = '';
   };
 
-  const handleRequestSecondOpinion = async () => {
-    if (!previewUrl || loadingSecondOpinion) return;
-    setLoadingSecondOpinion(true);
-    try {
-      const res = await fetch('/api/verify-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image: previewUrl,
-          crop: selectedCrop,
-          label: prediction?.topLabel || 'unclear',
-        }),
-      });
-      const data = await res.json();
-      if (data.secondOpinion) {
-        setSecondOpinion(data.secondOpinion);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoadingSecondOpinion(false);
-    }
+  const handleConfirmMismatch = () => {
+    if (!previewUrl || !diagnosis) return;
+    // User confirms the AI-detected crop
+    setSelectedCrop(diagnosis.detected_crop);
+    runAnalysisPipeline(previewUrl, diagnosis.detected_crop, true);
   };
 
   const handleSaveToDiary = async () => {
-    if (!advice || savedToDiary) return;
+    if (!diagnosis || savedToDiary) return;
+
+    const legacyAdvice: Advice = {
+      problem_name: diagnosis.problem_name,
+      plant_name: {
+        en: diagnosis.detected_crop,
+        ur: diagnosis.detected_crop_ur,
+      },
+      organ: {
+        en: diagnosis.detected_plant_part,
+        ur: diagnosis.detected_plant_part_ur,
+      },
+      confidence: diagnosis.identification_confidence,
+      severity:
+        diagnosis.severity === 'not_assessed' ? 'low' : diagnosis.severity,
+      summary: diagnosis.message,
+      steps:
+        diagnosis.recommendations.length > 0
+          ? diagnosis.recommendations
+          : [
+              {
+                en: 'Continue routine scouting.',
+                ur: 'معمول کی دیکھ بھال جاری رکھیں۔',
+              },
+            ],
+      prevention:
+        diagnosis.prevention.length > 0
+          ? diagnosis.prevention
+          : [
+              {
+                en: 'Maintain clean field borders.',
+                ur: 'کھیت کی وٹیں صاف رکھیں۔',
+              },
+            ],
+      see_expert: diagnosis.requires_expert_review,
+      expert_reason: diagnosis.requires_expert_review
+        ? {
+            en: 'Condition requires field extension officer inspection.',
+            ur: 'اس کیفیت کے لیے فیلڈ زرعی توسیعی افسر سے معائنہ ضروری ہے۔',
+          }
+        : undefined,
+    };
+
     await saveScanRecord({
-      crop: selectedCrop,
+      crop: diagnosis.detected_crop,
+      selected_crop: diagnosis.selected_crop,
+      detected_crop: diagnosis.detected_crop,
+      plant_part: diagnosis.detected_plant_part,
+      diagnosis_status: diagnosis.diagnosis_status,
       thumbnailDataUrl: thumbnailUrl || previewUrl || '',
-      label: prediction?.topLabel || advice.problem_name.en,
-      confidence: prediction?.confidence || 0.85,
-      advice,
+      label: diagnosis.problem_name.en,
+      confidence: diagnosis.identification_confidence,
+      advice: legacyAdvice,
     });
+
     setSavedToDiary(true);
   };
 
@@ -341,25 +341,26 @@ export default function ScanPage() {
     stopSpeaking();
     stopCameraStream();
     setPreviewUrl(null);
-    setPrediction(null);
-    setAdvice(null);
-    setSecondOpinion(null);
+    setThumbnailUrl('');
+    setDiagnosis(null);
     setSavedToDiary(false);
     setErrorMsg(null);
     setPendingQualityData(null);
   };
 
-  const spokenAdviceText = advice
-    ? `${advice.plant_name ? advice.plant_name[locale] + '۔ ' : ''}${
-        advice.organ ? advice.organ[locale] + ' پر ' : ''
-      }${advice.problem_name[locale]}۔ ${advice.summary[locale]}۔ ${advice.steps
-        .map((s, i) => `${i + 1}۔ ${s[locale]}`)
-        .join(' ')}`
+  const spokenDiagnosisText = diagnosis
+    ? diagnosis.diagnosis_status === 'crop_mismatch'
+      ? diagnosis.message[locale]
+      : `${diagnosis.detected_crop_ur} کے ${diagnosis.detected_plant_part_ur} کا معائنہ۔ ${
+          diagnosis.problem_name[locale]
+        }۔ ${diagnosis.plant_condition_ur}۔ ${diagnosis.recommendations
+          .map((r, i) => `${i + 1}۔ ${r[locale]}`)
+          .join(' ')}`
     : '';
 
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas overflow-x-hidden">
-      {/* Header */}
+      {/* Top Header */}
       <header className="bg-gradient-to-b from-[#062409] to-olive-dark text-white rounded-b-[32px] px-4 sm:px-5 pt-4 pb-7 shadow-soft">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
@@ -377,36 +378,43 @@ export default function ScanPage() {
 
         <div className="mt-3.5">
           <h1 className="font-extrabold text-xl sm:text-2xl text-white">
-            {locale === 'ur' ? 'فصل کا اے آئی ڈاکٹر (1 تصویر معائنہ)' : 'Plant Doctor (1-Photo Scan)'}
+            {locale === 'ur'
+              ? 'فصل کا اے آئی ڈاکٹر (خودکار شناخت)'
+              : 'Smart Crop Scanner'}
           </h1>
           <p className="text-xs text-cream font-medium mt-0.5">
             {locale === 'ur'
-              ? 'پتے، تنے، جڑ، پھل یا پورے پودے کی صرف 1 تصویر لیں — مکمل تشخیص و علاج'
-              : 'Take 1 photo of leaf, stem, roots, fruit or whole plant for instant diagnosis'}
+              ? 'پتا، تنا، جڑ، پھل یا پورا پودا — اے آئی خود فصل اور حصے کی درست شناخت کرے گی'
+              : 'Two-stage vision: Independently detects crop, plant part, and symptoms'}
           </p>
         </div>
       </header>
 
       <main className="px-4 sm:px-5 mt-4 space-y-4 max-w-md mx-auto">
-        {/* Crop Selector Strip */}
-        {!prediction && !analysing && (
+        {/* Step A: User Crop Selector (Treated as user input, NOT visual proof) */}
+        {!diagnosis && !analysing && (
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-white rounded-2xl p-3.5 shadow-soft border border-olive/15 space-y-2.5"
           >
             <div className="flex items-center justify-between">
-              <label className="font-extrabold text-xs text-ink">
-                {locale === 'ur' ? 'اپنی فصل منتخب کریں:' : 'Select Crop:'}
+              <label className="font-extrabold text-xs text-ink flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-olive" />
+                <span>
+                  {locale === 'ur'
+                    ? '1۔ آپ کی منتخب کردہ فصل:'
+                    : '1. Your Selected Crop:'}
+                </span>
               </label>
-              <span className="text-[11px] font-bold text-olive">
-                {locale === 'ur' ? 'یا براہِ راست تصویر لیں' : 'Or take photo directly'}
+              <span className="text-[10px] font-bold text-ink/55 bg-canvas px-2 py-0.5 rounded-full">
+                {locale === 'ur' ? 'کسان کا انتخاب' : 'Farmer input'}
               </span>
             </div>
 
             <div className="grid grid-cols-4 gap-1.5">
-              {supportedCrops.map((c) => {
-                const active = selectedCrop === c.key;
+              {supportedCrops.slice(0, 8).map((c) => {
+                const active = selectedCrop.toLowerCase() === c.key;
                 return (
                   <button
                     key={c.key}
@@ -426,8 +434,8 @@ export default function ScanPage() {
           </motion.section>
         )}
 
-        {/* 1-Image Primary Viewfinder / Capture Frame */}
-        {!prediction && !analysing && (
+        {/* 1-Image Primary Capture Frame */}
+        {!diagnosis && !analysing && (
           <motion.section
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
@@ -444,7 +452,6 @@ export default function ScanPage() {
                     autoPlay
                     className="absolute inset-0 w-full h-full object-cover"
                   />
-                  {/* Aim target */}
                   <div className="relative z-10 w-48 h-48 border-2 border-dashed border-emerald-400 rounded-3xl pointer-events-none flex items-center justify-center">
                     <div className="w-3 h-3 rounded-full bg-emerald-400 animate-ping absolute" />
                     <div className="w-2 h-2 rounded-full bg-emerald-400 absolute" />
@@ -484,25 +491,25 @@ export default function ScanPage() {
                     <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 mx-auto flex items-center justify-center">
                       <Sparkles className="w-8 h-8 text-emerald-400" />
                     </div>
-                    <p className="font-extrabold text-sm text-white">
+                    <p className="font-black text-sm text-white">
                       {locale === 'ur'
-                        ? 'صرف 1 واضح تصویر لیں'
-                        : 'Take 1 Clear Photo'}
+                        ? 'کسی بھی ایک حصے کی 1 واضح تصویر لیں'
+                        : 'Take 1 Clear Plant Photo'}
                     </p>
-                    <p className="text-xs text-cream/80 max-w-[240px] mx-auto leading-relaxed">
+                    <p className="text-xs text-cream/80 max-w-[260px] mx-auto leading-relaxed">
                       {locale === 'ur'
-                        ? 'پتا، تنا، جڑ، پھل یا پورا پودا — اے آئی ہر حصے کو خود پہچان لے گی'
-                        : 'Leaf, stem, roots, fruit or whole plant — AI detects organ automatically'}
+                        ? 'پتا، تنا، جڑیں، پھل یا پورا پودا — اے آئی خود فصل اور حصے کی درست شناخت کرے گی'
+                        : 'Leaf, stem, roots, fruit or whole plant — AI will independently identify crop & part'}
                     </p>
                   </div>
                 </>
               )}
             </div>
 
-            {/* Organ Visual Chips */}
+            {/* Supported Organ Chips */}
             <div className="space-y-1.5">
-              <span className="text-[11px] font-bold text-ink/65 uppercase tracking-wider block">
-                {locale === 'ur' ? 'کسی بھی ایک حصے کی تصویر لیں:' : 'Accepts any 1 plant part:'}
+              <span className="text-[11px] font-extrabold text-ink/65 uppercase tracking-wider block">
+                {locale === 'ur' ? 'قابل قبول حصے:' : 'Acceptable plant parts:'}
               </span>
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-bold text-ink/80">
                 {organGuides.map((item, idx) => {
@@ -571,7 +578,7 @@ export default function ScanPage() {
           </motion.section>
         )}
 
-        {/* Quality Check Advisory Modal (Never Hard-Blocking) */}
+        {/* Quality Check Advisory Modal */}
         <AnimatePresence>
           {pendingQualityData && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -619,7 +626,8 @@ export default function ScanPage() {
                     onClick={() =>
                       runAnalysisPipeline(
                         pendingQualityData.fileOrUrl,
-                        selectedCrop
+                        selectedCrop,
+                        false
                       )
                     }
                     className="min-h-[46px] rounded-full bg-olive text-white font-extrabold text-xs hover:bg-olive-dark flex items-center justify-center gap-1.5 shadow-sm"
@@ -635,7 +643,7 @@ export default function ScanPage() {
           )}
         </AnimatePresence>
 
-        {/* Radar Scanner Animation during Analysis */}
+        {/* Loading Radar Sweep */}
         <AnimatePresence>
           {analysing && (
             <motion.section
@@ -668,13 +676,13 @@ export default function ScanPage() {
               <div className="space-y-1">
                 <h2 className="font-black text-lg text-ink">
                   {locale === 'ur'
-                    ? 'پودے کا باریک بینی سے معائنہ کیا جا رہا ہے...'
-                    : 'Analysing plant in detail...'}
+                    ? 'پودے کا خودکار وژن معائنہ جاری ہے...'
+                    : 'AI Vision analyzing plant...'}
                 </h2>
                 <p className="text-xs text-ink/70">
                   {locale === 'ur'
-                    ? 'پتے، تنے، جڑوں اور علامات کی شناخت و علاج تیار ہو رہا ہے'
-                    : 'Identifying plant, organ, disease and safe treatments'}
+                    ? 'فصل کی حقیقی شناخت، پودے کا حصہ اور علامات جانچی جا رہی ہیں'
+                    : 'Independently verifying crop species, plant organ & symptoms'}
                 </p>
               </div>
             </motion.section>
@@ -695,186 +703,335 @@ export default function ScanPage() {
           </div>
         )}
 
-        {/* Complete Results Display (Section 5.2) */}
-        {advice && !analysing && (
+        {/* CASE 1: CROP MISMATCH SCREEN (Section 1 & 9) */}
+        {diagnosis && diagnosis.diagnosis_status === 'crop_mismatch' && (
           <motion.section
-            initial={{ opacity: 0, y: 18 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="space-y-4 text-start"
+            className="bg-white rounded-3xl p-5 sm:p-6 shadow-soft border-2 border-amber-500 text-start space-y-4"
           >
-            {/* Expert Referral Banner */}
-            {advice.see_expert && (
-              <div className="bg-cream border-2 border-alert-amber rounded-2xl p-4 shadow-soft flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-alert-amber text-ink flex items-center justify-center flex-shrink-0">
-                  <AlertTriangle className="w-5 h-5" />
-                </div>
-                <div className="flex-1 space-y-1.5 min-w-0">
-                  <h3 className="font-extrabold text-sm text-ink">
-                    {t('expertBannerTitle')}
-                  </h3>
-                  <p className="text-xs text-ink/85 leading-relaxed">
-                    {advice.expert_reason
-                      ? advice.expert_reason[locale]
-                      : t('expertBannerDefault')}
-                  </p>
-                </div>
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 flex items-center justify-center text-amber-700 flex-shrink-0">
+                <ShieldAlert className="w-6 h-6" />
               </div>
-            )}
-
-            {/* Main Result Card */}
-            <div className="bg-white rounded-3xl p-5 shadow-soft border border-olive/15 space-y-4">
-              <div className="flex items-start gap-3.5">
-                {previewUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={previewUrl}
-                    alt="Scanned plant"
-                    className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500/40 flex-shrink-0 shadow-sm"
-                  />
-                )}
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {/* Plant Organ Badge */}
-                    {advice.organ && (
-                      <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-olive/15 text-olive-dark">
-                        {advice.organ[locale]}
-                      </span>
-                    )}
-                    {/* Severity Badge */}
-                    <span
-                      className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${
-                        advice.severity === 'high'
-                          ? 'bg-alert-red/15 text-alert-red'
-                          : advice.severity === 'medium'
-                          ? 'bg-alert-amber/25 text-amber-900'
-                          : 'bg-emerald-100 text-emerald-800'
-                      }`}
-                    >
-                      {advice.severity === 'high'
-                        ? t('severityHigh')
-                        : advice.severity === 'medium'
-                        ? t('severityMedium')
-                        : t('severityLow')}
-                    </span>
-                  </div>
-
-                  {advice.plant_name && (
-                    <span className="text-xs font-bold text-ink/60 block">
-                      {advice.plant_name[locale]}
-                    </span>
-                  )}
-
-                  <h2 className="font-black text-lg sm:text-xl text-ink leading-tight">
-                    {advice.problem_name[locale]}
-                  </h2>
-                </div>
+              <div>
+                <span className="text-[11px] font-black uppercase text-amber-700 bg-amber-500/10 px-2.5 py-0.5 rounded-full inline-block mb-1">
+                  {locale === 'ur' ? 'فصل کی عدم مطابقت' : 'Crop Mismatch Detected'}
+                </span>
+                <h3 className="font-black text-base sm:text-lg text-ink">
+                  {locale === 'ur'
+                    ? 'منتخب کردہ فصل اور تصویر میں فرق ہے'
+                    : 'Image does not match selected crop'}
+                </h3>
               </div>
+            </div>
 
-              {/* Spoken Audio Banner (Reads Aloud in Fluent Human Urdu) */}
-              <div className="rounded-2xl p-3.5 bg-gradient-to-r from-emerald-500/10 via-olive/10 to-emerald-500/10 border border-emerald-500/20 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center flex-shrink-0">
-                    <Volume2 className="w-4 h-4" />
+            {/* Comparison Cards */}
+            <div className="grid grid-cols-2 gap-2 bg-canvas p-3 rounded-2xl border border-olive/15 text-xs">
+              <div className="p-2 rounded-xl bg-white/80 border border-amber-500/30">
+                <span className="text-[10px] font-bold text-ink/50 block">
+                  {locale === 'ur' ? 'آپ نے منتخب کی:' : 'You Selected:'}
+                </span>
+                <span className="font-extrabold text-sm text-ink block mt-0.5">
+                  {diagnosis.selected_crop}
+                </span>
+              </div>
+              <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-500/40">
+                <span className="text-[10px] font-bold text-emerald-800 block">
+                  {locale === 'ur' ? 'اے آئی نے تصویر میں دیکھا:' : 'AI Detected in Photo:'}
+                </span>
+                <span className="font-extrabold text-sm text-emerald-900 block mt-0.5">
+                  {diagnosis.detected_crop_ur} ({diagnosis.detected_plant_part_ur})
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-ink/85 leading-relaxed bg-amber-500/10 p-3 rounded-xl border border-amber-500/20 font-medium">
+              {diagnosis.message[locale]}
+            </p>
+
+            <p className="text-[11px] text-ink/65 leading-relaxed">
+              {locale === 'ur'
+                ? 'اہم حفاظتی اصول: زرخیز غلط فصل کا علاج تجویز نہیں کرتا تاکہ فصل کو نقصان نہ پہنچے۔ آپ تصویر میں نظر آنے والی فصل کی تصدیق کر کے درست معائنہ حاصل کر سکتے ہیں۔'
+                : 'Safety rule: Zarkhez prevents diagnosing one crop as another. Please confirm the detected crop to proceed.'}
+            </p>
+
+            {/* Decision Buttons */}
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={handleConfirmMismatch}
+                className="w-full min-h-[50px] rounded-full bg-gradient-to-r from-emerald-600 to-olive hover:from-emerald-700 hover:to-olive-dark text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
+              >
+                <Check className="w-4 h-4" />
+                <span>
+                  {locale === 'ur'
+                    ? `جی ہاں، یہ ${diagnosis.detected_crop_ur} ہے (تشخیص جاری رکھیں)`
+                    : `Yes, this is ${diagnosis.detected_crop} (Continue)`}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={resetScan}
+                className="w-full min-h-[46px] rounded-full bg-canvas hover:bg-ink/10 text-ink font-bold text-xs flex items-center justify-center gap-2 border border-olive/20 transition-all"
+              >
+                <RotateCcw className="w-4 h-4 text-ink/60" />
+                <span>
+                  {locale === 'ur'
+                    ? 'دوسری تصویر لیں یا فصل تبدیل کریں'
+                    : 'Retake Photo / Select Different Crop'}
+                </span>
+              </button>
+            </div>
+          </motion.section>
+        )}
+
+        {/* CASE 2: INVALID IMAGE (NON-PLANT, SCREEN, OBJECT) */}
+        {diagnosis && diagnosis.diagnosis_status === 'invalid_image' && (
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl p-5 sm:p-6 shadow-soft border-2 border-red-500/40 text-start space-y-4"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center text-red-600 flex-shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[11px] font-black uppercase text-red-600 bg-red-500/10 px-2.5 py-0.5 rounded-full inline-block mb-1">
+                  {locale === 'ur' ? 'غیر متعلقہ تصویر' : 'Invalid Image'}
+                </span>
+                <h3 className="font-black text-base sm:text-lg text-ink">
+                  {diagnosis.problem_name[locale]}
+                </h3>
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-ink/80 leading-relaxed bg-canvas p-3.5 rounded-2xl border border-olive/15">
+              {diagnosis.message[locale]}
+            </p>
+
+            <button
+              type="button"
+              onClick={resetScan}
+              className="w-full min-h-[50px] rounded-full bg-[#062409] hover:bg-olive-dark text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
+            >
+              <Camera className="w-4 h-4 text-emerald-400" />
+              <span>
+                {locale === 'ur'
+                  ? 'اصلی پودے یا فصل کی تصویر لیں'
+                  : 'Take Photo of Real Plant'}
+              </span>
+            </button>
+          </motion.section>
+        )}
+
+        {/* CASE 3: COMPLETE STRUCTURED DIAGNOSTIC REPORT (Section 6) */}
+        {diagnosis &&
+          diagnosis.diagnosis_status !== 'crop_mismatch' &&
+          diagnosis.diagnosis_status !== 'invalid_image' && (
+            <motion.section
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="space-y-4 text-start"
+            >
+              {/* Expert Review Advisory Banner */}
+              {diagnosis.requires_expert_review && (
+                <div className="bg-cream border-2 border-alert-amber rounded-2xl p-4 shadow-soft flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-alert-amber text-ink flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="w-5 h-5" />
                   </div>
-                  <div>
-                    <span className="text-xs font-black text-ink block">
-                      {locale === 'ur' ? 'اردو وائس خلاصہ:' : 'Urdu Voice Summary:'}
-                    </span>
-                    <p className="text-[11px] text-ink/75 leading-tight">
+                  <div className="flex-1 space-y-1 min-w-0">
+                    <h4 className="font-black text-sm text-ink">
+                      {t('expertBannerTitle')}
+                    </h4>
+                    <p className="text-xs text-ink/85 leading-relaxed">
                       {locale === 'ur'
-                        ? 'آواز میں مکمل تشخیص اور علاج سنیں'
-                        : 'Listen to spoken diagnosis aloud'}
+                        ? 'علامات حساس ہیں یا سو فیصد واضح نہیں ہیں۔ کسی بھی کیمیائی سپرے سے قبل مقامی زرعی توسیعی افسر سے معائنہ کروائیں۔'
+                        : 'Symptoms require on-site confirmation by your local agricultural extension officer before spraying.'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Main Report Card */}
+              <div className="bg-white rounded-3xl p-5 shadow-soft border border-olive/15 space-y-4">
+                {/* Image & Header Details */}
+                <div className="flex items-start gap-3.5">
+                  {previewUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={previewUrl}
+                      alt="Scanned plant"
+                      className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500/40 flex-shrink-0 shadow-sm"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* AI-Detected Crop Badge */}
+                      <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300/60">
+                        {diagnosis.detected_crop_ur}
+                      </span>
+
+                      {/* Plant Part Badge */}
+                      <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-olive/15 text-olive-dark">
+                        {diagnosis.detected_plant_part_ur}
+                      </span>
+
+                      {/* Severity Badge */}
+                      <span
+                        className={`text-[11px] font-extrabold px-2 py-0.5 rounded-full ${
+                          diagnosis.severity === 'high'
+                            ? 'bg-alert-red/15 text-alert-red'
+                            : diagnosis.severity === 'medium'
+                            ? 'bg-alert-amber/25 text-amber-900'
+                            : 'bg-emerald-50 text-emerald-800'
+                        }`}
+                      >
+                        {diagnosis.severity === 'high'
+                          ? t('severityHigh')
+                          : diagnosis.severity === 'medium'
+                          ? t('severityMedium')
+                          : t('severityLow')}
+                      </span>
+                    </div>
+
+                    <h2 className="font-black text-lg sm:text-xl text-ink leading-tight">
+                      {diagnosis.problem_name[locale]}
+                    </h2>
+
+                    <p className="text-xs font-bold text-ink/65">
+                      {diagnosis.plant_condition_ur}
                     </p>
                   </div>
                 </div>
 
-                <ReadAloudButton text={spokenAdviceText} lang={locale} />
-              </div>
-
-              {/* Summary */}
-              <div className="bg-canvas rounded-2xl p-3.5">
-                <p className="text-xs sm:text-sm text-ink leading-relaxed font-medium">
-                  {advice.summary[locale]}
-                </p>
-              </div>
-
-              {/* Practical Steps First (Low cost, field hygiene, irrigation) */}
-              <div className="space-y-2">
-                <h3 className="font-black text-xs sm:text-sm text-ink flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>{t('stepsTitle')}</span>
-                </h3>
-                <ol className="space-y-2">
-                  {advice.steps.map((st, i) => (
-                    <li
-                      key={i}
-                      className="text-xs sm:text-sm text-ink bg-canvas/80 p-3 rounded-xl border border-olive/10 flex items-start gap-2.5"
-                    >
-                      <span className="w-5 h-5 rounded-full bg-olive text-white text-[11px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">
-                        {i + 1}
+                {/* Spoken Audio Banner (Reads Aloud in Fluent Human Urdu) */}
+                <div className="rounded-2xl p-3.5 bg-gradient-to-r from-emerald-500/10 via-olive/10 to-emerald-500/10 border border-emerald-500/20 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center flex-shrink-0">
+                      <Volume2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-black text-ink block">
+                        {locale === 'ur'
+                          ? 'اردو وائس خلاصہ:'
+                          : 'Urdu Voice Summary:'}
                       </span>
-                      <span className="leading-relaxed font-medium">
-                        {st[locale]}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
+                      <p className="text-[11px] text-ink/75 leading-tight">
+                        {locale === 'ur'
+                          ? 'مکمل تشخیص اور علاج سنیں'
+                          : 'Listen to spoken diagnosis aloud'}
+                      </p>
+                    </div>
+                  </div>
 
-              {/* Prevention */}
-              {advice.prevention && advice.prevention.length > 0 && (
-                <div className="space-y-2 pt-1 border-t border-olive/10">
-                  <h3 className="font-extrabold text-xs sm:text-sm text-ink flex items-center gap-1.5">
-                    <Sun className="w-4 h-4 text-amber-600" />
-                    <span>{t('preventionTitle')}</span>
-                  </h3>
-                  <ul className="space-y-1.5">
-                    {advice.prevention.map((pv, i) => (
-                      <li
-                        key={i}
-                        className="text-xs text-ink/80 bg-canvas/60 p-2.5 rounded-xl border border-olive/10 flex items-start gap-2"
-                      >
-                        <span className="text-olive font-black">•</span>
-                        <span>{pv[locale]}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <ReadAloudButton text={spokenDiagnosisText} lang={locale} />
                 </div>
-              )}
 
-              {/* Actions: Save to Farm Diary & Scan Another */}
-              <div className="grid grid-cols-2 gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={handleSaveToDiary}
-                  disabled={savedToDiary}
-                  className={`min-h-[48px] rounded-full font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all ${
-                    savedToDiary
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                      : 'bg-white hover:bg-canvas text-ink border-2 border-olive/30 shadow-sm'
-                  }`}
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>
-                    {savedToDiary ? t('savedToDiary') : t('saveToDiary')}
-                  </span>
-                </button>
+                {/* Observed Symptoms */}
+                {diagnosis.observed_symptoms &&
+                  diagnosis.observed_symptoms.length > 0 && (
+                    <div className="space-y-1.5 bg-canvas/80 p-3.5 rounded-2xl border border-olive/10">
+                      <span className="text-[11px] font-black text-ink/60 uppercase block">
+                        {locale === 'ur'
+                          ? 'تصویر میں دیکھی گئی علامات:'
+                          : 'Observed Symptoms in Image:'}
+                      </span>
+                      <ul className="space-y-1 text-xs text-ink/85 font-medium">
+                        {diagnosis.observed_symptoms.map((sym, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-olive font-black">•</span>
+                            <span>{sym[locale]}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
-                <button
-                  type="button"
-                  onClick={resetScan}
-                  className="min-h-[48px] rounded-full bg-gradient-to-r from-olive to-emerald-600 hover:from-olive-dark hover:to-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
-                >
-                  <RotateCcw className="w-4 h-4 text-white" />
-                  <span>
-                    {locale === 'ur' ? 'نیا پودا اسکین کریں' : 'Scan Another Plant'}
-                  </span>
-                </button>
+                {/* Practical Low-Cost Actions First (Cultural, Water, Sanitation) */}
+                {diagnosis.recommendations &&
+                  diagnosis.recommendations.length > 0 && (
+                    <div className="space-y-2">
+                      <h3 className="font-black text-xs sm:text-sm text-ink flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>{t('stepsTitle')}</span>
+                      </h3>
+                      <ol className="space-y-2">
+                        {diagnosis.recommendations.map((rec, i) => (
+                          <li
+                            key={i}
+                            className="text-xs sm:text-sm text-ink bg-canvas/80 p-3 rounded-xl border border-olive/10 flex items-start gap-2.5"
+                          >
+                            <span className="w-5 h-5 rounded-full bg-olive text-white text-[11px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">
+                              {i + 1}
+                            </span>
+                            <span className="leading-relaxed font-medium">
+                              {rec[locale]}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+
+                {/* Prevention */}
+                {diagnosis.prevention && diagnosis.prevention.length > 0 && (
+                  <div className="space-y-2 pt-1 border-t border-olive/10">
+                    <h3 className="font-extrabold text-xs sm:text-sm text-ink flex items-center gap-1.5">
+                      <Sun className="w-4 h-4 text-amber-600" />
+                      <span>{t('preventionTitle')}</span>
+                    </h3>
+                    <ul className="space-y-1.5">
+                      {diagnosis.prevention.map((pv, i) => (
+                        <li
+                          key={i}
+                          className="text-xs text-ink/80 bg-canvas/60 p-2.5 rounded-xl border border-olive/10 flex items-start gap-2"
+                        >
+                          <span className="text-olive font-black">•</span>
+                          <span>{pv[locale]}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Actions: Save to Farm Diary & Scan Another */}
+                <div className="grid grid-cols-2 gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveToDiary}
+                    disabled={savedToDiary}
+                    className={`min-h-[48px] rounded-full font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      savedToDiary
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-white hover:bg-canvas text-ink border-2 border-olive/30 shadow-sm'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>
+                      {savedToDiary ? t('savedToDiary') : t('saveToDiary')}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={resetScan}
+                    className="min-h-[48px] rounded-full bg-gradient-to-r from-olive to-emerald-600 hover:from-olive-dark hover:to-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
+                  >
+                    <RotateCcw className="w-4 h-4 text-white" />
+                    <span>
+                      {locale === 'ur'
+                        ? 'نیا پودا اسکین کریں'
+                        : 'Scan Another Plant'}
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
-          </motion.section>
-        )}
+            </motion.section>
+          )}
       </main>
 
       <BottomNav />

@@ -248,52 +248,18 @@ export async function predictLeafDisease(
 
   const vegetationTotal = stats.greenRatio + stats.yellowRatio + stats.brownRatio;
 
-  if (vegetationTotal < 0.22) {
-    scores['not_a_plant'] += 0.78;
+  if (vegetationTotal < 0.18) {
+    scores['not_a_plant'] += 0.85;
+  } else if (rawProbs && rawProbs.length === MODEL_LABELS.length) {
+    // Rely purely on real computer vision activations across all crops
+    MODEL_LABELS.forEach((label, idx) => {
+      scores[label] = rawProbs ? (rawProbs[idx] ?? 0.05) : 0.05;
+    });
   } else {
-    const crop = ['tomato', 'wheat', 'maize', 'rice'].includes(selectedCrop)
-      ? selectedCrop
-      : 'tomato';
-
-    if (crop === 'tomato') {
-      if (stats.brownRatio > 0.14) {
-        scores['tomato_early_blight'] += 0.79;
-        scores['tomato_late_blight'] += 0.12;
-      } else if (stats.yellowRatio > 0.14) {
-        scores['tomato_leaf_curl'] += 0.77;
-        scores['tomato_early_blight'] += 0.13;
-      } else {
-        scores['tomato_healthy'] += 0.84;
-        scores['tomato_early_blight'] += 0.08;
-      }
-    } else if (crop === 'wheat') {
-      if (stats.yellowRatio > 0.12) {
-        scores['wheat_yellow_rust'] += 0.83;
-        scores['wheat_brown_rust'] += 0.1;
-      } else if (stats.brownRatio > 0.12) {
-        scores['wheat_brown_rust'] += 0.78;
-        scores['wheat_yellow_rust'] += 0.12;
-      } else {
-        scores['wheat_healthy'] += 0.85;
-        scores['wheat_yellow_rust'] += 0.08;
-      }
-    } else if (crop === 'maize') {
-      if (stats.brownRatio > 0.12 || stats.yellowRatio > 0.15) {
-        scores['maize_northern_leaf_blight'] += 0.8;
-        scores['maize_common_rust'] += 0.12;
-      } else {
-        scores['maize_healthy'] += 0.85;
-        scores['maize_common_rust'] += 0.08;
-      }
-    } else if (crop === 'rice') {
-      if (stats.brownRatio > 0.1 || stats.yellowRatio > 0.14) {
-        scores['rice_brown_spot'] += 0.81;
-        scores['rice_healthy'] += 0.1;
-      } else {
-        scores['rice_healthy'] += 0.85;
-        scores['rice_brown_spot'] += 0.08;
-      }
-    }
+    // Neutral initial activation across all crops without forcing selectedCrop
+    MODEL_LABELS.forEach((label) => {
+      scores[label] = 0.08;
+    });
   }
 
   const totalScore = Object.values(scores).reduce((acc, v) => acc + v, 0) || 1;
