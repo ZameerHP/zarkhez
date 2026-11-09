@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AdviceRequestSchema } from '@/lib/schemas';
 import { checkRateLimit } from '@/lib/ratelimit';
-import { generateCropAdvice } from '@/lib/anthropic';
+import { generateCropAdvice } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
   const ip =

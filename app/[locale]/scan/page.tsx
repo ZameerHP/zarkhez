@@ -32,7 +32,7 @@ import {
 import { Advice, SecondOpinion } from '@/lib/schemas';
 import { getSavedProfile, saveScanRecord } from '@/lib/supabase/client';
 import { speakText, unlockAudio } from '@/lib/voice';
-import { getStaticFallbackAdvice } from '@/lib/anthropic';
+import { getStaticFallbackAdvice } from '@/lib/gemini';
 
 /**
  * Scan Screen (Real Leaf Photos Only — Zero Fake Samples):

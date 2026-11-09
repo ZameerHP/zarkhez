@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { VerifyImageRequestSchema } from '@/lib/schemas';
 import { checkRateLimit } from '@/lib/ratelimit';
-import { verifyLeafImageWithVision } from '@/lib/anthropic';
+import { verifyLeafImageWithVision } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
   const ip =
