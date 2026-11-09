@@ -1,0 +1,210 @@
+[
+  {
+    "key": "wheat",
+    "name": { "en": "Wheat", "ur": "گندم" },
+    "season": "rabi",
+    "durationDays": 150,
+    "scanSupported": true,
+    "photoUrl": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=900&q=80",
+    "sampleYieldMannPerAcre": 42,
+    "samplePricePerMannPkr": 3900,
+    "sampleCostsPkr": {
+      "seed": 11000,
+      "fertilizer": 34000,
+      "irrigation": 16000,
+      "spray": 6500,
+      "laborAndHarvest": 22500
+    },
+    "stages": [
+      { "key": "germination", "name": { "en": "Emergence & Crown Root", "ur": "اگاؤ اور جڑ بننا" }, "startDay": 1, "endDay": 25 },
+      { "key": "tillering", "name": { "en": "Tillering & Stem Extension", "ur": "شگوفے اور تنا بڑھنا" }, "startDay": 26, "endDay": 65 },
+      { "key": "booting", "name": { "en": "Booting & Heading", "ur": "گوبھ اور سٹہ نکلنا" }, "startDay": 66, "endDay": 105 },
+      { "key": "milking", "name": { "en": "Grain Filling & Milking", "ur": "دانہ بننا اور دودھیا حالت" }, "startDay": 106, "endDay": 130 },
+      { "key": "ripening", "name": { "en": "Ripening & Harvest", "ur": "پکائی اور کٹائی" }, "startDay": 131, "endDay": 150 }
+    ],
+    "tasks": [
+      { "type": "fertilizer", "title": { "en": "Apply basal DAP & SOP at sowing", "ur": "بجائی کے وقت ڈی اے پی اور پوٹاش ڈالیں" }, "day": 1 },
+      { "type": "irrigation", "title": { "en": "First irrigation (Crown root stage)", "ur": "پہلا پانی (جڑ بننے کے وقت)" }, "day": 22 },
+      { "type": "fertilizer", "title": { "en": "First split of Urea with 1st irrigation", "ur": "پہلے پانی کے ساتھ یوریا کی پہلی قسط" }, "day": 23 },
+      { "type": "weeding", "title": { "en": "Broadleaf & grassy weed control check", "ur": "جڑی بوٹیوں کا معائنہ اور تلفی" }, "day": 35 },
+      { "type": "irrigation", "title": { "en": "Second irrigation (Booting stage)", "ur": "دوسرا پانی (گوبھ کی حالت میں)" }, "day": 55 },
+      { "type": "fertilizer", "title": { "en": "Second split of Urea with 2nd irrigation", "ur": "دوسرے پانی کے ساتھ یوریا کی دوسری قسط" }, "day": 56 },
+      { "type": "spray", "title": { "en": "Scout for Yellow/Brown Rust & Aphids", "ur": "کنگی (رسٹ) اور تیلے کا معائنہ کریں" }, "day": 75 },
+      { "type": "irrigation", "title": { "en": "Third irrigation (Heading / Flowering)", "ur": "تیسرا پانی (سٹہ نکلنے کے وقت)" }, "day": 85 },
+      { "type": "irrigation", "title": { "en": "Fourth irrigation (Milk stage)", "ur": "چوتھا پانی (دانہ دودھیا ہونے پر)" }, "day": 115 },
+      { "type": "harvest", "title": { "en": "Harvest when grain moisture is below 14%", "ur": "جب دانے خشک ہو جائیں تو کٹائی کریں" }, "day": 150 }
+    ],
+    "source": "Agriculture Department Government of Punjab & PARC Wheat Production Plan (Verified Agronomy Guide)"
+  },
+  {
+    "key": "rice",
+    "name": { "en": "Rice (Paddy)", "ur": "دھان (چاول)" },
+    "season": "kharif",
+    "durationDays": 120,
+    "scanSupported": true,
+    "photoUrl": "https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?auto=format&fit=crop&w=900&q=80",
+    "sampleYieldMannPerAcre": 48,
+    "samplePricePerMannPkr": 3600,
+    "sampleCostsPkr": {
+      "seed": 6500,
+      "fertilizer": 38000,
+      "irrigation": 32000,
+      "spray": 11000,
+      "laborAndHarvest": 26000
+    },
+    "stages": [
+      { "key": "transplanting", "name": { "en": "Transplanting & Recovery", "ur": "منتقلی اور جڑ پکڑنا" }, "startDay": 1, "endDay": 20 },
+      { "key": "tillering", "name": { "en": "Active Tillering", "ur": "شگوفے نکلنا" }, "startDay": 21, "endDay": 50 },
+      { "key": "panicle", "name": { "en": "Panicle Initiation & Booting", "ur": "مونجھ نکلنا اور گوبھ" }, "startDay": 51, "endDay": 80 },
+      { "key": "flowering", "name": { "en": "Flowering & Grain Filling", "ur": "پھول اور دانہ بھرنا" }, "startDay": 81, "endDay": 105 },
+      { "key": "maturity", "name": { "en": "Maturity & Harvest", "ur": "پکائی اور کٹائی" }, "startDay": 106, "endDay": 120 }
+    ],
+    "tasks": [
+      { "type": "fertilizer", "title": { "en": "Basal DAP & SOP at puddling/transplanting", "ur": "کدو کرتے وقت ڈی اے پی اور پوٹاش ڈالیں" }, "day": 1 },
+      { "type": "weeding", "title": { "en": "Pre-emergence weed control within 3–5 days", "ur": "منتقلی کے 3 سے 5 دن میں جڑی بوٹی کا تدارک" }, "day": 4 },
+      { "type": "irrigation", "title": { "en": "Maintain shallow standing water / AWD check", "ur": "کھیت میں مناسب پانی برقرار رکھیں" }, "day": 7, "repeatEveryDays": 14 },
+      { "type": "fertilizer", "title": { "en": "Apply Zinc Sulfate (33%) & 1st Urea split", "ur": "زنک سلفیٹ اور یوریا کی پہلی قسط ڈالیں" }, "day": 18 },
+      { "type": "fertilizer", "title": { "en": "Second split of Urea at active tillering", "ur": "شگوفے بنتے وقت یوریا کی دوسری قسط" }, "day": 35 },
+      { "type": "spray", "title": { "en": "Scout for Stem Borer, Leaf Folder & Blast", "ur": "تنے کی سنڈی، پتا لپیٹ اور بلاسٹ کا معائنہ" }, "day": 45 },
+      { "type": "fertilizer", "title": { "en": "Final Urea split at panicle initiation", "ur": "مونجھ بنتے وقت یوریا کی تیسری قسط" }, "day": 52 },
+      { "type": "harvest", "title": { "en": "Drain field 12 days before harvest; harvest at 20% moisture", "ur": "کٹائی سے 12 دن پہلے پانی روک دیں اور کٹائی کریں" }, "day": 120 }
+    ],
+    "source": "Rice Research Institute (RRI) Kala Shah Kaku & PARC Paddy Production Guidelines"
+  },
+  {
+    "key": "cotton",
+    "name": { "en": "Cotton", "ur": "کپاس" },
+    "season": "kharif",
+    "durationDays": 165,
+    "scanSupported": false,
+    "photoUrl": "https://images.unsplash.com/photo-1594631252845-29fc4cc8cde9?auto=format&fit=crop&w=900&q=80",
+    "sampleYieldMannPerAcre": 26,
+    "samplePricePerMannPkr": 8200,
+    "sampleCostsPkr": {
+      "seed": 9000,
+      "fertilizer": 41000,
+      "irrigation": 24000,
+      "spray": 22000,
+      "laborAndHarvest": 29000
+    },
+    "stages": [
+      { "key": "seedling", "name": { "en": "Emergence & Seedling", "ur": "اگاؤ اور ابتدائی بڑھوتری" }, "startDay": 1, "endDay": 30 },
+      { "key": "squaring", "name": { "en": "Squaring (Bud Formation)", "ur": "ڈوڈیاں بننا" }, "startDay": 31, "endDay": 60 },
+      { "key": "flowering", "name": { "en": "Flowering & Boll Development", "ur": "پھول اور ٹینڈے بننا" }, "startDay": 61, "endDay": 115 },
+      { "key": "bollOpening", "name": { "en": "Boll Opening & Picking", "ur": "ٹینڈے کھلنا اور چنائی" }, "startDay": 116, "endDay": 165 }
+    ],
+    "tasks": [
+      { "type": "fertilizer", "title": { "en": "Basal DAP & SOP at bed preparation", "ur": "کھیلیاں بناتے وقت ڈی اے پی اور پوٹاش ڈالیں" }, "day": 1 },
+      { "type": "weeding", "title": { "en": "Thinning and inter-row weeding", "ur": "چھدرائی اور جڑی بوٹیوں کی گوڈی" }, "day": 22 },
+      { "type": "irrigation", "title": { "en": "Regular furrow irrigation check", "ur": "فصل کی ضرورت کے مطابق پانی لگائیں" }, "day": 28, "repeatEveryDays": 18 },
+      { "type": "fertilizer", "title": { "en": "First Urea split at squaring stage", "ur": "ڈوڈیاں بنتے وقت یوریا کی پہلی قسط" }, "day": 35 },
+      { "type": "spray", "title": { "en": "Weekly pest scouting (Whitefly, Jassid, Pink Bollworm)", "ur": "سفید مکھی، تیلے اور گلابی سنڈی کا ہفتہ وار معائنہ" }, "day": 45, "repeatEveryDays": 21 },
+      { "type": "fertilizer", "title": { "en": "Second Urea split at flowering", "ur": "پھول آتے وقت یوریا کی دوسری قسط" }, "day": 65 },
+      { "type": "fertilizer", "title": { "en": "Third Urea split at peak boll formation", "ur": "ٹینڈے بنتے وقت یوریا کی تیسری قسط" }, "day": 90 },
+      { "type": "harvest", "title": { "en": "Pick clean, dry cotton bolls in morning after dew dries", "ur": "شبنم خشک ہونے کے بعد صاف چنائی کریں" }, "day": 150 }
+    ],
+    "source": "Central Cotton Research Institute (CCRI) Multan & Agriculture Dept Punjab"
+  },
+  {
+    "key": "sugarcane",
+    "name": { "en": "Sugarcane", "ur": "گنا (کماد)" },
+    "season": "rabi",
+    "durationDays": 300,
+    "scanSupported": false,
+    "photoUrl": "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=900&q=80",
+    "sampleYieldMannPerAcre": 750,
+    "samplePricePerMannPkr": 420,
+    "sampleCostsPkr": {
+      "seed": 42000,
+      "fertilizer": 52000,
+      "irrigation": 38000,
+      "spray": 14000,
+      "laborAndHarvest": 48000
+    },
+    "stages": [
+      { "key": "germination", "name": { "en": "Germination", "ur": "اگاؤ کا مرحلہ" }, "startDay": 1, "endDay": 45 },
+      { "key": "tillering", "name": { "en": "Tillering", "ur": "شگوفے نکلنا" }, "startDay": 46, "endDay": 120 },
+      { "key": "grandGrowth", "name": { "en": "Grand Growth Phase", "ur": "تیز بڑھوتری اور گنے بننا" }, "startDay": 121, "endDay": 240 },
+      { "key": "ripening", "name": { "en": "Sugar Accumulation & Harvest", "ur": "مٹھاس بننا اور کٹائی" }, "startDay": 241, "endDay": 300 }
+    ],
+    "tasks": [
+      { "type": "fertilizer", "title": { "en": "Basal DAP & SOP in trenches at planting", "ur": "بجائی کے وقت کھالیوں میں ڈی اے پی اور پوٹاش ڈالیں" }, "day": 1 },
+      { "type": "irrigation", "title": { "en": "Scheduled irrigation according to season", "ur": "موسم کے مطابق باقاعدہ آبپاشی کریں" }, "day": 15, "repeatEveryDays": 20 },
+      { "type": "weeding", "title": { "en": "Blind hoeing and weed management", "ur": "اندھی گوڈی اور جڑی بوٹیوں کا تدارک" }, "day": 30 },
+      { "type": "fertilizer", "title": { "en": "First Urea split at start of tillering", "ur": "شگوفے نکلتے وقت یوریا کی پہلی قسط" }, "day": 50 },
+      { "type": "spray", "title": { "en": "Check for Early Shoot Borer & Pyrilla", "ur": "گنے کی سنڈی اور پائریلا کا معائنہ" }, "day": 75 },
+      { "type": "fertilizer", "title": { "en": "Second Urea split + Earthing up before monsoon", "ur": "یوریا کی دوسری قسط اور مٹی چڑھانا" }, "day": 95 },
+      { "type": "fertilizer", "title": { "en": "Final Urea split at grand growth start", "ur": "یوریا کی تیسری قسط ڈالیں" }, "day": 125 },
+      { "type": "harvest", "title": { "en": "Harvest close to ground level at full maturity", "ur": "پکنے پر زمین کے برابر سے گنے کی کٹائی کریں" }, "day": 300 }
+    ],
+    "source": "Ayub Agricultural Research Institute (AARI) Sugarcane Research Institute Faisalabad"
+  },
+  {
+    "key": "maize",
+    "name": { "en": "Maize (Corn)", "ur": "مکئی" },
+    "season": "kharif",
+    "durationDays": 110,
+    "scanSupported": true,
+    "photoUrl": "https://images.unsplash.com/photo-1551754655-cd27e38d2076?auto=format&fit=crop&w=900&q=80",
+    "sampleYieldMannPerAcre": 75,
+    "samplePricePerMannPkr": 2400,
+    "sampleCostsPkr": {
+      "seed": 19000,
+      "fertilizer": 42000,
+      "irrigation": 20000,
+      "spray": 12000,
+      "laborAndHarvest": 22000
+    },
+    "stages": [
+      { "key": "emergence", "name": { "en": "Emergence & Early Vegetative", "ur": "اگاؤ اور ابتدائی پتے" }, "startDay": 1, "endDay": 25 },
+      { "key": "kneeHigh", "name": { "en": "Rapid Vegetative (Knee-High)", "ur": "تیز بڑھوتری (گھٹنے تک قد)" }, "startDay": 26, "endDay": 50 },
+      { "key": "tasseling", "name": { "en": "Tasseling & Silking", "ur": "تاج اور چھلی کے بال نکلنا" }, "startDay": 51, "endDay": 75 },
+      { "key": "grainFill", "name": { "en": "Grain Filling & Dent Stage", "ur": "چھلی میں دانہ بننا" }, "startDay": 76, "endDay": 95 },
+      { "key": "maturity", "name": { "en": "Black Layer & Harvest", "ur": "پکائی اور برداشت" }, "startDay": 96, "endDay": 110 }
+    ],
+    "tasks": [
+      { "type": "fertilizer", "title": { "en": "Basal DAP & SOP at ridge preparation", "ur": "کھیلیاں بناتے وقت ڈی اے پی اور پوٹاش ڈالیں" }, "day": 1 },
+      { "type": "weeding", "title": { "en": "Pre-emergence weed control within 48 hours", "ur": "بجائی کے 48 گھنٹے میں جڑی بوٹیوں کا تدارک" }, "day": 2 },
+      { "type": "irrigation", "title": { "en": "Furrow irrigation every 10–12 days", "ur": "ہر 10 سے 12 دن بعد پانی لگائیں" }, "day": 12, "repeatEveryDays": 12 },
+      { "type": "spray", "title": { "en": "Scout whorls for Fall Armyworm & Shoot Fly", "ur": "کونپل میں فال آرمی ورم اور سنڈی کا معائنہ کریں" }, "day": 18 },
+      { "type": "fertilizer", "title": { "en": "First Urea split at 4–6 leaf stage", "ur": "4 سے 6 پتوں کی حالت میں یوریا کی پہلی قسط" }, "day": 22 },
+      { "type": "fertilizer", "title": { "en": "Second Urea split at knee-high stage", "ur": "گھٹنے برابر قد ہونے پر یوریا کی دوسری قسط" }, "day": 38 },
+      { "type": "fertilizer", "title": { "en": "Final Urea split before tasseling", "ur": "تاج نکلنے سے پہلے یوریا کی تیسری قسط" }, "day": 52 },
+      { "type": "harvest", "title": { "en": "Harvest cobs when black layer forms at grain base", "ur": "دانے کی تہہ سیاہ ہونے پر چھلیاں توڑیں" }, "day": 110 }
+    ],
+    "source": "Maize & Millets Research Institute (MMRI) Yusafwala & PARC Extension Guide"
+  },
+  {
+    "key": "tomato",
+    "name": { "en": "Tomato", "ur": "ٹماٹر" },
+    "season": "rabi",
+    "durationDays": 115,
+    "scanSupported": true,
+    "photoUrl": "https://images.unsplash.com/photo-1592841200221-a6898f307baa?auto=format&fit=crop&w=900&q=80",
+    "sampleYieldMannPerAcre": 220,
+    "samplePricePerMannPkr": 1600,
+    "sampleCostsPkr": {
+      "seed": 14000,
+      "fertilizer": 36000,
+      "irrigation": 18000,
+      "spray": 19000,
+      "laborAndHarvest": 38000
+    },
+    "stages": [
+      { "key": "transplanting", "name": { "en": "Transplanting & Establishment", "ur": "پنیری منتقلی اور جڑ پکڑنا" }, "startDay": 1, "endDay": 20 },
+      { "key": "vegetative", "name": { "en": "Vegetative Branching", "ur": "پودے اور شاخوں کی بڑھوتری" }, "startDay": 21, "endDay": 45 },
+      { "key": "flowering", "name": { "en": "Flowering & Fruit Set", "ur": "پھول اور پھل بننا" }, "startDay": 46, "endDay": 75 },
+      { "key": "fruiting", "name": { "en": "Fruit Ripening & Picking", "ur": "پھل پکنا اور چنائی" }, "startDay": 76, "endDay": 115 }
+    ],
+    "tasks": [
+      { "type": "fertilizer", "title": { "en": "Apply basal DAP & SOP before bed transplanting", "ur": "پنیری لگانے سے پہلے ڈی اے پی اور پوٹاش ڈالیں" }, "day": 1 },
+      { "type": "irrigation", "title": { "en": "Light furrow irrigation every 8–10 days", "ur": "ہر 8 سے 10 دن بعد ہلکا پانی لگائیں" }, "day": 8, "repeatEveryDays": 10 },
+      { "type": "weeding", "title": { "en": "Hoeing and earthing up around stems", "ur": "جڑی بوٹیوں کی گوڈی اور پودوں کے گرد مٹی چڑھانا" }, "day": 20 },
+      { "type": "fertilizer", "title": { "en": "First Urea split 25 days after transplanting", "ur": "منتقلی کے 25 دن بعد یوریا کی پہلی قسط" }, "day": 25 },
+      { "type": "spray", "title": { "en": "Inspect lower leaves for Early/Late Blight & Whitefly", "ur": "نچلے پتوں پر جھلساؤ اور سفید مکھی کا معائنہ" }, "day": 35, "repeatEveryDays": 15 },
+      { "type": "fertilizer", "title": { "en": "Second Urea split at flowering & fruit set", "ur": "پھول اور پھل بنتے وقت یوریا کی دوسری قسط" }, "day": 50 },
+      { "type": "harvest", "title": { "en": "First picking at breaker/pink stage", "ur": "رنگ بدلتے ہی ٹماٹر کی پہلی چنائی کریں" }, "day": 85 }
+    ],
+    "source": "Vegetable Research Institute (AARI) Faisalabad & PARC Tomato Production Guide"
+  }
+]

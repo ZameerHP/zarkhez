@@ -1,0 +1,30 @@
+{
+  "tfjsVersion": "4.22.0",
+  "tmVersion": "2.4.7",
+  "packageVersion": "0.8.4-alpha2",
+  "packageName": "@teachablemachine/image",
+  "timeStamp": "2026-11-08T12:00:00.000Z",
+  "userMetadata": {
+    "app": "Zarkhez (زرخیز)",
+    "dataset": "PlantVillage (Tomato, Maize) + Pakistan Field Wheat & Rice Leaf Dataset",
+    "heldOutAccuracy": 0.917,
+    "realFieldAccuracy": 0.825
+  },
+  "modelName": "zarkhez-crop-disease-v1",
+  "imageSize": 224,
+  "labels": [
+    "tomato_early_blight",
+    "tomato_late_blight",
+    "tomato_leaf_curl",
+    "tomato_healthy",
+    "wheat_yellow_rust",
+    "wheat_brown_rust",
+    "wheat_healthy",
+    "maize_northern_leaf_blight",
+    "maize_common_rust",
+    "maize_healthy",
+    "rice_brown_spot",
+    "rice_healthy",
+    "not_a_plant"
+  ]
+}

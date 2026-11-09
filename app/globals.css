@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --canvas: #F4F5EE;
+    --ink: #111111;
+    --olive: #6B8A1F;
+    --olive-dark: #3F5A1E;
+    --olive-fresh: #5FA52E;
+    --wheat: #C8962E;
+    --cream: #FBF6D9;
+  }
+
+  html {
+    background-color: #F4F5EE;
+    color: #111111;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Enhanced Pakistani Urdu Typography (Nastaliq headings + Naskh body) */
+  html[lang="ur"] body {
+    font-family: var(--font-naskh), var(--font-nastaliq), var(--font-jakarta), sans-serif;
+    font-size: 18.5px;
+    line-height: 2.15;
+    word-spacing: 1.5px;
+    letter-spacing: 0;
+  }
+
+  html[lang="ur"] h1,
+  html[lang="ur"] h2,
+  html[lang="ur"] h3,
+  html[lang="ur"] .font-urdu-heading {
+    font-family: var(--font-nastaliq), var(--font-naskh), serif;
+    line-height: 2.25;
+    padding-top: 0.18em;
+    padding-bottom: 0.18em;
+    word-spacing: 2px;
+  }
+
+  html[lang="ur"] p,
+  html[lang="ur"] li,
+  html[lang="ur"] span,
+  html[lang="ur"] button,
+  html[lang="ur"] input {
+    line-height: 2.05;
+  }
+
+  html[lang="en"] body {
+    font-family: var(--font-jakarta), sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .glass {
+    background: rgba(255, 255, 255, 0.88);
+  }
+}
+
+.glass-dark {
+  background: rgba(17, 17, 17, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,267 @@
+{
+  "tomato_early_blight": {
+    "crop": "tomato",
+    "problem_name": { "en": "Tomato Early Blight", "ur": "ٹماٹر کا ابتدائی جھلساؤ (ارلی بلائٹ)" },
+    "severity": "medium",
+    "summary": {
+      "en": "Dark brown rings (like target marks) appear on older lower leaves first. Warm, humid weather helps this fungus spread.",
+      "ur": "پودے کے نچلے پرانے پتوں پر گہرے بھورے گول دھبے بن جاتے ہیں۔ نمی اور گرمی سے یہ پھپھوندی تیزی سے پھیلتی ہے۔"
+    },
+    "steps": [
+      { "en": "Carefully pick off and bury heavily spotted lower leaves away from the field.", "ur": "شدید متاثرہ نچلے پتوں کو توڑ کر کھیت سے دور دبا دیں۔" },
+      { "en": "Water at the base of plants instead of wetting the leaves.", "ur": "پتوں پر پانی گرانے کے بجائے صرف جڑوں کے پاس پانی دیں۔" },
+      { "en": "Improve air flow by staking plants and removing weeds.", "ur": "پودوں کو سہارا دیں اور جڑی بوٹیاں صاف کریں تاکہ ہوا گزر سکے۔" },
+      { "en": "If spreading fast, ask your local agriculture officer about a protective copper or mancozeb class fungicide and follow the label.", "ur": "اگر بیماری پھیل رہی ہو تو زرعی افسر کے مشورے سے کاپر یا مینکوزیب قسم کی پھپھوندی کش دوا لیبل کے مطابق استعمال کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Rotate tomato with non-solanaceous crops like wheat or maize for 2 seasons.", "ur": "ٹماٹر کی جگہ گندم یا مکئی جیسی فصلیں بدل کر کاشت کریں۔" },
+      { "en": "Use clean, certified disease-free seed and seedlings.", "ur": "ہمیشہ صاف اور تصدیق شدہ بیماری سے پاک پنیری لگائیں۔" }
+    ],
+    "see_expert": false
+  },
+  "tomato_late_blight": {
+    "crop": "tomato",
+    "problem_name": { "en": "Tomato Late Blight", "ur": "ٹماٹر کا پچھیتا جھلساؤ (لیٹ بلائٹ)" },
+    "severity": "high",
+    "summary": {
+      "en": "Water-soaked dark patches on leaves and stems that turn brown quickly in cool, wet weather. This disease can spread across a field in days.",
+      "ur": "ٹھنڈے اور نمی والے موسم میں پتوں اور تنوں پر گیلے سیاہ دھبے بنتے ہیں جو تیزی سے پھیلتے ہیں۔ یہ بیماری چند دنوں میں فصل کو نقصان پہنچا سکتی ہے۔"
+    },
+    "steps": [
+      { "en": "Uproot and destroy severely infected plants immediately—do not leave them in a pile.", "ur": "شدید متاثرہ پودوں کو فوراً اکھاڑ کر تلف کریں، کھیت کے کنارے ڈھیر نہ لگائیں۔" },
+      { "en": "Avoid evening irrigation so leaves stay dry overnight.", "ur": "شام کے وقت پانی نہ لگائیں تاکہ رات کو پتے خشک رہیں۔" },
+      { "en": "Consult your local agriculture officer urgently for a systemic blight fungicide class and follow the product label.", "ur": "فوری طور پر مقامی زرعی افسر سے رابطہ کریں اور ان کے مشورے سے جھلساؤ کی مناسب دوا لیبل کے مطابق استعمال کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Space plants properly on raised beds for fast drying after rain or fog.", "ur": "اونچی کھیلیوں پر مناسب فاصلے سے پودے لگائیں تاکہ دھند کے بعد پتے جلدی خشک ہوں۔" },
+      { "en": "Inspect the field right after cloudy or rainy winter days.", "ur": "ابر آلود یا بارش والے دنوں کے بعد کھیت کا لازمی معائنہ کریں۔" }
+    ],
+    "see_expert": true,
+    "expert_reason": {
+      "en": "Late blight spreads rapidly in cool damp weather; confirm treatment with your local agriculture officer right away.",
+      "ur": "پچھیتا جھلساؤ نمی میں بہت تیزی سے پھیلتا ہے، اس لیے فوری طور پر مقامی زرعی افسر سے مشورہ کریں۔"
+    }
+  },
+  "tomato_leaf_curl": {
+    "crop": "tomato",
+    "problem_name": { "en": "Tomato Yellow Leaf Curl Virus", "ur": "ٹماٹر کے پتے مڑنے کا وائرس (لیف کرل)" },
+    "severity": "high",
+    "summary": {
+      "en": "New leaves stay small, curl upward like a cup, and turn yellow at the edges. Spread by tiny whiteflies feeding under the leaves.",
+      "ur": "نئے پتے چھوٹے رہ جاتے ہیں، اوپر کی طرف مڑ جاتے ہیں اور کنارے پیلے ہو جاتے ہیں۔ یہ بیماری سفید مکھی کے ذریعے پھیلتی ہے۔"
+    },
+    "steps": [
+      { "en": "Remove and bury young plants that show heavy curling early in the season.", "ur": "شروع میں جو پودے شدید متاثر ہوں انہیں اکھاڑ کر دبا دیں۔" },
+      { "en": "Hang yellow sticky traps just above crop height to catch whiteflies.", "ur": "سفید مکھی کو پکڑنے کے لیے کھیت میں پیلے چپکنے والے کارڈ (ٹریپ) لگائیں۔" },
+      { "en": "Clear weeds around field borders where whiteflies hide.", "ur": "کھیت کے کناروں سے جڑی بوٹیاں صاف کریں جہاں سفید مکھی چھپتی ہے۔" },
+      { "en": "Ask your agriculture officer about neem oil or a selective whitefly control product class and follow the label.", "ur": "سفید مکھی کے تدارک کے لیے زرعی افسر کے مشورے سے نیم کا تیل یا مناسب دوا لیبل کے مطابق استعمال کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Grow seedlings under fine insect net before transplanting.", "ur": "پنیری کو باریک جالی کے نیچے تیار کریں تاکہ سفید مکھی حملہ نہ کرے۔" },
+      { "en": "Choose virus-tolerant tomato varieties recommended for your region.", "ur": "اپنے علاقے کے لیے سفارش کردہ قوتِ مدافعت والی اقسام کاشت کریں۔" }
+    ],
+    "see_expert": true,
+    "expert_reason": {
+      "en": "Viral diseases cannot be cured once inside the plant; an agriculture officer can help manage the whitefly vector safely.",
+      "ur": "وائرس کا براہِ راست علاج نہیں ہوتا، سفید مکھی کی محفوظ روک تھام کے لیے زرعی افسر سے مشورہ کریں۔"
+    }
+  },
+  "tomato_healthy": {
+    "crop": "tomato",
+    "problem_name": { "en": "Healthy Tomato Leaf", "ur": "صحت مند ٹماٹر کا پتا" },
+    "severity": "low",
+    "summary": {
+      "en": "This tomato leaf looks green and healthy with no clear signs of fungal spots or pest damage.",
+      "ur": "ٹماٹر کا یہ پتا سرسبز اور صحت مند نظر آ رہا ہے اور اس پر بیماری کے آثار نہیں ہیں۔"
+    },
+    "steps": [
+      { "en": "Continue regular light irrigation on schedule without waterlogging.", "ur": "معمول کے مطابق ہلکا پانی لگائیں اور کھیت میں پانی کھڑا نہ ہونے دیں۔" },
+      { "en": "Inspect the undersides of leaves once a week for whiteflies or caterpillars.", "ur": "ہفتے میں ایک بار پتوں کے نچلے حصے کا معائنہ کریں۔" },
+      { "en": "Keep weeds cleared from furrows and field edges.", "ur": "کھیلیوں اور کھیت کے کناروں کو جڑی بوٹیوں سے صاف رکھیں۔" }
+    ],
+    "prevention": [
+      { "en": "Follow the crop calendar for timely split fertilizer application.", "ur": "فصل کیلنڈر کے مطابق کھاد کی اقساط وقت پر ڈالیں۔" },
+      { "en": "Avoid walking through the field when leaves are wet.", "ur": "جب پتے گیلے ہوں تو کھیت میں غیر ضروری چلنے سے گریز کریں۔" }
+    ],
+    "see_expert": false
+  },
+  "wheat_yellow_rust": {
+    "crop": "wheat",
+    "problem_name": { "en": "Wheat Yellow / Stripe Rust", "ur": "گندم کی زرد کنگی (یلو رسٹ)" },
+    "severity": "high",
+    "summary": {
+      "en": "Yellow-orange powdery stripes run in straight lines along the wheat leaf blade. It rubs off like yellow dust on your fingers.",
+      "ur": "گندم کے پتوں پر پیلے اور نارنجی رنگ کی لکیریں بن جاتی ہیں جو ہاتھ لگانے سے پیلے پاؤڈر کی طرح انگلیوں پر لگتی ہیں۔"
+    },
+    "steps": [
+      { "en": "Check the whole field in a zig-zag pattern to see if it is only in patches or widespread.", "ur": "پورے کھیت کا معائنہ کریں کہ بیماری صرف چند حصوں میں ہے یا پھیل چکی ہے۔" },
+      { "en": "Avoid applying extra nitrogen (Urea) on infected patches.", "ur": "متاثرہ حصوں میں اضافی یوریا کھاد ڈالنے سے گریز کریں۔" },
+      { "en": "If rust patches are spreading, consult your local agriculture officer about a triazole-class fungicide only on affected spots and follow the label.", "ur": "اگر کنگی کے دھبے پھیل رہے ہوں تو زرعی افسر کے مشورے سے ٹرائیازول قسم کی پھپھوندی کش دوا صرف متاثرہ جگہ پر لیبل کے مطابق سپرے کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Sow rust-resistant wheat varieties approved by the Agriculture Department.", "ur": "محکمہ زراعت کی منظور شدہ کنگی کے خلاف قوتِ مدافعت رکھنے والی اقسام کاشت کریں۔" },
+      { "en": "Use balanced Potash (SOP) and phosphorus at sowing to strengthen leaves.", "ur": "بجائی کے وقت متوازن فاسفورس اور پوٹاش استعمال کریں۔" }
+    ],
+    "see_expert": true,
+    "expert_reason": {
+      "en": "Yellow rust spreads on wind during cool humid February–March weather; confirm spot-treatment with your agriculture officer.",
+      "ur": "زرد کنگی ٹھنڈے اور نمی والے موسم میں ہوا سے پھیلتی ہے، مقامی زرعی افسر سے فوری مشورہ کریں۔"
+    }
+  },
+  "wheat_brown_rust": {
+    "crop": "wheat",
+    "problem_name": { "en": "Wheat Brown / Leaf Rust", "ur": "گندم کی بھوری کنگی (براؤن رسٹ)" },
+    "severity": "medium",
+    "summary": {
+      "en": "Small scattered orange-brown round pustules appear across the upper leaf surface as temperatures warm in spring.",
+      "ur": "بہار کے آغاز میں موسم گرم ہونے پر پتوں کے اوپری حصے پر چھوٹے گول بھورے دانے بکھرے ہوئے نظر آتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Monitor the flag leaf (top leaf)—protecting the flag leaf is key for grain weight.", "ur": "سب سے اوپر والے پتے (جھنڈا پتا) کا خاص معائنہ کریں کیونکہ دانے کا وزن اسی پر منحصر ہے۔" },
+      { "en": "Keep irrigation balanced according to soil moisture.", "ur": "زمین کی نمی کے مطابق متوازن آبپاشی کریں۔" },
+      { "en": "If infection reaches the upper leaves before dough stage, ask your local agriculture officer about a rust fungicide class.", "ur": "اگر بیماری اوپری پتوں تک پہنچ رہی ہو تو مقامی زرعی افسر سے مشورہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Sow wheat on time (November) to avoid late-season heat and rust buildup.", "ur": "نومبر میں بروقت بجائی کریں تاکہ پچھیتی بیماری سے بچت ہو۔" },
+      { "en": "Plant certified rust-tolerant seed varieties.", "ur": "تصدیق شدہ قوتِ مدافعت والا بیج استعمال کریں۔" }
+    ],
+    "see_expert": false
+  },
+  "wheat_healthy": {
+    "crop": "wheat",
+    "problem_name": { "en": "Healthy Wheat Leaf", "ur": "صحت مند گندم کا پتا" },
+    "severity": "low",
+    "summary": {
+      "en": "The wheat leaf blade is uniformly green with no visible rust stripes, powdery mildew, or yellowing.",
+      "ur": "گندم کا پتا یکساں طور پر سرسبز ہے اور اس پر کنگی یا کسی بیماری کے نشانات نہیں ہیں۔"
+    },
+    "steps": [
+      { "en": "Follow scheduled irrigations at critical stages (crown root, booting, milking).", "ur": "اہم مراحل (جڑ بننا، گوبھ اور دودھیا حالت) پر وقت پر پانی لگائیں۔" },
+      { "en": "Scout the field weekly during February and March for rust or aphids.", "ur": "فروری اور مارچ میں ہفتے میں ایک بار کنگی اور تیلے کا معائنہ کریں۔" },
+      { "en": "Avoid irrigating on windy days during heading/milking to prevent lodging.", "ur": "سٹہ نکلنے کے بعد تیز ہوا والے دن پانی ہرگز نہ لگائیں تاکہ فصل نہ گرے۔" }
+    ],
+    "prevention": [
+      { "en": "Keep water channels and field borders free of weeds.", "ur": "کھالوں اور کھیت کے کناروں کو جڑی بوٹیوں سے صاف رکھیں۔" },
+      { "en": "Use balanced fertilizer according to soil fertility.", "ur": "زمین کی زرخیزی کے مطابق متوازن کھاد استعمال کریں۔" }
+    ],
+    "see_expert": false
+  },
+  "maize_northern_leaf_blight": {
+    "crop": "maize",
+    "problem_name": { "en": "Maize Northern Leaf Blight", "ur": "مکئی کے پتوں کا جھلساؤ (لیف بلائٹ)" },
+    "severity": "medium",
+    "summary": {
+      "en": "Long, cigar-shaped gray-green to tan lesions appear on lower maize leaves and move upward in humid weather.",
+      "ur": "مکئی کے نچلے پتوں پر لمبے بادامی یا سلیٹی رنگ کے دھبے بنتے ہیں جو نمی والے موسم میں اوپر کے پتوں کی طرف بڑھتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Strip heavily diseased bottom leaves below the cob to reduce fungal spores.", "ur": "چھلی سے نیچے والے شدید متاثرہ پتوں کو ہٹا دیں تاکہ بیماری اوپر نہ پھیلے۔" },
+      { "en": "Ensure proper field drainage so water does not stand in furrows.", "ur": "کھیلیوں میں پانی کھڑا نہ ہونے دیں اور نکاسی کا انتظام رکھیں۔" },
+      { "en": "If lesions reach the ear leaf before silking, consult your agriculture officer about a strobilurin/triazole fungicide class.", "ur": "اگر دھبے چھلی والے پتے تک پہنچ رہے ہوں تو زرعی افسر سے مشورہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Plough under crop residue deeply after harvest so the fungus cannot survive.", "ur": "کٹائی کے بعد فصل کی باقیات کو گہرا ہل چلا کر زمین میں دبا دیں۔" },
+      { "en": "Choose blight-tolerant hybrid maize seed.", "ur": "جھلساؤ کے خلاف قوتِ مدافعت رکھنے والا ہائبرڈ بیج لگائیں۔" }
+    ],
+    "see_expert": false
+  },
+  "maize_common_rust": {
+    "crop": "maize",
+    "problem_name": { "en": "Maize Common Rust", "ur": "مکئی کی کنگی (رسٹ)" },
+    "severity": "low",
+    "summary": {
+      "en": "Small cinnamon-brown powdery bumps appear on both sides of maize leaves during mild, humid weather.",
+      "ur": "معتدل اور نمی والے موسم میں مکئی کے پتوں کے دونوں طرف چھوٹے بھورے ابھرے ہوئے دھبے نظر آتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Inspect upper leaves; mild rust on lower leaves rarely reduces hybrid maize yield.", "ur": "اوپری پتوں کا معائنہ کریں؛ نچلے پتوں پر ہلکی کنگی سے پیداوار کم نہیں ہوتی۔" },
+      { "en": "Maintain balanced irrigation and potash nutrition.", "ur": "متوازن آبپاشی اور پوٹاش کا خیال رکھیں۔" },
+      { "en": "Only if pustules cover upper leaves early, consult your local agriculture officer.", "ur": "صرف اس صورت میں جب اوپری پتے شدید متاثر ہوں، زرعی افسر سے رابطہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Plant on time according to your region's spring or autumn window.", "ur": "اپنے علاقے کے موسم کے مطابق بروقت بجائی کریں۔" },
+      { "en": "Use certified rust-resistant hybrids.", "ur": "تصدیق شدہ ہائبرڈ بیج استعمال کریں۔" }
+    ],
+    "see_expert": false
+  },
+  "maize_healthy": {
+    "crop": "maize",
+    "problem_name": { "en": "Healthy Maize Leaf", "ur": "صحت مند مکئی کا پتا" },
+    "severity": "low",
+    "summary": {
+      "en": "Deep green, healthy maize leaf with clean margins and no blight lesions or borer holes.",
+      "ur": "مکئی کا پتا گہرا سبز اور صحت مند ہے، اس پر جھلساؤ یا سنڈی کے سوراخ نہیں ہیں۔"
+    },
+    "steps": [
+      { "en": "Check the central whorl weekly for Fall Armyworm feeding or sawdust-like frass.", "ur": "ہفتے میں ایک بار پودے کی درمیانی کونپل میں فال آرمی ورم کا معائنہ کریں۔" },
+      { "en": "Never let the crop suffer water stress during tasseling and silking.", "ur": "تاج اور چھلی کے بال نکلتے وقت فصل کو پانی کی کمی ہرگز نہ ہونے دیں۔" },
+      { "en": "Keep ridges firm around plant roots to prevent lodging.", "ur": "پودوں کو گرنے سے بچانے کے لیے جڑوں کے گرد مٹی مضبوط رکھیں۔" }
+    ],
+    "prevention": [
+      { "en": "Apply split nitrogen doses on schedule using the crop calendar.", "ur": "فصل کیلنڈر کے مطابق یوریا کھاد قسطوں میں وقت پر ڈالیں۔" },
+      { "en": "Keep field borders clean of grassy weeds.", "ur": "کھیت کے کناروں سے گھاس نما جڑی بوٹیاں صاف رکھیں۔" }
+    ],
+    "see_expert": false
+  },
+  "rice_brown_spot": {
+    "crop": "rice",
+    "problem_name": { "en": "Rice Brown Leaf Spot", "ur": "دھان کے بھورے دھبوں کی بیماری (براؤن سپاٹ)" },
+    "severity": "medium",
+    "summary": {
+      "en": "Oval brown spots with a lighter gray center and yellow halo appear on rice leaves, often linked to potash or zinc deficiency.",
+      "ur": "دھان کے پتوں پر بیضوی بھورے دھبے بنتے ہیں جن کے گرد پیلا حلقہ ہوتا ہے، جو اکثر پوٹاش یا زنک کی کمی سے بڑھتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Check if Zinc Sulfate and Potash (SOP) were applied; correcting nutrition helps plants recover.", "ur": "چیک کریں کہ زنک اور پوٹاش ڈالی گئی ہے یا نہیں؛ متوازن کھاد سے پودے سنبھل جاتے ہیں۔" },
+      { "en": "Maintain proper shallow irrigation without drying the field completely during tillering.", "ur": "شگوفے بنتے وقت کھیت کو مکمل خشک نہ ہونے دیں۔" },
+      { "en": "If spots spread toward the panicle, consult your local agriculture officer for a fungicide class recommendation.", "ur": "اگر دھبے مونجھ کی طرف بڑھ رہے ہوں تو مقامی زرعی افسر سے مشورہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Use clean, treated seed from a verified source.", "ur": "ہمیشہ صاف اور زہر آلود کیا ہوا تصدیق شدہ بیج استعمال کریں۔" },
+      { "en": "Apply basal Potash and Zinc on schedule every paddy season.", "ur": "ہر سیزن میں بوائی کے وقت پوٹاش اور زنک لازمی استعمال کریں۔" }
+    ],
+    "see_expert": false
+  },
+  "rice_healthy": {
+    "crop": "rice",
+    "problem_name": { "en": "Healthy Rice Leaf", "ur": "صحت مند دھان کا پتا" },
+    "severity": "low",
+    "summary": {
+      "en": "Healthy upright green paddy leaf with no blast spindles or brown spot lesions.",
+      "ur": "دھان کا یہ پتا بالکل صحت مند اور سرسبز ہے اور اس پر بلاسٹ یا بھورے دھبے نہیں ہیں۔"
+    },
+    "steps": [
+      { "en": "Monitor water depth and follow alternate wetting and drying as advised.", "ur": "پانی کی سطح مناسب رکھیں اور ضرورت کے مطابق آبپاشی کریں۔" },
+      { "en": "Check stems and folded leaves weekly for borer or leaf folder caterpillars.", "ur": "ہفتے میں ایک بار تنے کی سنڈی اور پتا لپیٹ سنڈی کا معائنہ کریں۔" },
+      { "en": "Apply split nitrogen doses on time before panicle initiation.", "ur": "مونجھ نکلنے سے پہلے یوریا کی اقساط وقت پر مکمل کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Avoid excessive late Urea application which attracts pests and blast.", "ur": "پچھیتی یا ضرورت سے زیادہ یوریا نہ ڈالیں کیونکہ اس سے بیماری اور کیڑے بڑھتے ہیں۔" },
+      { "en": "Keep bunds and water channels clean of weeds.", "ur": "وٹوں اور کھالوں کو جڑی بوٹیوں سے صاف رکھیں۔" }
+    ],
+    "see_expert": false
+  },
+  "not_a_plant": {
+    "crop": "unknown",
+    "problem_name": { "en": "Not a clear crop leaf / Unclear photo", "ur": "پتے کی تصویر واضح نہیں ہے" },
+    "severity": "low",
+    "summary": {
+      "en": "We could not clearly detect a single crop leaf in this photo. Please take another close-up photo in good daylight.",
+      "ur": "اس تصویر میں فصل کا پتا واضح طور پر نظر نہیں آ رہا۔ براہِ کرم دن کی روشنی میں ایک پتے کی قریب سے صاف تصویر لیں۔"
+    },
+    "steps": [
+      { "en": "Hold the phone 15 to 25 cm away from a single affected leaf.", "ur": "فون کو ایک متاثرہ پتے سے 15 سے 25 سینٹی میٹر کے فاصلے پر رکھیں۔" },
+      { "en": "Take the photo in natural daylight without strong shadows or blur.", "ur": "دن کی قدرتی روشنی میں بغیر سائے کے صاف تصویر کھینچیں۔" },
+      { "en": "Make sure the leaf fills most of the guide frame.", "ur": "کوشش کریں کہ پتا سکرین کے فریم کے درمیان میں پورا نظر آئے۔" }
+    ],
+    "prevention": [
+      { "en": "Wipe your phone camera lens before taking a field photo.", "ur": "تصویر لینے سے پہلے اپنے فون کے کیمرے کا شیشہ صاف کر لیں۔" },
+      { "en": "If the symptom is on roots or stems, show the plant directly to your local agriculture officer.", "ur": "اگر مسئلہ جڑ یا تنے میں ہے تو پودا مقامی زرعی افسر کو دکھائیں۔" }
+    ],
+    "see_expert": true,
+    "expert_reason": {
+      "en": "Image is unclear or not a supported leaf; take a clearer photo or show the crop to your local agriculture officer.",
+      "ur": "تصویر واضح نہیں ہے؛ دوبارہ صاف تصویر لیں یا مقامی زرعی افسر کو معائنہ کروائیں۔"
+    }
+  }
+}

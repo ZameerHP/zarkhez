@@ -1,0 +1,24 @@
+{
+  "name": "Zarkhez (زرخیز) — Aap ki kheti, aap ka dost",
+  "short_name": "Zarkhez",
+  "description": "Urdu-first AI farming assistant for small farmers in Pakistan",
+  "start_url": "/ur",
+  "display": "standalone",
+  "background_color": "#062409",
+  "theme_color": "#062409",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/images/zarkhez-logo-mark.png",
+      "sizes": "573x573",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
