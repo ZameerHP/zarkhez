@@ -559,7 +559,7 @@ export function normalizeCropName(name?: string): string {
   return clean;
 }
 
-export function getApiKeyMissingDiagnosis(selectedCrop: string): CropDiagnosis {
+export function getServiceUnavailableDiagnosis(selectedCrop: string): CropDiagnosis {
   const norm = normalizeCropName(selectedCrop);
   const cropNames: Record<
     string,
@@ -606,42 +606,42 @@ export function getApiKeyMissingDiagnosis(selectedCrop: string): CropDiagnosis {
       lesion_colors: [],
       lesion_margins: 'none',
       lesion_distribution: 'none',
-      tissue_damage: 'Gemini AI Vision key missing',
+      tissue_damage: 'Server AI vision temporarily reconnecting',
     },
     diagnosis_status: 'uncertain',
-    plant_condition: 'Gemini Vision AI key is not configured. Real-time pixel pathology inspection could not run.',
-    plant_condition_ur: 'گوگل جیمنائی API Key موجود نہیں ہے۔ اصلی پودے کا خودکار معائنہ نہیں ہو سکا۔',
-    plant_condition_roman_ur: 'Gemini API Key missing hai. Poday ka AI muaina nahi ho saka.',
-    plant_condition_sd: 'گوگل جيمنائي API Key ناهي. پودي جي چڪاس نٿي ٿي سگهي.',
+    plant_condition: 'AI pathology server is temporarily reconnecting. Real-time pixel pathology inspection could not run.',
+    plant_condition_ur: 'اے آئی تشخیصی سروس عارضی طور پر مصروف ہے۔ خودکار معائنہ مکمل نہیں ہو سکا۔',
+    plant_condition_roman_ur: 'AI service aarzi taur par masroof hai. Poday ka muaina nahi ho saka.',
+    plant_condition_sd: 'اي آءِ سروس مصروف آهي. چڪاس مڪمل نٿي سگهي.',
     problem_name: {
-      en: 'Gemini Vision API Key Required',
-      ur: 'جیمنائی اے آئی کی (API Key) درکار ہے',
-      roman_ur: 'Gemini API Key Darkaar Hai',
-      sd: 'جيمنائي API Key گهربل آهي',
+      en: 'AI Vision Service Temporarily Unavailable',
+      ur: 'اے آئی وژن سروس عارضی طور پر مصروف ہے',
+      roman_ur: 'AI Vision Service Masroof Hai',
+      sd: 'اي آءِ ويزن سروس عارضي طور تي مصروف آهي',
     },
     possible_disease: [],
     alternative_diagnoses: [],
     why_suspected: {
-      en: 'Gemini Multimodal Vision model is required to inspect leaf pixels and diagnose blast or other diseases. Please enter your GEMINI_API_KEY in the scanner settings or .env.local.',
-      ur: 'پتے کے دھبے اور بیماری جانچنے کے لیے گوگل جیمنائی وژن ماڈل درکار ہے۔ براہِ کرم اوپر "Gemini Key داخل کریں" بٹن سے اپنی API Key درج کریں۔',
-      roman_ur: 'Bemari ki tasdeeq ke liye Gemini Vision darkaar hai. Barah-e-karam GEMINI_API_KEY enter karein.',
-      sd: 'بيماري جي سڃاڻپ لاءِ گوگل جيمنائي ماڊل ضروري آهي. مهرباني ڪري GEMINI_API_KEY داخل ڪريو.',
+      en: 'Cloud vision pathology server is busy or reconnecting. Please retry in a few moments or consult your local agriculture extension officer.',
+      ur: 'تشخیصی سرور اس وقت مصروف ہے۔ براہِ کرم چند لمحوں بعد دوبارہ تصویر اسکین کریں یا مقامی زرعی افسر سے مشورہ کریں۔',
+      roman_ur: 'Server masroof hai. Chand lamhon baad dobara scan karein ya zaria afsar se rabta karein.',
+      sd: 'سرور مصروف آهي. مهرباني ڪري ٿوري دير بعد ٻيهر ڪوشش ڪريو.',
     },
     observed_symptoms: [],
     possible_causes: [],
     severity: 'not_assessed',
     severity_explanation: {
-      en: 'Cannot assess disease severity without active Gemini Vision model.',
-      ur: 'جیمنائی وژن کے بغیر شدت کا اندازہ ممکن نہیں۔',
-      roman_ur: 'Gemini ke baghair shiddat ka andaza nahi lagaya ja sakta.',
-      sd: 'جيمنائي بنا شدت جو اندازو ممڪن ناهي.',
+      en: 'Cannot assess disease severity without active cloud AI connection.',
+      ur: 'کلاؤڈ اے آئی کے بغیر بیماری کی شدت کا اندازہ ممکن نہیں۔',
+      roman_ur: 'Cloud AI ke baghair shiddat ka andaza nahi lagaya ja sakta.',
+      sd: 'ڪلائوڊ بنا شدت جو اندازو ممڪن ناهي.',
     },
     recommendations: [
       {
-        en: 'Click "Connect Gemini Key" at the top of the scanner or set GEMINI_API_KEY in .env.local.',
-        ur: 'اسکینر کے اوپر "Gemini Key درج کریں" بٹن دبائیں یا .env.local فائل میں کی شامل کریں۔',
-        roman_ur: 'Scanner ke ooper "Connect Gemini Key" dabayein ya .env.local mein key add karein.',
-        sd: 'اسڪينر مٿان "Gemini Key داخل ڪريو" دٻايو.',
+        en: 'Please wait a moment and take another photo or re-scan.',
+        ur: 'کچھ دیر انتظار کر کے دوبارہ تصویر لیں یا دوبارہ اسکین کریں۔',
+        roman_ur: 'Kuch dair intezar kar ke dobara scan karein.',
+        sd: 'ٿوري دير ترسي ٻيهر اسڪين ڪريو.',
       },
     ],
     what_to_do_now: [],
@@ -655,10 +655,10 @@ export function getApiKeyMissingDiagnosis(selectedCrop: string): CropDiagnosis {
     requires_retake: false,
     requires_expert_review: true,
     message: {
-      en: 'Gemini API key is missing. Please connect your API key to enable live AI vision diagnosis.',
-      ur: 'جیمنائی API Key غائب ہے۔ براہِ کرم جیمنائی کی داخل کریں تاکہ اصلی پودے کا معائنہ ہو سکے۔',
-      roman_ur: 'Gemini API Key missing hai. Barah-e-karam API key enter karein takay AI diagnosis kaam karay.',
-      sd: 'جيمنائي API Key ناهي. مهرباني ڪري ڪي داخل ڪريو.',
+      en: 'AI diagnostic service is temporarily reconnecting. Please retry shortly.',
+      ur: 'اے آئی تشخیصی سروس عارضی طور پر دوبارہ جڑ رہی ہے۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+      roman_ur: 'AI service dobara connect ho rahi hai. Barah-e-karam dobara koshish karein.',
+      sd: 'اي آءِ سروس ٻيهر ڳنڍجي رهي آهي. مهرباني ڪري ٿوري دير بعد ڪوشش ڪريو.',
     },
   };
 }
@@ -670,16 +670,15 @@ export async function analyzeCropImageWithGemini(
   base64Image: string,
   selectedCrop: string,
   confirmMismatchOverride = false,
-  clientQuality?: ImageQualityReport,
-  clientApiKey?: string
+  clientQuality?: ImageQualityReport
 ): Promise<CropDiagnosis> {
-  const apiKey = getGeminiApiKey(clientApiKey);
+  const apiKey = getGeminiApiKey();
   const cleanBase64 = cleanBase64Payload(base64Image);
   const mimeType = extractImageMimeType(base64Image);
 
   if (!apiKey) {
-    // Return explicit API Key Missing state - NEVER claim healthy!
-    return getApiKeyMissingDiagnosis(selectedCrop);
+    // Return explicit Service Unavailable state - NEVER claim healthy!
+    return getServiceUnavailableDiagnosis(selectedCrop);
   }
 
   const model =
@@ -919,7 +918,7 @@ Return valid JSON matching the schema.`;
     console.error('[Gemini Crop Diagnosis Error]:', err);
     const errMessage = err instanceof Error ? err.message : String(err);
     if (/API_KEY|API key not valid|403|unauthenticated|Missing GEMINI_API_KEY/i.test(errMessage)) {
-      return getApiKeyMissingDiagnosis(selectedCrop);
+      return getServiceUnavailableDiagnosis(selectedCrop);
     }
     return getFallbackCropDiagnosis(selectedCrop, confirmMismatchOverride, clientQuality);
   }

@@ -149,7 +149,6 @@ export const CropAnalysisRequestSchema = z.object({
   selectedCrop: z.string().min(1).max(50),
   confirmMismatchOverride: z.boolean().optional().default(false),
   clientQuality: z.any().optional(),
-  apiKey: z.string().optional(),
 });
 
 export type CropAnalysisRequest = z.infer<typeof CropAnalysisRequestSchema>;
