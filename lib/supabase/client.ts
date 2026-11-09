@@ -15,21 +15,84 @@ export interface FarmerProfile {
   fatherOrFarmName: string;
   email: string;
   phone: string;
+  district?: string;
+  province?: string;
   villageOrTehsil: string;
   placeName: string;
   lat: number;
   lon: number;
   totalAcres: number;
+  landAcresBand?: string;
   primaryCrops: string[];
+  mainCrops?: string[];
   avatarUrl: string;
-  authProvider: 'google' | 'none';
+  authProvider: 'google' | 'anonymous' | 'email' | 'none';
   isAuthenticated: boolean;
   language: 'ur' | 'en';
   autoSpeakVoice: boolean;
+  preferredVoice?: string; // 'ur-PK-UzmaNeural' | 'ur-PK-AsadNeural'
+  voiceSpeed?: number;
+  onboardingDone?: boolean;
+  consentTermsAt?: string | null;
+  consentImproveModel?: boolean;
   joinedAt: string;
+  lastSeenAt?: string;
 }
 
 export type FarmProfile = FarmerProfile;
+
+export type ScanOrgan =
+  | 'leaf_top'
+  | 'leaf_under'
+  | 'stem'
+  | 'roots'
+  | 'whole_plant'
+  | 'fruit_flower'
+  | 'other';
+
+export interface ScanSession {
+  id: string;
+  user_id: string;
+  field_id?: string | null;
+  crop_selected?: string | null;
+  answers?: Record<string, unknown>;
+  quick?: Record<string, unknown>;
+  report?: Record<string, unknown>;
+  top_label?: string | null;
+  top_confidence?: number | null;
+  severity?: 'low' | 'medium' | 'high' | null;
+  on_device_label?: string | null;
+  on_device_confidence?: number | null;
+  status: 'pending' | 'quick_done' | 'done' | 'failed';
+  latency_ms?: { quick?: number; detail?: number; tts?: number };
+  created_at: string;
+}
+
+export interface ScanImage {
+  id: string;
+  session_id: string;
+  user_id: string;
+  organ: ScanOrgan;
+  storage_path: string;
+  quality?: {
+    blur?: number;
+    brightness?: number;
+    subject_size?: number;
+    is_blurry?: boolean;
+    is_dark?: boolean;
+  };
+  created_at: string;
+}
+
+export interface ScanFeedback {
+  id: string;
+  session_id: string;
+  user_id: string;
+  correct: 'yes' | 'no' | 'unsure';
+  right_label?: string | null;
+  note?: string | null;
+  created_at: string;
+}
 
 export interface FarmField {
   id: string;
@@ -194,17 +257,26 @@ const DEFAULT_UNAUTHENTICATED_PROFILE: FarmerProfile = {
   fatherOrFarmName: '',
   email: '',
   phone: '',
+  district: 'Faisalabad',
+  province: 'Punjab',
   villageOrTehsil: '',
   placeName: 'Faisalabad, Punjab',
   lat: 31.418,
   lon: 73.079,
   totalAcres: 0,
+  landAcresBand: '1-5',
   primaryCrops: ['wheat'],
+  mainCrops: ['wheat'],
   avatarUrl: '',
   authProvider: 'none',
   isAuthenticated: false,
   language: 'ur',
   autoSpeakVoice: true,
+  preferredVoice: 'ur-PK-UzmaNeural',
+  voiceSpeed: 1.0,
+  onboardingDone: false,
+  consentTermsAt: null,
+  consentImproveModel: false,
   joinedAt: '',
 };
 
@@ -357,15 +429,25 @@ export async function saveProfile(
             father_or_farm_name: merged.fatherOrFarmName,
             email: merged.email,
             phone: merged.phone,
+            district: merged.district || (merged.placeName ? merged.placeName.split(',')[0].trim() : undefined),
+            province: merged.province || (merged.placeName ? merged.placeName.split(',')[1]?.trim() : undefined),
             village_or_tehsil: merged.villageOrTehsil,
             total_acres: merged.totalAcres,
+            land_acres_band: merged.landAcresBand,
             primary_crops: merged.primaryCrops,
+            main_crops: merged.mainCrops || merged.primaryCrops,
+            preferred_voice: merged.preferredVoice || 'ur-PK-UzmaNeural',
+            voice_speed: merged.voiceSpeed || 1.0,
+            onboarding_done: merged.onboardingDone ?? false,
+            consent_terms_at: merged.consentTermsAt,
+            consent_improve_model: merged.consentImproveModel ?? false,
             avatar_url: merged.avatarUrl,
             auth_provider: merged.authProvider,
             language: merged.language,
             place_name: merged.placeName,
             lat: merged.lat,
             lon: merged.lon,
+            last_seen_at: new Date().toISOString(),
           });
         }
       } catch {
@@ -601,6 +683,7 @@ export async function deleteAllUserData(): Promise<void> {
     localStorage.removeItem(KEYS.FIELDS);
     localStorage.removeItem(KEYS.SCANS);
     localStorage.removeItem(KEYS.DIARY);
+    localStorage.removeItem('zarkhez_scan_sessions_v2');
     // Also clear legacy v1 keys if present
     localStorage.removeItem('zarkhez_fields_v1');
     localStorage.removeItem('zarkhez_scans_v1');
@@ -614,10 +697,149 @@ export async function deleteAllUserData(): Promise<void> {
       } = await supabase.auth.getSession();
       if (session?.user?.id) {
         const userId = session.user.id;
+        // Delete child tables first, then sessions and fields
+        await supabase.from('scan_feedback').delete().eq('user_id', userId);
+        await supabase.from('scan_images').delete().eq('user_id', userId);
+        await supabase.from('scan_sessions').delete().eq('user_id', userId);
         await supabase.from('tasks').delete().eq('user_id', userId);
         await supabase.from('scans').delete().eq('user_id', userId);
         await supabase.from('diary_entries').delete().eq('user_id', userId);
         await supabase.from('fields').delete().eq('user_id', userId);
+        // Delete profile
+        await supabase.from('profiles').delete().eq('id', userId);
+
+        // Delete user's files from private scans bucket
+        try {
+          const { data: fileList } = await supabase.storage.from('scans').list(userId);
+          if (fileList && fileList.length > 0) {
+            const filePaths = fileList.map((f) => `${userId}/${f.name}`);
+            await supabase.storage.from('scans').remove(filePaths);
+          }
+        } catch {
+          // ignore storage delete errors
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+}
+
+/**
+ * Creates a new ScanSession record in local and cloud store.
+ */
+export async function createScanSession(
+  sessionData: Partial<ScanSession>
+): Promise<ScanSession> {
+  const session: ScanSession = {
+    id: sessionData.id || `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    user_id: sessionData.user_id || 'anonymous',
+    field_id: sessionData.field_id || null,
+    crop_selected: sessionData.crop_selected || null,
+    answers: sessionData.answers || {},
+    quick: sessionData.quick || {},
+    report: sessionData.report || {},
+    top_label: sessionData.top_label || null,
+    top_confidence: sessionData.top_confidence || null,
+    severity: sessionData.severity || null,
+    on_device_label: sessionData.on_device_label || null,
+    on_device_confidence: sessionData.on_device_confidence || null,
+    status: sessionData.status || 'pending',
+    latency_ms: sessionData.latency_ms || {},
+    created_at: sessionData.created_at || new Date().toISOString(),
+  };
+
+  if (typeof window !== 'undefined') {
+    try {
+      const existing = JSON.parse(localStorage.getItem('zarkhez_scan_sessions_v2') || '[]') as ScanSession[];
+      localStorage.setItem('zarkhez_scan_sessions_v2', JSON.stringify([session, ...existing]));
+    } catch {
+      // ignore
+    }
+  }
+
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (authSession?.user?.id) {
+        session.user_id = authSession.user.id;
+        await supabase.from('scan_sessions').insert({
+          id: session.id,
+          user_id: session.user_id,
+          field_id: session.field_id,
+          crop_selected: session.crop_selected,
+          answers: session.answers,
+          quick: session.quick,
+          report: session.report,
+          top_label: session.top_label,
+          top_confidence: session.top_confidence,
+          severity: session.severity,
+          on_device_label: session.on_device_label,
+          on_device_confidence: session.on_device_confidence,
+          status: session.status,
+          latency_ms: session.latency_ms,
+          created_at: session.created_at,
+        });
+      }
+    } catch {
+      // offline fallback
+    }
+  }
+
+  return session;
+}
+
+/**
+ * Updates an existing ScanSession with partial data.
+ */
+export async function updateScanSession(
+  sessionId: string,
+  updates: Partial<ScanSession>
+): Promise<void> {
+  if (typeof window !== 'undefined') {
+    try {
+      const existing = JSON.parse(localStorage.getItem('zarkhez_scan_sessions_v2') || '[]') as ScanSession[];
+      const updated = existing.map((s) => (s.id === sessionId ? { ...s, ...updates } : s));
+      localStorage.setItem('zarkhez_scan_sessions_v2', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  }
+
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      await supabase.from('scan_sessions').update(updates).eq('id', sessionId);
+    } catch {
+      // offline fallback
+    }
+  }
+}
+
+/**
+ * Submits feedback for a scan session.
+ */
+export async function submitScanFeedback(
+  feedback: {
+    sessionId: string;
+    correct: 'yes' | 'no' | 'unsure';
+    rightLabel?: string;
+    note?: string;
+  }
+): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        await supabase.from('scan_feedback').insert({
+          session_id: feedback.sessionId,
+          user_id: session.user.id,
+          correct: feedback.correct,
+          right_label: feedback.rightLabel || null,
+          note: feedback.note || null,
+        });
       }
     } catch {
       // ignore
