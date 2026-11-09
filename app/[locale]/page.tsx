@@ -13,7 +13,7 @@ import {
   User,
   LogIn,
   UserPlus,
-  Check,
+  Mic,
 } from 'lucide-react';
 import { GoogleLogoSvg } from '@/components/cards/FarmerPersonaCard';
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
@@ -49,7 +49,7 @@ const DISTRICTS = [
   { name: 'Swat, KPK', ur: 'سوات، کے پی کے', lat: 35.2227, lon: 72.4258 },
 ];
 
-export default function SimpleWelcomePage() {
+export default function WelcomePage() {
   const t = useTranslations('welcome');
   const tAuth = useTranslations('auth');
   const locale = useLocale() as 'ur' | 'en';
@@ -57,6 +57,7 @@ export default function SimpleWelcomePage() {
   const pathname = usePathname();
 
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [savedUser, setSavedUser] = useState<FarmerProfile | null>(null);
   const [emailInput, setEmailInput] = useState('');
   const [nameInput, setNameInput] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState(DISTRICTS[0]);
@@ -67,7 +68,8 @@ export default function SimpleWelcomePage() {
 
   useEffect(() => {
     const existing = getSavedProfile();
-    if (existing.email) {
+    if (existing.isAuthenticated && existing.email) {
+      setSavedUser(existing);
       setEmailInput(existing.email);
       setNameInput(existing.fullName);
     }
@@ -83,7 +85,11 @@ export default function SimpleWelcomePage() {
       })
       .catch(() => {});
 
-    syncSupabaseAuthSession();
+    syncSupabaseAuthSession().then((synced) => {
+      if (synced && synced.isAuthenticated) {
+        setSavedUser(synced);
+      }
+    });
   }, []);
 
   const switchLanguage = (nextLocale: 'ur' | 'en') => {
@@ -128,14 +134,13 @@ export default function SimpleWelcomePage() {
           router.push('/home');
         }
         return;
-      } catch (err) {
-        // Fallback to Supabase OAuth or direct entry
+      } catch {
+        // Fallback below
       }
     }
 
     const res = await triggerSupabaseGoogleOAuth(`/${locale}/home`);
     if (!res.startedRedirect) {
-      // If direct Google popup was closed, let user enter email cleanly
       setSubmitting(false);
     }
   };
@@ -191,30 +196,51 @@ export default function SimpleWelcomePage() {
   };
 
   return (
-    <main className="min-h-[100dvh] flex flex-col justify-between px-4 sm:px-6 py-5 bg-gradient-to-b from-[#F4F5EE] via-[#ECEDE4] to-[#E3E5DA] text-ink max-w-md mx-auto">
-      {/* Top Header: Brand Emblem & Language Toggle */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/images/zarkhez-logo-mark.png"
-            alt="Zarkhez Logo"
-            className="w-10 h-10 object-contain drop-shadow-sm"
-          />
-          <div>
-            <span className="font-black text-xl text-[#062409] tracking-tight">
-              زرخیز <span className="text-olive text-sm font-bold">Zarkhez</span>
-            </span>
-          </div>
+    <main className="relative min-h-[100dvh] bg-[#062409] text-white overflow-x-hidden flex flex-col justify-between selection:bg-emerald-500 selection:text-white max-w-md mx-auto">
+      {/* Decorative Agriculture Field Glows & Vignette */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div
+          className="absolute -top-32 -start-32 w-80 h-80 rounded-full blur-3xl opacity-35"
+          style={{
+            background:
+              'radial-gradient(circle, rgba(95,165,46,0.95) 0%, rgba(6,36,9,0) 70%)',
+          }}
+        />
+        <div
+          className="absolute top-1/4 -end-32 w-80 h-80 rounded-full blur-3xl opacity-30"
+          style={{
+            background:
+              'radial-gradient(circle, rgba(200,150,46,0.85) 0%, rgba(6,36,9,0) 70%)',
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-20"
+          style={{
+            backgroundImage:
+              'radial-gradient(rgba(255,255,255,0.14) 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+          }}
+        />
+      </div>
+
+      {/* Top Bar: Feature Chips & Minimal Language Switcher */}
+      <div className="relative z-10 px-4 pt-4 flex items-center justify-between gap-2">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-bold text-cream">
+          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+          <span>{locale === 'ur' ? 'زرعی ڈاکٹر' : 'Crop Doctor'}</span>
+          <span className="opacity-40">•</span>
+          <Mic className="w-3.5 h-3.5 text-wheat" />
+          <span>{locale === 'ur' ? 'اردو آواز' : 'Urdu Voice'}</span>
         </div>
 
-        {/* Minimal Language Switcher */}
-        <div className="flex rounded-full bg-white/80 border border-olive/20 p-1 shadow-sm">
+        <div className="inline-flex rounded-full bg-white/10 p-1 border border-white/15">
           <button
             type="button"
             onClick={() => switchLanguage('ur')}
             className={`px-3 py-1 rounded-full text-xs font-black transition-all ${
-              locale === 'ur' ? 'bg-[#062409] text-white shadow-sm' : 'text-ink/65 hover:text-ink'
+              locale === 'ur'
+                ? 'bg-olive text-white shadow-sm'
+                : 'text-white/75 hover:text-white'
             }`}
           >
             اردو
@@ -223,7 +249,9 @@ export default function SimpleWelcomePage() {
             type="button"
             onClick={() => switchLanguage('en')}
             className={`px-3 py-1 rounded-full text-xs font-black transition-all ${
-              locale === 'en' ? 'bg-[#062409] text-white shadow-sm' : 'text-ink/65 hover:text-ink'
+              locale === 'en'
+                ? 'bg-olive text-white shadow-sm'
+                : 'text-white/75 hover:text-white'
             }`}
           >
             EN
@@ -231,47 +259,108 @@ export default function SimpleWelcomePage() {
         </div>
       </div>
 
-      {/* Main Content Card */}
-      <div className="my-auto py-5 space-y-4">
-        {/* Simple Headline */}
-        <div className="text-center space-y-1">
-          <h1 className="font-black text-2xl sm:text-3xl text-[#062409] leading-tight">
-            {locale === 'ur' ? 'آپ کی کھیتی کا سچا دوست' : 'Smart Urdu Farming Assistant'}
-          </h1>
-          <p className="text-xs text-ink/75 max-w-xs mx-auto leading-relaxed">
-            {locale === 'ur'
-              ? 'پتے کی بیماری کی فوری تشخیص، موسم کا الرٹ اور قدرتی اردو آواز'
-              : 'Instant leaf disease scan, live weather alerts & fluent Urdu voice'}
-          </p>
-        </div>
-
-        {/* 1-Tap Guest Access (Highest Priority for Instant Frictionless Scan) */}
-        <motion.button
-          type="button"
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleGuestContinue}
-          className="w-full min-h-[54px] px-5 rounded-2xl bg-white hover:bg-canvas text-ink font-black text-sm sm:text-base border-2 border-olive/40 shadow-soft flex items-center justify-between transition-all group"
+      {/* Big Logo in Top Center with Glow */}
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: 'easeOut' }}
+        className="relative z-10 px-4 pt-4 pb-2 flex flex-col items-center text-center"
+      >
+        <motion.div
+          initial={{ scale: 0.82, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+          className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-[28px] bg-[#062409] p-1.5 shadow-[0_0_45px_rgba(95,165,46,0.55)] border-2 border-emerald-400/50 overflow-hidden flex items-center justify-center"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-olive/15 text-olive flex items-center justify-center group-hover:bg-olive group-hover:text-white transition-colors">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div className="text-start">
-              <span className="block font-black text-ink text-sm sm:text-base">
-                {locale === 'ur' ? 'مہمان کسان (بغیر لاگ ان داخل ہوں)' : 'Continue as Guest'}
-              </span>
-              <span className="block text-[11px] text-ink/60 font-medium">
-                {locale === 'ur' ? 'فوری سکین اور موسم دیکھنے کے لیے ٹیپ کریں' : 'Instant scan & weather without sign in'}
-              </span>
-            </div>
-          </div>
-          <ArrowRight className="w-5 h-5 text-olive rtl:rotate-180 flex-shrink-0" />
-        </motion.button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/zarkhez-logo-mark.png"
+            alt="Zarkhez Logo"
+            className="w-full h-full object-cover rounded-[22px]"
+          />
+        </motion.div>
 
-        {/* Clean Login / Sign Up Box */}
-        <div className="bg-white/95 rounded-2xl p-4 sm:p-5 shadow-soft border border-olive/15 space-y-3.5">
-          {/* Switcher Tab */}
+        <div className="mt-3 flex items-baseline justify-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+            Zarkhez
+          </h1>
+          <span className="font-urduHeading text-2xl sm:text-3xl text-emerald-300">
+            زرخیز
+          </span>
+        </div>
+        <p className="mt-1 text-xs sm:text-sm text-white/85 max-w-[320px] leading-relaxed">
+          {locale === 'ur'
+            ? 'آپ کی کھیتی کا سچا دوست — بیماری کی فوری تشخیص اور رہنمائی'
+            : 'Your farm, your true friend — Instant leaf disease diagnosis & Urdu advisor'}
+        </p>
+      </motion.div>
+
+      {/* Main Login / Sign Up Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.08, ease: 'easeOut' }}
+        className="relative z-10 px-4 pb-5 pt-1 w-full"
+      >
+        <div className="bg-white text-ink rounded-[26px] p-4 sm:p-5 shadow-2xl border border-white/20 space-y-3.5">
+          {/* Returning Authenticated Farmer 1-Tap Continue Banner */}
+          {savedUser && savedUser.isAuthenticated && (
+            <button
+              type="button"
+              onClick={() => router.push('/home')}
+              className="w-full p-3 rounded-2xl bg-gradient-to-r from-[#062409] via-olive-dark to-olive text-white flex items-center justify-between gap-2.5 shadow-md border border-emerald-400/30 transition-transform active:scale-98"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={
+                    savedUser.avatarUrl ||
+                    deriveGoogleIdentityFromEmail(savedUser.email).avatarUrl
+                  }
+                  alt=""
+                  className="w-10 h-10 rounded-full object-cover border-2 border-wheat flex-shrink-0"
+                />
+                <div className="text-start min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-extrabold text-xs sm:text-sm truncate">
+                      {locale === 'ur'
+                        ? `${savedUser.fullName} کے طور پر جاری رکھیں`
+                        : `Continue as ${savedUser.fullName}`}
+                    </span>
+                    <bdi
+                      dir="ltr"
+                      className="px-2 py-0.5 rounded-full bg-wheat text-ink font-mono font-extrabold text-[10px]"
+                    >
+                      {savedUser.farmerId}
+                    </bdi>
+                  </div>
+                  <bdi dir="ltr" className="block text-[11px] text-white/75 truncate">
+                    {savedUser.email}
+                  </bdi>
+                </div>
+              </div>
+              <ArrowRight className="w-5 h-5 text-wheat flex-shrink-0 rtl:rotate-180" />
+            </button>
+          )}
+
+          {/* 1-Tap Guest Access (Highest Priority: Scan immediately with zero forms) */}
+          <button
+            type="button"
+            onClick={handleGuestContinue}
+            className="w-full min-h-[50px] px-4 rounded-2xl bg-white hover:bg-canvas text-ink font-black text-xs sm:text-sm border-2 border-olive/40 shadow-sm flex items-center justify-between transition-all group"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-olive/15 flex items-center justify-center text-olive group-hover:bg-olive group-hover:text-white transition-colors">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <span className="font-extrabold text-xs sm:text-sm">
+                {locale === 'ur' ? 'مہمان کسان (بغیر لاگ ان داخل ہوں)' : 'Continue as Guest (No Login)'}
+              </span>
+            </div>
+            <ArrowRight className="w-4 h-4 text-olive rtl:rotate-180" />
+          </button>
+
+          {/* Simple Tab Switcher: Log In vs Sign Up */}
           <div className="grid grid-cols-2 bg-canvas p-1 rounded-xl border border-olive/15">
             <button
               type="button"
@@ -303,10 +392,13 @@ export default function SimpleWelcomePage() {
             </button>
           </div>
 
-          {/* Account Not Found Banner */}
+          {/* Error Banner when Account Not Found */}
           {oauthError && (
             <div className="p-3 rounded-xl bg-amber-500/10 border border-alert-amber text-ink text-start space-y-2">
-              <p className="text-xs font-bold leading-relaxed">{oauthError}</p>
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 text-alert-amber flex-shrink-0 mt-0.5" />
+                <p className="text-xs font-bold leading-relaxed">{oauthError}</p>
+              </div>
               {accountNotFoundError && (
                 <button
                   type="button"
@@ -323,7 +415,7 @@ export default function SimpleWelcomePage() {
             </div>
           )}
 
-          {/* Google 1-Tap Button */}
+          {/* 1-Tap Google Sign-In Button */}
           <button
             type="button"
             onClick={handleGoogleSignIn}
@@ -340,16 +432,16 @@ export default function SimpleWelcomePage() {
           <div className="flex items-center gap-3">
             <div className="h-px bg-ink/10 flex-1" />
             <span className="text-[11px] font-bold text-ink/40 uppercase">
-              {locale === 'ur' ? 'یا ای میل سے' : 'or with email'}
+              {locale === 'ur' ? 'یا ای میل درج کریں' : 'or enter email'}
             </span>
             <div className="h-px bg-ink/10 flex-1" />
           </div>
 
-          {/* Clean Email Form */}
+          {/* Direct Email Form */}
           <form onSubmit={handleEmailSubmit} className="space-y-3 text-start">
             <div>
               <label className="block text-xs font-bold text-ink/75 mb-1">
-                {locale === 'ur' ? 'ای میل' : 'Email Address'}
+                {locale === 'ur' ? 'ای میل ایڈریس' : 'Email Address'}
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-ink/45 absolute top-1/2 -translate-y-1/2 start-3.5 pointer-events-none" />
@@ -422,18 +514,18 @@ export default function SimpleWelcomePage() {
             >
               <span>
                 {authMode === 'login'
-                  ? locale === 'ur' ? 'لاگ ان کریں' : 'Log In'
-                  : locale === 'ur' ? 'اکاؤنٹ بنائیں' : 'Create Account'}
+                  ? locale === 'ur' ? 'لاگ ان کریں اور شروع کریں' : 'Log In'
+                  : locale === 'ur' ? 'اکاؤنٹ بنائیں اور شروع کریں' : 'Create Account'}
               </span>
               <ArrowRight className="w-4 h-4 text-emerald-400 rtl:rotate-180" />
             </button>
           </form>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Footer Disclaimer */}
-      <footer className="text-center pt-2">
-        <p className="text-[11px] text-ink/50">
+      {/* Footer */}
+      <footer className="text-center pb-3">
+        <p className="text-[11px] text-white/50">
           {locale === 'ur'
             ? 'زرخیز — پاکستانی کسانوں کا ڈیجیٹل ساتھی'
             : 'Zarkhez — Built for Pakistani Farmers'}
