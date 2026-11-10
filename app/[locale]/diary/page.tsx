@@ -351,13 +351,13 @@ export default function DiaryPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="font-extrabold text-sm text-ink">
-                        {sc.advice?.problem_name?.[locale] || sc.label}
+                        {sc.advice?.problem_name?.[locale] || sc.label || (locale === 'ur' ? 'فصل اسکین' : 'Crop Scan')}
                       </h3>
                       <bdi
                         dir="ltr"
                         className="text-xs font-bold px-2 py-0.5 rounded-full bg-olive/15 text-olive-dark"
                       >
-                        {Math.round(sc.confidence * 100)}%
+                        {Math.round((Number(sc.confidence) || 0) * 100)}%
                       </bdi>
                     </div>
                     <p className="text-xs text-ink/80 mt-1 line-clamp-2">

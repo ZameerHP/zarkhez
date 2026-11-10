@@ -22,6 +22,7 @@ export function ReadAloudButton({
   const t = useTranslations('app');
   const [speaking, setSpeaking] = useState(false);
   const [voiceNote, setVoiceNote] = useState(false);
+  const [voiceFailed, setVoiceFailed] = useState(false);
 
   const targetLang = lang || currentLocale;
 
@@ -33,9 +34,15 @@ export function ReadAloudButton({
 
   const handleToggle = () => {
     unlockAudio();
+    setVoiceFailed(false);
     if (speaking) {
       stopSpeaking();
       setSpeaking(false);
+      return;
+    }
+
+    if (!text || !text.trim()) {
+      setVoiceFailed(true);
       return;
     }
 
@@ -47,7 +54,10 @@ export function ReadAloudButton({
         }
       },
       onEnd: () => setSpeaking(false),
-      onError: () => setSpeaking(false),
+      onError: () => {
+        setSpeaking(false);
+        setVoiceFailed(true);
+      },
     });
   };
 
@@ -72,8 +82,13 @@ export function ReadAloudButton({
           <span>{speaking ? t('stopListening') : t('listen')}</span>
         )}
       </button>
-      {voiceNote && targetLang === 'ur' && (
+      {voiceNote && targetLang === 'ur' && !voiceFailed && (
         <span className="text-xs text-ink/65 ps-1">{t('noUrduVoiceNote')}</span>
+      )}
+      {voiceFailed && (
+        <span className="text-[11px] text-amber-800 ps-1">
+          {targetLang === 'en' ? 'Audio unavailable right now' : 'آواز فی الحال دستیاب نہیں'}
+        </span>
       )}
     </div>
   );

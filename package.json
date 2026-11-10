@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "npx tsx tests/tools-and-alerts.test.ts && npx tsx tests/crop-scanner.test.ts && npx tsx tests/advisor-intelligence.test.ts",
+    "test": "npx tsx tests/tools-and-alerts.test.ts && npx tsx tests/crop-scanner.test.ts && npx tsx tests/advisor-intelligence.test.ts && npx tsx tests/scanner-reliability.test.ts",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "eval:model": "npx tsx scripts/evaluate-model.ts"

@@ -29,12 +29,23 @@ import {
   FlaskConical,
   Bug,
   ShieldCheck,
+  WifiOff,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
 import { ZarkhezLogo } from '@/components/layout/ZarkhezLogo';
 import { ReadAloudButton } from '@/components/voice/ReadAloudButton';
-import { CropDiagnosis, Advice, AppLang, getLocalizedText } from '@/lib/schemas';
+import {
+  CropDiagnosis,
+  CropDiagnosisSchema,
+  StructuredScanError,
+  StructuredScanErrorSchema,
+  Advice,
+  AppLang,
+  getLocalizedText,
+} from '@/lib/schemas';
 import { getSavedProfile, saveScanRecord } from '@/lib/supabase/client';
 import { speakText, stopSpeaking, unlockAudio } from '@/lib/voice';
 import { GuestPromptSheet } from '@/components/auth/GuestPromptSheet';
@@ -42,6 +53,29 @@ import {
   compressAndAssessLeafImage,
   ImageQualityReport,
 } from '@/lib/image-quality';
+import { buildOfflinePreliminaryAssessment } from '@/lib/offline-assessment';
+
+type ScanStage =
+  | 'idle'
+  | 'validating_image'
+  | 'processing'
+  | 'analyzing_cloud'
+  | 'quality_warning'
+  | 'crop_mismatch'
+  | 'retake_required'
+  | 'diagnosis_ready'
+  | 'error';
+
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
+
+const ALLOWED_IMAGE_EXT_RGX = /\.(jpe?g|png|webp|heic|heif)$/i;
 
 /**
  * Zarkhez Two-Stage Intelligent Crop Scanner:
@@ -59,11 +93,17 @@ export default function ScanPage() {
   const [selectedCrop, setSelectedCrop] = useState<string>('wheat');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string>('');
+  const [preservedQuality, setPreservedQuality] = useState<ImageQualityReport | null>(null);
+  const [scanStage, setScanStage] = useState<ScanStage>('idle');
   const [analysing, setAnalysing] = useState(false);
   const [diagnosis, setDiagnosis] = useState<CropDiagnosis | null>(null);
   const [reportLang, setReportLang] = useState<AppLang>(locale === 'en' ? 'en' : 'ur');
   const [savedToDiary, setSavedToDiary] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [savingToDiary, setSavingToDiary] = useState(false);
+  const [diarySaveNote, setDiarySaveNote] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<StructuredScanError | null>(null);
+  const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
+  const [voiceErrorMsg, setVoiceErrorMsg] = useState<string | null>(null);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
   const [viewMode, setViewMode] = useState<'annotated' | 'original'>('annotated');
   const [explanationMode, setExplanationMode] = useState<'farmer' | 'scientific'>('farmer');
@@ -74,12 +114,14 @@ export default function ScanPage() {
     quality: ImageQualityReport;
   } | null>(null);
 
-  // Live mobile camera stream state
+  // Live mobile camera stream state & duplicate request guard refs
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const scanInFlightRef = useRef(false);
+  const activeAbortRef = useRef<AbortController | null>(null);
 
   const supportedCrops = [
     { key: 'wheat', en: 'Wheat', ur: 'گندم' },
@@ -114,14 +156,66 @@ export default function ScanPage() {
   useEffect(() => {
     return () => {
       stopSpeaking();
+      if (activeAbortRef.current) {
+        activeAbortRef.current.abort();
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((tr) => tr.stop());
       }
     };
   }, []);
 
+  const validateSelectedFile = (file: File): StructuredScanError | null => {
+    if (file.size === 0) {
+      return {
+        error: 'structured_scan_error',
+        error_category: 'invalid_image_input',
+        code: 'EMPTY_IMAGE_FILE',
+        retryable: false,
+        user_message: {
+          en: 'The selected file is empty (0 bytes). Please capture or choose a real plant photo.',
+          ur: 'منتخب کردہ تصویر کی فائل خالی ہے۔ براہِ کرم پودے کی درست تصویر منتخب کریں۔',
+        },
+        technical_summary: `Rejected file "${file.name || 'unnamed'}": size is 0 bytes.`,
+      };
+    }
+
+    const mime = (file.type || '').toLowerCase().trim();
+    const hasAllowedExt = ALLOWED_IMAGE_EXT_RGX.test(file.name || '');
+    if (mime ? !ALLOWED_IMAGE_MIME_TYPES.has(mime) : !hasAllowedExt) {
+      return {
+        error: 'structured_scan_error',
+        error_category: 'invalid_image_input',
+        code: 'UNSUPPORTED_IMAGE_TYPE',
+        retryable: false,
+        user_message: {
+          en: `File format "${mime || file.name}" is not supported. Please upload a JPEG, PNG, or WebP photo.`,
+          ur: `یہ فائل فارمیٹ (${mime || 'نامعلوم'}) قابل قبول نہیں۔ براہِ کرم کیمرے کی عام تصویر (JPEG یا PNG) استعمال کریں۔`,
+        },
+        technical_summary: `Rejected MIME="${mime || 'none'}" name="${file.name || 'unnamed'}".`,
+      };
+    }
+
+    if (file.size > 25 * 1024 * 1024) {
+      return {
+        error: 'structured_scan_error',
+        error_category: 'invalid_image_input',
+        code: 'RAW_FILE_TOO_LARGE',
+        retryable: false,
+        user_message: {
+          en: 'Photo file exceeds 25 MB limit. Please pick a standard camera photo.',
+          ur: 'تصویر کی فائل بہت بڑی (25 ایم بی سے زائد) ہے۔ براہِ کرم عام سائز کی تصویر لیں۔',
+        },
+        technical_summary: `Raw file size ${file.size} bytes exceeded 25MB guard.`,
+      };
+    }
+
+    return null;
+  };
+
   const handleOpenCamera = async () => {
     unlockAudio();
+    if (scanInFlightRef.current) return;
     if (
       typeof navigator !== 'undefined' &&
       navigator.mediaDevices &&
@@ -154,7 +248,7 @@ export default function ScanPage() {
 
   const handleCaptureFromLiveVideo = () => {
     unlockAudio();
-    if (!videoRef.current) return;
+    if (scanInFlightRef.current || !videoRef.current) return;
     const video = videoRef.current;
     const w = video.videoWidth || 640;
     const h = video.videoHeight || 480;
@@ -174,204 +268,452 @@ export default function ScanPage() {
     fileOrDataUrl: File | string,
     cropKey: string
   ) => {
+    if (scanInFlightRef.current) return;
+    setScanError(null);
+    setShowDevDiagnostics(false);
+    setVoiceErrorMsg(null);
+    setScanStage('validating_image');
+
+    if (fileOrDataUrl instanceof File) {
+      const validationErr = validateSelectedFile(fileOrDataUrl);
+      if (validationErr) {
+        setScanStage('error');
+        setScanError(validationErr);
+        return;
+      }
+    }
+
     try {
+      setScanStage('processing');
       // OffscreenCanvas Quality Check (blur & lighting)
       const compressed = await compressAndAssessLeafImage(fileOrDataUrl);
+      setPreviewUrl(compressed.fullDataUrl);
+      setThumbnailUrl(compressed.thumbnailDataUrl);
+      setPreservedQuality(compressed.quality);
+
       if (!compressed.quality.isAcceptable) {
+        setScanStage('quality_warning');
         setPendingQualityData({
           fileOrUrl: compressed.fullDataUrl,
           quality: compressed.quality,
         });
         return;
       }
-      runAnalysisPipeline(compressed.fullDataUrl, cropKey, false);
-    } catch {
-      runAnalysisPipeline(fileOrDataUrl, cropKey, false);
+      runAnalysisPipeline(compressed.fullDataUrl, cropKey, false, compressed.quality);
+    } catch (err) {
+      setScanStage('error');
+      setScanError({
+        error: 'structured_scan_error',
+        error_category: 'invalid_image_input',
+        code: 'CORRUPT_IMAGE_DECODE',
+        retryable: false,
+        user_message: {
+          en: 'Could not open or decode this image file. It may be corrupted or an unsupported format.',
+          ur: 'یہ تصویر کھولی یا پڑھی نہیں جا سکی۔ ممکن ہے فائل خراب ہو — براہِ کرم نئی تصویر لیں۔',
+        },
+        technical_summary: err instanceof Error ? err.message : 'Image decode failure',
+      });
     }
+  };
+
+  const triggerSpokenDiagnosis = (diagData: CropDiagnosis) => {
+    const profile = getSavedProfile();
+    if (profile.autoSpeakVoice === false) return;
+
+    let speechText = '';
+    if (diagData.diagnosis_status === 'crop_mismatch' || diagData.diagnosis_status === 'invalid_image') {
+      speechText = getLocalizedText(diagData.message, reportLang);
+    } else if (diagData.voice_script && getLocalizedText(diagData.voice_script, reportLang)) {
+      speechText = getLocalizedText(diagData.voice_script, reportLang);
+    } else {
+      const prob = getLocalizedText(diagData.problem_name, reportLang);
+      const why = getLocalizedText(diagData.why_suspected, reportLang);
+      const recs = diagData.recommendations || [];
+      const stepsIntro =
+        recs.length > 0
+          ? `سفارشات: ${recs.map((r, i) => `${i + 1}۔ ${getLocalizedText(r, reportLang)}`).join(' ')}`
+          : '';
+      speechText = `${prob}۔ ${why}۔ ${stepsIntro}`;
+    }
+
+    if (!speechText.trim()) return;
+    setTimeout(() => {
+      speakText(speechText, reportLang === 'en' ? 'en' : 'ur', {
+        onError: () => {
+          setVoiceErrorMsg(
+            locale === 'ur'
+              ? 'آواز سنانے میں عارضی مسئلہ آیا، لیکن مکمل تحریری رپورٹ نیچے موجود ہے۔'
+              : 'Voice summary unavailable right now; full text report is ready below.'
+          );
+        },
+      });
+    }, 150);
   };
 
   const runAnalysisPipeline = async (
     fileOrDataUrl: File | string,
     cropKey: string,
-    confirmMismatchOverride = false
+    confirmMismatchOverride = false,
+    cachedQuality?: ImageQualityReport
   ) => {
     unlockAudio();
+    if (scanInFlightRef.current) return;
+    scanInFlightRef.current = true;
+
     setPendingQualityData(null);
-    setErrorMsg(null);
+    setScanError(null);
+    setShowDevDiagnostics(false);
+    setVoiceErrorMsg(null);
+    setDiarySaveNote(null);
     setAnalysing(true);
+    setScanStage('processing');
     setDiagnosis(null);
     setSavedToDiary(false);
 
-    try {
-      const compressed = await compressAndAssessLeafImage(fileOrDataUrl);
-      setPreviewUrl(compressed.fullDataUrl);
-      setThumbnailUrl(compressed.thumbnailDataUrl);
+    if (activeAbortRef.current) {
+      activeAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    activeAbortRef.current = controller;
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 48000);
 
-      // Two-Stage Gemini Vision Analysis (/api/scan/analyze)
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 22000);
+    try {
+      let fullDataUrl: string;
+      let thumbUrl: string;
+      let qualityReport: ImageQualityReport;
+
+      if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('data:image/') && cachedQuality && thumbnailUrl) {
+        fullDataUrl = fileOrDataUrl;
+        thumbUrl = thumbnailUrl;
+        qualityReport = cachedQuality;
+      } else {
+        const compressed = await compressAndAssessLeafImage(fileOrDataUrl);
+        fullDataUrl = compressed.fullDataUrl;
+        thumbUrl = compressed.thumbnailDataUrl;
+        qualityReport = compressed.quality;
+        setPreviewUrl(fullDataUrl);
+        setThumbnailUrl(thumbUrl);
+        setPreservedQuality(qualityReport);
+      }
+
+      // Guard Vercel's 4.5MB serverless request payload cap safely
+      if (fullDataUrl.length > 3_900_000) {
+        clearTimeout(timeoutId);
+        setScanStage('error');
+        setScanError({
+          error: 'structured_scan_error',
+          error_category: 'invalid_image_input',
+          code: 'PAYLOAD_TOO_LARGE',
+          retryable: false,
+          user_message: {
+            en: 'Compressed image is still too large (>4 MB). Please capture a normal resolution photo closer to the leaf.',
+            ur: 'کمپریس کرنے کے بعد بھی تصویر کا سائز بڑا ہے۔ براہِ کرم کیمرے سے عام ریزولوشن تصویر لیں۔',
+          },
+          technical_summary: `Encoded data URL length (${fullDataUrl.length} chars) exceeds serverless safe upload limit.`,
+        });
+        return;
+      }
+
+      // Fast pre-flight network check
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        clearTimeout(timeoutId);
+        setScanStage('error');
+        setScanError({
+          error: 'structured_scan_error',
+          error_category: 'network_or_timeout',
+          code: 'OFFLINE_DEVICE',
+          retryable: true,
+          user_message: {
+            en: 'You appear to be offline. Reconnect to the internet and tap Retry, or run an Offline Preliminary Check below.',
+            ur: 'آپ کا انٹرنیٹ بند ہے۔ انٹرنیٹ آن کر کے دوبارہ کوشش کریں یا نیچے سے آف لائن ابتدائی جائزہ دیکھیں۔',
+          },
+          technical_summary: 'Browser reported navigator.onLine === false before POST /api/scan/analyze.',
+        });
+        return;
+      }
+
+      setScanStage('analyzing_cloud');
 
       const res = await fetch('/api/scan/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image: compressed.fullDataUrl,
+          image: fullDataUrl,
           selectedCrop: cropKey,
           confirmMismatchOverride,
-          clientQuality: compressed.quality,
+          clientQuality: qualityReport,
         }),
         signal: controller.signal,
       });
-      clearTimeout(timeout);
+      clearTimeout(timeoutId);
+
+      const rawResponseText = await res.text();
+      let parsedBody: unknown = null;
+      try {
+        parsedBody = rawResponseText ? JSON.parse(rawResponseText) : null;
+      } catch {
+        parsedBody = null;
+      }
 
       if (!res.ok) {
-        const errorJson = await res.json().catch(() => ({}));
-        const serverMsg =
-          errorJson.message ||
-          errorJson.error ||
-          (locale === 'ur'
-            ? 'کلاؤڈ وژن سرور سے رابطہ نہیں ہو سکا۔'
-            : `Cloud Vision server returned status ${res.status}`);
-        throw new Error(serverMsg);
-      }
-
-      const diagData: CropDiagnosis = await res.json();
-      setDiagnosis(diagData);
-
-      // Spoken Voice Readout
-      const profile = getSavedProfile();
-      if (profile.autoSpeakVoice !== false) {
-        let speechText = '';
-        if (diagData.diagnosis_status === 'crop_mismatch') {
-          speechText = getLocalizedText(diagData.message, reportLang);
-        } else if (diagData.diagnosis_status === 'invalid_image') {
-          speechText = getLocalizedText(diagData.message, reportLang);
-        } else if (diagData.voice_script && getLocalizedText(diagData.voice_script, reportLang)) {
-          speechText = getLocalizedText(diagData.voice_script, reportLang);
-        } else {
-          const prob = getLocalizedText(diagData.problem_name, reportLang);
-          const why = getLocalizedText(diagData.why_suspected, reportLang);
-          const stepsIntro =
-            diagData.recommendations.length > 0
-              ? `سفارشات: ${diagData.recommendations
-                  .map((r, i) => `${i + 1}۔ ${getLocalizedText(r, reportLang)}`)
-                  .join(' ')}`
-              : '';
-          speechText = `${prob}۔ ${why}۔ ${stepsIntro}`;
+        const structuredParsed = StructuredScanErrorSchema.safeParse(parsedBody);
+        if (structuredParsed.success) {
+          setScanStage('error');
+          setScanError(structuredParsed.data);
+          return;
         }
 
-        setTimeout(() => {
-          speakText(speechText, reportLang === 'en' ? 'en' : 'ur');
-        }, 150);
+        const fallbackCategory =
+          res.status === 429
+            ? 'rate_limited'
+            : res.status === 413 || res.status === 400
+            ? 'invalid_image_input'
+            : res.status === 401 || res.status === 403
+            ? 'permanent_config_error'
+            : 'temporary_service_failure';
+
+        setScanStage('error');
+        setScanError({
+          error: 'structured_scan_error',
+          error_category: fallbackCategory,
+          code: `HTTP_${res.status}`,
+          retryable: res.status !== 400 && res.status !== 401 && res.status !== 403 && res.status !== 413,
+          user_message: {
+            en:
+              res.status === 413
+                ? 'Photo upload was too large. Please retake at standard camera quality.'
+                : res.status === 429
+                ? 'Too many scans in a short time. Wait 20 seconds and tap Retry.'
+                : 'Could not reach Cloud Vision server properly. Your photo is preserved — tap Retry.',
+            ur:
+              res.status === 413
+                ? 'تصویر کا سائز بہت بڑا ہے۔ براہِ کرم عام سائز کی تصویر دوبارہ لیں۔'
+                : res.status === 429
+                ? 'تھوڑے وقت میں زیادہ درخواستیں بھیجی گئیں۔ 20 سیکنڈ بعد دوبارہ کوشش کریں۔'
+                : 'کلاؤڈ وژن سرور سے مکمل جواب موصول نہیں ہو سکا۔ آپ کی تصویر محفوظ ہے — دوبارہ کوشش کریں۔',
+          },
+          technical_summary: `HTTP ${res.status}: ${rawResponseText.slice(0, 220) || 'Empty response'}`,
+        });
+        return;
       }
 
+      // Strictly validate canonical diagnosis contract on client as well before rendering
+      const diagValidated = CropDiagnosisSchema.safeParse(parsedBody);
+      if (!diagValidated.success) {
+        const fieldErrors = diagValidated.error.issues.map((iss) => ({
+          path: iss.path.map(String).join('.') || '(root)',
+          code: iss.code,
+          message: iss.message,
+        }));
+        setScanStage('error');
+        setScanError({
+          error: 'structured_scan_error',
+          error_category: 'schema_validation_failed',
+          code: 'CLIENT_CONTRACT_MISMATCH',
+          retryable: true,
+          user_message: {
+            en: 'Cloud AI returned an incomplete diagnosis structure. Your photo is preserved — tap Retry Scan.',
+            ur: 'کلاؤڈ اے آئی کی تشخیصی رپورٹ نامکمل موصول ہوئی ہے۔ آپ کی تصویر محفوظ ہے — براہِ کرم دوبارہ کوشش کریں۔',
+          },
+          technical_summary: 'Client CropDiagnosisSchema guard rejected incomplete 200 payload.',
+          field_errors: fieldErrors,
+        });
+        return;
+      }
+
+      const diagData = diagValidated.data;
+      setDiagnosis(diagData);
+      setScanStage(
+        diagData.diagnosis_status === 'crop_mismatch'
+          ? 'crop_mismatch'
+          : diagData.requires_retake || diagData.diagnosis_status === 'invalid_image'
+          ? 'retake_required'
+          : 'diagnosis_ready'
+      );
+
+      triggerSpokenDiagnosis(diagData);
+
+      const profile = getSavedProfile();
       if (!profile.isAuthenticated) {
         setTimeout(() => setShowGuestPrompt(true), 2800);
       }
     } catch (err: unknown) {
-      console.error('Scan error:', err);
-      const isAbort = (err as any)?.name === 'AbortError';
-      const msg = isAbort
-        ? locale === 'ur'
-          ? 'کلاؤڈ معائنے میں زیادہ وقت لگا (Timeout)۔ براہِ کرم انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔'
-          : 'Gemini Vision request timed out. Please check connection and retry.'
-        : err instanceof Error
-        ? err.message
-        : String(err);
-      setErrorMsg(msg);
+      clearTimeout(timeoutId);
+      const isAbort = (err as { name?: string })?.name === 'AbortError';
+      if (isAbort && !timedOut) {
+        // Explicit user cancellation
+        setScanStage('idle');
+        return;
+      }
+
+      setScanStage('error');
+      setScanError({
+        error: 'structured_scan_error',
+        error_category: 'network_or_timeout',
+        code: timedOut ? 'CLIENT_TIMEOUT' : 'NETWORK_DISCONNECTED',
+        retryable: true,
+        user_message: timedOut
+          ? {
+              en: 'Cloud Vision took longer than expected. Your photo is saved — please tap Retry Scan.',
+              ur: 'کلاؤڈ معائنے میں معمول سے زیادہ وقت لگا۔ آپ کی تصویر محفوظ ہے — براہِ کرم دوبارہ کوشش کریں۔',
+            }
+          : {
+              en: 'Connection lost while analyzing your plant photo. Your photo is safe — check internet and retry.',
+              ur: 'تجزیے کے دوران انٹرنیٹ کنکشن منقطع ہو گیا۔ آپ کی تصویر محفوظ ہے — انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔',
+            },
+        technical_summary: err instanceof Error ? err.message : String(err),
+      });
     } finally {
+      clearTimeout(timeoutId);
+      scanInFlightRef.current = false;
+      activeAbortRef.current = null;
       setAnalysing(false);
     }
   };
 
   const handleRetryAnalysis = () => {
+    if (!previewUrl || scanInFlightRef.current) return;
+    setScanError(null);
+    runAnalysisPipeline(previewUrl, selectedCrop, false, preservedQuality || undefined);
+  };
+
+  const handleRunOfflinePreliminary = () => {
     if (!previewUrl) return;
-    setErrorMsg(null);
-    runAnalysisPipeline(previewUrl, selectedCrop, false);
+    const offlineReport = buildOfflinePreliminaryAssessment(
+      selectedCrop,
+      preservedQuality || undefined
+    );
+    setScanError(null);
+    setDiagnosis(offlineReport);
+    setScanStage('diagnosis_ready');
+    triggerSpokenDiagnosis(offlineReport);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     unlockAudio();
     const file = e.target.files?.[0];
-    if (!file) return;
-    checkAndRunPipeline(file, selectedCrop);
     e.target.value = '';
+    if (!file || scanInFlightRef.current) return;
+    checkAndRunPipeline(file, selectedCrop);
   };
 
   const handleConfirmMismatch = () => {
-    if (!previewUrl || !diagnosis) return;
-    // User confirms the AI-detected crop
-    setSelectedCrop(diagnosis.detected_crop);
-    runAnalysisPipeline(previewUrl, diagnosis.detected_crop, true);
+    if (!previewUrl || !diagnosis || scanInFlightRef.current) return;
+    const targetCrop = diagnosis.detected_crop || selectedCrop;
+    setSelectedCrop(targetCrop);
+    runAnalysisPipeline(previewUrl, targetCrop, true, preservedQuality || undefined);
+  };
+
+  const handleCancelInFlight = () => {
+    if (activeAbortRef.current) {
+      activeAbortRef.current.abort();
+    }
+    scanInFlightRef.current = false;
+    setAnalysing(false);
+    setScanStage('idle');
   };
 
   const handleSaveToDiary = async () => {
-    if (!diagnosis || savedToDiary) return;
+    if (!diagnosis || savedToDiary || savingToDiary) return;
+    setSavingToDiary(true);
+    setDiarySaveNote(null);
 
-    const legacyAdvice: Advice = {
-      problem_name: diagnosis.problem_name,
-      plant_name: {
-        en: diagnosis.detected_crop,
-        ur: diagnosis.detected_crop_ur,
-      },
-      organ: {
-        en: diagnosis.detected_plant_part,
-        ur: diagnosis.detected_plant_part_ur,
-      },
-      confidence: diagnosis.identification_confidence,
-      severity:
-        diagnosis.severity === 'not_assessed' ? 'low' : diagnosis.severity,
-      summary: diagnosis.message,
-      steps:
-        diagnosis.recommendations.length > 0
-          ? diagnosis.recommendations
-          : [
-              {
-                en: 'Continue routine scouting.',
-                ur: 'معمول کی دیکھ بھال جاری رکھیں۔',
-              },
-            ],
-      prevention:
-        diagnosis.prevention.length > 0
-          ? diagnosis.prevention
-          : [
-              {
-                en: 'Maintain clean field borders.',
-                ur: 'کھیت کی وٹیں صاف رکھیں۔',
-              },
-            ],
-      see_expert: diagnosis.requires_expert_review,
-      expert_reason: diagnosis.requires_expert_review
-        ? {
-            en: 'Condition requires field extension officer inspection.',
-            ur: 'اس کیفیت کے لیے فیلڈ زرعی توسیعی افسر سے معائنہ ضروری ہے۔',
-          }
-        : undefined,
-    };
+    try {
+      const legacyAdvice: Advice = {
+        problem_name: diagnosis.problem_name,
+        plant_name: {
+          en: diagnosis.detected_crop || selectedCrop,
+          ur: diagnosis.detected_crop_ur || selectedCrop,
+        },
+        organ: {
+          en: diagnosis.detected_plant_part || 'Leaf',
+          ur: diagnosis.detected_plant_part_ur || 'پتا',
+        },
+        confidence: diagnosis.identification_confidence ?? 0,
+        severity:
+          diagnosis.severity === 'not_assessed' ? 'low' : diagnosis.severity,
+        summary: diagnosis.message,
+        steps:
+          diagnosis.recommendations && diagnosis.recommendations.length > 0
+            ? diagnosis.recommendations
+            : [
+                {
+                  en: 'Continue routine scouting.',
+                  ur: 'معمول کی دیکھ بھال جاری رکھیں۔',
+                },
+              ],
+        prevention:
+          diagnosis.prevention && diagnosis.prevention.length > 0
+            ? diagnosis.prevention
+            : [
+                {
+                  en: 'Maintain clean field borders.',
+                  ur: 'کھیت کی وٹیں صاف رکھیں۔',
+                },
+              ],
+        see_expert: Boolean(diagnosis.requires_expert_review),
+        expert_reason: diagnosis.requires_expert_review
+          ? {
+              en: 'Condition requires field extension officer inspection.',
+              ur: 'اس کیفیت کے لیے فیلڈ زرعی توسیعی افسر سے معائنہ ضروری ہے۔',
+            }
+          : undefined,
+      };
 
-    await saveScanRecord({
-      crop: diagnosis.detected_crop,
-      selected_crop: diagnosis.selected_crop,
-      detected_crop: diagnosis.detected_crop,
-      plant_part: diagnosis.detected_plant_part,
-      diagnosis_status: diagnosis.diagnosis_status,
-      thumbnailDataUrl: thumbnailUrl || previewUrl || '',
-      label: diagnosis.problem_name.en,
-      confidence: diagnosis.identification_confidence,
-      advice: legacyAdvice,
-    });
+      const saved = await saveScanRecord({
+        crop: diagnosis.detected_crop || selectedCrop,
+        selected_crop: diagnosis.selected_crop || selectedCrop,
+        detected_crop: diagnosis.detected_crop || selectedCrop,
+        plant_part: diagnosis.detected_plant_part || 'Leaf',
+        diagnosis_status: diagnosis.diagnosis_status,
+        thumbnailDataUrl: thumbnailUrl || previewUrl || '',
+        label: getLocalizedText(diagnosis.problem_name, 'en', 'Plant Scan'),
+        confidence: diagnosis.identification_confidence ?? 0,
+        advice: legacyAdvice,
+      });
 
-    setSavedToDiary(true);
+      setSavedToDiary(true);
+      if (saved && 'cloudSynced' in saved && saved.cloudSynced === false) {
+        setDiarySaveNote(
+          locale === 'ur'
+            ? 'آپ کے فون میں محفوظ ہو گیا (کلاؤڈ سنک انٹرنیٹ آنے پر ہوگا)۔'
+            : 'Saved on your device (cloud sync skipped while offline/guest).'
+        );
+      }
+    } catch {
+      setDiarySaveNote(
+        locale === 'ur'
+          ? 'فون کی اسٹوریج بھری ہونے کی وجہ سے محفوظ کرنے میں مسئلہ آیا۔'
+          : 'Could not save scan to diary due to device storage limits.'
+      );
+    } finally {
+      setSavingToDiary(false);
+    }
   };
 
   const resetScan = () => {
     stopSpeaking();
     stopCameraStream();
+    if (activeAbortRef.current) {
+      activeAbortRef.current.abort();
+    }
+    scanInFlightRef.current = false;
+    setAnalysing(false);
+    setScanStage('idle');
     setPreviewUrl(null);
     setThumbnailUrl('');
+    setPreservedQuality(null);
     setDiagnosis(null);
     setSavedToDiary(false);
-    setErrorMsg(null);
+    setSavingToDiary(false);
+    setDiarySaveNote(null);
+    setScanError(null);
+    setShowDevDiagnostics(false);
+    setVoiceErrorMsg(null);
     setPendingQualityData(null);
   };
 
@@ -383,7 +725,7 @@ export default function ScanPage() {
       : `${getLocalizedText(diagnosis.problem_name, reportLang)}۔ ${getLocalizedText(
           diagnosis.why_suspected,
           reportLang
-        )}۔ ${diagnosis.recommendations
+        )}۔ ${(diagnosis.recommendations || [])
           .map((r, i) => `${i + 1}۔ ${getLocalizedText(r, reportLang)}`)
           .join(' ')}`
     : '';
@@ -680,7 +1022,7 @@ export default function ScanPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-3xl p-7 shadow-soft border border-olive/15 flex flex-col items-center text-center space-y-5"
+              className="bg-white rounded-3xl p-6 sm:p-7 shadow-soft border border-olive/15 flex flex-col items-center text-center space-y-5"
             >
               <div className="relative w-44 h-44 rounded-3xl overflow-hidden border-4 border-emerald-500/40 shadow-lg flex items-center justify-center bg-[#062409]">
                 {previewUrl ? (
@@ -703,11 +1045,19 @@ export default function ScanPage() {
                   className="absolute inset-x-2 h-1 bg-emerald-400 shadow-[0_0_14px_#4ade80] rounded-full"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <h2 className="font-black text-lg text-ink">
-                  {locale === 'ur'
-                    ? 'پودے کا خودکار وژن معائنہ جاری ہے...'
-                    : 'AI Vision analyzing plant...'}
+                  {scanStage === 'validating_image'
+                    ? locale === 'ur'
+                      ? 'تصویر کی جانچ کی جا رہی ہے...'
+                      : 'Validating image file...'
+                    : scanStage === 'processing'
+                    ? locale === 'ur'
+                      ? 'تصویر کا معیار اور روشنی چیک ہو رہی ہے...'
+                      : 'Checking clarity & optimizing photo...'
+                    : locale === 'ur'
+                    ? 'جیمنائی کلاؤڈ وژن معائنہ جاری ہے...'
+                    : 'Gemini Cloud Vision analyzing plant...'}
                 </h2>
                 <p className="text-xs text-ink/70">
                   {locale === 'ur'
@@ -715,35 +1065,95 @@ export default function ScanPage() {
                     : 'Independently verifying crop species, plant organ & symptoms'}
                 </p>
               </div>
+
+              <button
+                type="button"
+                onClick={handleCancelInFlight}
+                className="px-5 py-2 rounded-full border border-olive/25 bg-canvas hover:bg-ink/10 text-xs font-bold text-ink/75 transition-all"
+              >
+                {locale === 'ur' ? 'معائنہ منسوخ کریں' : 'Cancel Scan'}
+              </button>
             </motion.section>
           )}
         </AnimatePresence>
 
-        {/* Error State - Cloud Vision Server Failure with Image Preservation & Retry */}
-        {errorMsg && (
+        {/* Clean Urdu-First Structured Error State (Zero raw Zod dumps to farmer) */}
+        {scanError && !analysing && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl p-5 sm:p-6 shadow-soft border-2 border-red-500/35 text-start space-y-4"
+            className="bg-white rounded-3xl p-5 sm:p-6 shadow-soft border-2 border-red-500/35 text-start space-y-4 mb-6"
           >
             <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center text-red-600 flex-shrink-0">
-                <AlertTriangle className="w-6 h-6" />
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                  scanError.error_category === 'network_or_timeout'
+                    ? 'bg-amber-500/15 text-amber-700'
+                    : 'bg-red-500/15 text-red-600'
+                }`}
+              >
+                {scanError.error_category === 'network_or_timeout' ? (
+                  <WifiOff className="w-6 h-6" />
+                ) : (
+                  <AlertTriangle className="w-6 h-6" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-[11px] font-black uppercase text-red-600 bg-red-500/10 px-2.5 py-0.5 rounded-full inline-block mb-1">
-                  {locale === 'ur' ? 'کلاؤڈ وژن رابطہ منقطع' : 'Cloud Vision Disconnected'}
+                <span
+                  className={`text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full inline-block mb-1 ${
+                    scanError.error_category === 'network_or_timeout'
+                      ? 'text-amber-800 bg-amber-500/15'
+                      : scanError.error_category === 'invalid_image_input'
+                      ? 'text-orange-800 bg-orange-500/15'
+                      : 'text-red-700 bg-red-500/10'
+                  }`}
+                >
+                  {scanError.error_category === 'network_or_timeout'
+                    ? locale === 'ur'
+                      ? 'انٹرنیٹ / سرور تاخیر'
+                      : 'Connection Interrupted'
+                    : scanError.error_category === 'rate_limited'
+                    ? locale === 'ur'
+                      ? 'عارضی وقفہ درکار'
+                      : 'Rate Limit Pause'
+                    : scanError.error_category === 'quota_exhausted'
+                    ? locale === 'ur'
+                      ? 'سروس حد مکمل'
+                      : 'Daily Limit Reached'
+                    : scanError.error_category === 'invalid_image_input'
+                    ? locale === 'ur'
+                      ? 'تصویر ناقابلِ قبول'
+                      : 'Image Could Not Be Read'
+                    : scanError.error_category === 'permanent_config_error'
+                    ? locale === 'ur'
+                      ? 'سروس کنفیگریشن مسئلہ'
+                      : 'Configuration Notice'
+                    : locale === 'ur'
+                    ? 'کلاؤڈ معائنہ نامکمل'
+                    : 'Inspection Incomplete'}
                 </span>
-                <h3 className="font-black text-base sm:text-lg text-ink">
-                  {locale === 'ur'
-                    ? 'جیمنائی کلاؤڈ وژن سرور سے رابطہ نہیں ہو سکا'
-                    : 'Gemini Cloud Vision Server Unavailable'}
+                <h3 className="font-black text-base sm:text-lg text-ink leading-snug">
+                  {scanError.error_category === 'invalid_image_input'
+                    ? locale === 'ur'
+                      ? 'تصویر درست فارمیٹ یا حالت میں نہیں ہے'
+                      : 'Please Select a Valid Plant Photo'
+                    : scanError.error_category === 'permanent_config_error'
+                    ? locale === 'ur'
+                      ? 'اے آئی سروس کی سیٹنگ درکار ہے'
+                      : 'Cloud AI Configuration Required'
+                    : scanError.error_category === 'rate_limited' || scanError.error_category === 'quota_exhausted'
+                    ? locale === 'ur'
+                      ? 'اے آئی سرور پر زیادہ رش ہے'
+                      : 'Cloud Vision Busy Right Now'
+                    : locale === 'ur'
+                    ? 'کلاؤڈ معائنہ مکمل نہیں ہو سکا'
+                    : 'Cloud Plant Inspection Could Not Complete'}
                 </h3>
               </div>
             </div>
 
-            {/* Preserved Image Preview Bar */}
-            {previewUrl && (
+            {/* Preserved Image Preview Bar (when valid photo exists) */}
+            {previewUrl && scanError.error_category !== 'invalid_image_input' && (
               <div className="flex items-center gap-3 p-3 rounded-2xl bg-canvas border border-olive/20">
                 <div className="w-14 h-14 rounded-xl overflow-hidden border border-olive/30 flex-shrink-0 bg-black/10">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -762,32 +1172,21 @@ export default function ScanPage() {
                   </div>
                   <p className="text-ink/65 text-[11px] mt-0.5 leading-tight">
                     {locale === 'ur'
-                      ? 'دوبارہ تصویر لینے کی ضرورت نہیں؛ نیچے دیئے گئے بٹن سے دوبارہ معائنہ کریں'
+                      ? 'دوبارہ تصویر لینے کی ضرورت نہیں؛ نیچے دیئے گئے بٹن سے دوبارہ کوشش کریں'
                       : 'No need to retake photo; tap retry to re-analyze'}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Technical Detail Note */}
-            <div className="bg-red-500/10 p-3 rounded-xl border border-red-500/20 text-xs text-ink/80 space-y-1">
-              <span className="font-extrabold text-[11px] text-red-700 block">
-                {locale === 'ur' ? 'تکنیکی تفصیل:' : 'Technical Details:'}
-              </span>
-              <p className="font-mono text-[11px] break-words text-red-900/90 leading-relaxed">
-                {errorMsg}
-              </p>
-            </div>
-
-            <p className="text-[11px] text-ink/70 leading-relaxed">
-              {locale === 'ur'
-                ? 'کلاؤڈ وژن سرور عارضی طور پر جواب نہیں دے رہا یا انٹرنیٹ میں رکاوٹ ہے۔ نیچے دیئے گئے بٹن سے فوری دوبارہ کوشش کریں۔'
-                : 'The cloud vision neural network could not be reached. Check your connection and retry.'}
+            {/* Friendly Localized Message */}
+            <p className="text-xs sm:text-sm text-ink/85 leading-relaxed bg-canvas p-3.5 rounded-2xl border border-olive/15 font-medium">
+              {getLocalizedText(scanError.user_message, locale)}
             </p>
 
-            {/* Action Buttons */}
+            {/* Primary Recovery Actions */}
             <div className="space-y-2 pt-1">
-              {previewUrl && (
+              {previewUrl && scanError.retryable && (
                 <button
                   type="button"
                   onClick={handleRetryAnalysis}
@@ -796,29 +1195,90 @@ export default function ScanPage() {
                 >
                   <RotateCcw className={`w-4 h-4 ${analysing ? 'animate-spin' : ''}`} />
                   <span>
-                    {analysing
-                      ? locale === 'ur'
-                        ? 'معائنہ جاری ہے...'
-                        : 'Analyzing...'
-                      : locale === 'ur'
+                    {locale === 'ur'
                       ? 'دوبارہ کلاؤڈ معائنہ کریں (تصویر محفوظ ہے)'
                       : 'Retry Cloud Analysis (Photo Preserved)'}
                   </span>
                 </button>
               )}
 
+              {/* Honest Offline Preliminary Check ONLY when online fails and image exists */}
+              {previewUrl &&
+                scanError.error_category !== 'invalid_image_input' && (
+                  <button
+                    type="button"
+                    onClick={handleRunOfflinePreliminary}
+                    className="w-full min-h-[46px] rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-950 font-extrabold text-xs flex items-center justify-center gap-2 border border-amber-500/35 transition-all"
+                  >
+                    <Eye className="w-4 h-4 text-amber-700" />
+                    <span>
+                      {locale === 'ur'
+                        ? 'ابتدائی آف لائن تصویر چیک دیکھیں (غیر حتمی)'
+                        : 'View Offline Preliminary Check (Non-Gemini)'}
+                    </span>
+                  </button>
+                )}
+
               <button
                 type="button"
                 onClick={resetScan}
-                className="w-full min-h-[44px] rounded-full bg-canvas hover:bg-ink/10 text-ink/80 font-bold text-xs flex items-center justify-center gap-2 border border-olive/20 transition-all"
+                className="w-full min-h-[46px] rounded-full bg-canvas hover:bg-ink/10 text-ink/85 font-bold text-xs flex items-center justify-center gap-2 border border-olive/20 transition-all"
               >
                 <Camera className="w-3.5 h-3.5 text-ink/60" />
                 <span>
-                  {locale === 'ur'
+                  {scanError.error_category === 'invalid_image_input'
+                    ? locale === 'ur'
+                      ? 'پودے کی نئی واضح تصویر لیں'
+                      : 'Take / Choose Valid Plant Photo'
+                    : locale === 'ur'
                     ? 'نئی تصویر لیں / کینسل کریں'
                     : 'Take New Photo / Cancel'}
                 </span>
               </button>
+            </div>
+
+            {/* Optional Collapsible Developer Diagnostics Panel (Closed by Default) */}
+            <div className="pt-2 border-t border-olive/10">
+              <button
+                type="button"
+                onClick={() => setShowDevDiagnostics((v) => !v)}
+                className="w-full flex items-center justify-between text-[11px] font-bold text-ink/55 hover:text-ink py-1"
+              >
+                <span>
+                  {locale === 'ur'
+                    ? 'ڈویلپر تشخیصی تفصیلات (اختیاری)'
+                    : 'Developer Diagnostics (Optional)'}
+                </span>
+                {showDevDiagnostics ? (
+                  <ChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+              </button>
+
+              {showDevDiagnostics && (
+                <div className="mt-2 bg-ink/5 p-3 rounded-xl border border-ink/15 text-[11px] font-mono text-ink/80 space-y-1.5 max-h-44 overflow-y-auto break-words">
+                  <div>
+                    <strong>Code:</strong> {scanError.code} ({scanError.error_category})
+                  </div>
+                  <div>
+                    <strong>Summary:</strong> {scanError.technical_summary}
+                  </div>
+                  {scanError.field_errors && scanError.field_errors.length > 0 && (
+                    <div>
+                      <strong>Validation Paths:</strong>
+                      <ul className="list-disc ps-4 mt-1 space-y-0.5">
+                        {scanError.field_errors.map((fe, idx) => (
+                          <li key={idx}>
+                            <code>{fe.path}</code>: {fe.message}
+                            {fe.received ? ` (got ${fe.received})` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -853,7 +1313,7 @@ export default function ScanPage() {
                   {locale === 'ur' ? 'آپ نے منتخب کی:' : 'You Selected:'}
                 </span>
                 <span className="font-extrabold text-sm text-ink block mt-0.5">
-                  {diagnosis.selected_crop}
+                  {diagnosis.selected_crop || selectedCrop}
                 </span>
               </div>
               <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-500/40">
@@ -861,13 +1321,16 @@ export default function ScanPage() {
                   {locale === 'ur' ? 'اے آئی نے تصویر میں دیکھا:' : 'AI Detected in Photo:'}
                 </span>
                 <span className="font-extrabold text-sm text-emerald-900 block mt-0.5">
-                  {diagnosis.detected_crop_ur} ({diagnosis.detected_plant_part_ur})
+                  {(locale === 'ur' ? diagnosis.detected_crop_ur : diagnosis.detected_crop) ||
+                    diagnosis.detected_crop}{' '}
+                  ({(locale === 'ur' ? diagnosis.detected_plant_part_ur : diagnosis.detected_plant_part) ||
+                    diagnosis.detected_plant_part})
                 </span>
               </div>
             </div>
 
             <p className="text-xs sm:text-sm text-ink/85 leading-relaxed bg-amber-500/10 p-3 rounded-xl border border-amber-500/20 font-medium">
-              {diagnosis.message[locale]}
+              {getLocalizedText(diagnosis.message, locale)}
             </p>
 
             <p className="text-[11px] text-ink/65 leading-relaxed">
@@ -881,12 +1344,13 @@ export default function ScanPage() {
               <button
                 type="button"
                 onClick={handleConfirmMismatch}
+                disabled={analysing}
                 className="w-full min-h-[50px] rounded-full bg-gradient-to-r from-emerald-600 to-olive hover:from-emerald-700 hover:to-olive-dark text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
               >
                 <Check className="w-4 h-4" />
                 <span>
                   {locale === 'ur'
-                    ? `جی ہاں، یہ ${diagnosis.detected_crop_ur} ہے (تشخیص جاری رکھیں)`
+                    ? `جی ہاں، یہ ${diagnosis.detected_crop_ur || diagnosis.detected_crop} ہے (تشخیص جاری رکھیں)`
                     : `Yes, this is ${diagnosis.detected_crop} (Continue)`}
                 </span>
               </button>
@@ -923,13 +1387,13 @@ export default function ScanPage() {
                   {locale === 'ur' ? 'غیر متعلقہ تصویر' : 'Invalid Image'}
                 </span>
                 <h3 className="font-black text-base sm:text-lg text-ink">
-                  {diagnosis.problem_name[locale]}
+                  {getLocalizedText(diagnosis.problem_name, locale, 'Invalid Plant Image')}
                 </h3>
               </div>
             </div>
 
             <p className="text-xs sm:text-sm text-ink/80 leading-relaxed bg-canvas p-3.5 rounded-2xl border border-olive/15">
-              {diagnosis.message[locale]}
+              {getLocalizedText(diagnosis.message, locale)}
             </p>
 
             <button
@@ -957,6 +1421,65 @@ export default function ScanPage() {
               transition={{ duration: 0.4 }}
               className="space-y-4 text-start"
             >
+              {/* Offline Assessment Clarity Banner (Never falsely presents offline check as Gemini) */}
+              {diagnosis.inspection_source === 'offline_assessment' && (
+                <div className="bg-amber-50 border-2 border-amber-500 rounded-2xl p-4 shadow-soft space-y-2">
+                  <div className="flex items-start gap-2.5">
+                    <WifiOff className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+                    <div className="text-xs space-y-1">
+                      <span className="font-black text-amber-900 uppercase tracking-wide block">
+                        {reportLang === 'en'
+                          ? 'OFFLINE PRELIMINARY SCREENING (NOT GEMINI AI)'
+                          : 'آف لائن ابتدائی جائزہ (یہ کلاؤڈ اے آئی تشخیص نہیں)'}
+                      </span>
+                      <p className="text-amber-950 font-medium leading-relaxed">
+                        {getLocalizedText(diagnosis.confidence_limitations, reportLang)}
+                      </p>
+                    </div>
+                  </div>
+                  {previewUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRetryAnalysis}
+                      className="w-full min-h-[42px] rounded-full bg-amber-600 hover:bg-amber-700 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>
+                        {reportLang === 'en'
+                          ? 'Retry Online Gemini Vision Analysis'
+                          : 'دوبارہ آن لائن جیمنائی معائنہ کریں'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Retake Required Banner */}
+              {diagnosis.requires_retake && (
+                <div className="bg-orange-50 border-2 border-orange-500 rounded-2xl p-4 shadow-soft flex items-center justify-between gap-3">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <Camera className="w-5 h-5 text-orange-700 flex-shrink-0 mt-0.5" />
+                    <div className="text-xs">
+                      <span className="font-black text-orange-950 block">
+                        {reportLang === 'en'
+                          ? 'Clearer Photo Needed'
+                          : 'واضح تصویر دوبارہ درکار ہے'}
+                      </span>
+                      <p className="text-orange-900/90 mt-0.5 leading-snug">
+                        {getLocalizedText(diagnosis.message, reportLang)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetScan}
+                    className="px-3.5 py-2 rounded-full bg-orange-600 text-white font-black text-[11px] flex-shrink-0"
+                  >
+                    {reportLang === 'en' ? 'Retake' : 'دوبارہ لیں'}
+                  </button>
+                </div>
+              )}
+
               {/* Language Selector Bar (Urdu, Roman Urdu, Sindhi, English) */}
               <div className="bg-white rounded-2xl p-2 shadow-soft border border-olive/15 flex items-center justify-between gap-1">
                 <span className="text-[11px] font-black text-ink/60 px-2">
@@ -1197,22 +1720,32 @@ export default function ScanPage() {
                       )}
                     </div>
 
-                    {/* Calibrated Confidence Level Pill */}
-                    <div className="flex items-center gap-2 pt-0.5">
+                    {/* Calibrated Confidence & Source Pill */}
+                    <div className="flex items-center gap-2 flex-wrap pt-0.5">
                       <div className="flex items-center gap-1 text-[11px] font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                         <Sparkles className="w-3 h-3 text-emerald-600" />
                         <span>
-                          {Math.round(diagnosis.identification_confidence * 100)}%{' '}
-                          {reportLang === 'en'
-                            ? 'Confidence'
-                            : reportLang === 'sd'
-                            ? 'يقين'
-                            : reportLang === 'roman_ur'
-                            ? 'Yaqeen'
-                            : 'اعتماد'}
-                          {diagnosis.confidence_category && ` (${diagnosis.confidence_category})`}
+                          {diagnosis.inspection_source === 'offline_assessment'
+                            ? reportLang === 'en'
+                              ? 'Unconfirmed (Offline Pre-Check)'
+                              : 'غیر تصدیق شدہ (آف لائن)'
+                            : `${Math.round((diagnosis.identification_confidence || 0) * 100)}% ${
+                                reportLang === 'en'
+                                  ? 'Confidence'
+                                  : reportLang === 'sd'
+                                  ? 'يقين'
+                                  : reportLang === 'roman_ur'
+                                  ? 'Yaqeen'
+                                  : 'اعتماد'
+                              }${diagnosis.confidence_category ? ` (${diagnosis.confidence_category})` : ''}`}
                         </span>
                       </div>
+
+                      {diagnosis.inspection_source !== 'offline_assessment' && (
+                        <span className="text-[10px] font-bold text-olive-dark bg-olive/10 px-2 py-0.5 rounded-md border border-olive/20">
+                          {reportLang === 'en' ? 'Gemini Cloud Vision' : 'جیمنائی کلاؤڈ وژن'}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1239,37 +1772,44 @@ export default function ScanPage() {
                 )}
 
                 {/* Spoken Audio Banner (Reads Aloud in Selected Language) */}
-                <div className="rounded-2xl p-3.5 bg-gradient-to-r from-emerald-500/10 via-olive/10 to-emerald-500/10 border border-emerald-500/20 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center flex-shrink-0">
-                      <Volume2 className="w-4 h-4" />
+                <div className="space-y-1.5">
+                  <div className="rounded-2xl p-3.5 bg-gradient-to-r from-emerald-500/10 via-olive/10 to-emerald-500/10 border border-emerald-500/20 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center flex-shrink-0">
+                        <Volume2 className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-black text-ink block">
+                          {reportLang === 'en'
+                            ? 'Voice Audio Summary:'
+                            : reportLang === 'sd'
+                            ? 'آواز ۾ ٻڌو:'
+                            : reportLang === 'roman_ur'
+                            ? 'Awaz mein sunein:'
+                            : 'آواز میں خلاصہ سنیں:'}
+                        </span>
+                        <p className="text-[11px] text-ink/75 leading-tight">
+                          {reportLang === 'en'
+                            ? 'Listen to diagnosis and next steps'
+                            : reportLang === 'sd'
+                            ? 'تشخيص ۽ هدايتون ٻڌو'
+                            : reportLang === 'roman_ur'
+                            ? 'Tashkhees aur hidayat sunein'
+                            : 'مکمل معائنہ اور زرعی مشورہ سنیں'}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-xs font-black text-ink block">
-                        {reportLang === 'en'
-                          ? 'Voice Audio Summary:'
-                          : reportLang === 'sd'
-                          ? 'آواز ۾ ٻڌو:'
-                          : reportLang === 'roman_ur'
-                          ? 'Awaz mein sunein:'
-                          : 'آواز میں خلاصہ سنیں:'}
-                      </span>
-                      <p className="text-[11px] text-ink/75 leading-tight">
-                        {reportLang === 'en'
-                          ? 'Listen to diagnosis and next steps'
-                          : reportLang === 'sd'
-                          ? 'تشخيص ۽ هدايتون ٻڌو'
-                          : reportLang === 'roman_ur'
-                          ? 'Tashkhees aur hidayat sunein'
-                          : 'مکمل معائنہ اور زرعی مشورہ سنیں'}
-                      </p>
-                    </div>
-                  </div>
 
-                  <ReadAloudButton
-                    text={spokenDiagnosisText}
-                    lang={reportLang === 'en' ? 'en' : 'ur'}
-                  />
+                    <ReadAloudButton
+                      text={spokenDiagnosisText}
+                      lang={reportLang === 'en' ? 'en' : 'ur'}
+                    />
+                  </div>
+                  {voiceErrorMsg && (
+                    <p className="text-[11px] text-amber-800 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200 font-medium">
+                      {voiceErrorMsg}
+                    </p>
+                  )}
                 </div>
 
                 {/* Dual Explanation Mode Toggle (Farmer Mode vs. Scientific Mode) */}
@@ -1844,39 +2384,52 @@ export default function ScanPage() {
                 )}
 
                 {/* Actions: Save to Farm Diary & Scan Another */}
-                <div className="grid grid-cols-2 gap-2.5 pt-2">
-                  <button
-                    type="button"
-                    onClick={handleSaveToDiary}
-                    disabled={savedToDiary}
-                    className={`min-h-[48px] rounded-full font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all ${
-                      savedToDiary
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                        : 'bg-white hover:bg-canvas text-ink border-2 border-olive/30 shadow-sm'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>
-                      {savedToDiary ? t('savedToDiary') : t('saveToDiary')}
-                    </span>
-                  </button>
+                <div className="space-y-2 pt-2">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleSaveToDiary}
+                      disabled={savedToDiary || savingToDiary}
+                      className={`min-h-[48px] rounded-full font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                        savedToDiary
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : 'bg-white hover:bg-canvas text-ink border-2 border-olive/30 shadow-sm'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>
+                        {savingToDiary
+                          ? locale === 'ur'
+                            ? 'محفوظ ہو رہا ہے...'
+                            : 'Saving...'
+                          : savedToDiary
+                          ? t('savedToDiary')
+                          : t('saveToDiary')}
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={resetScan}
-                    className="min-h-[48px] rounded-full bg-gradient-to-r from-olive to-emerald-600 hover:from-olive-dark hover:to-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
-                  >
-                    <RotateCcw className="w-4 h-4 text-white" />
-                    <span>
-                      {reportLang === 'en'
-                        ? 'Scan Another Plant'
-                        : reportLang === 'sd'
-                        ? 'ٻيو ٻوٽو اسڪين ڪريو'
-                        : reportLang === 'roman_ur'
-                        ? 'Naya poda scan karein'
-                        : 'نیا پودا اسکین کریں'}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={resetScan}
+                      className="min-h-[48px] rounded-full bg-gradient-to-r from-olive to-emerald-600 hover:from-olive-dark hover:to-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
+                    >
+                      <RotateCcw className="w-4 h-4 text-white" />
+                      <span>
+                        {reportLang === 'en'
+                          ? 'Scan Another Plant'
+                          : reportLang === 'sd'
+                          ? 'ٻيو ٻوٽو اسڪين ڪريو'
+                          : reportLang === 'roman_ur'
+                          ? 'Naya poda scan karein'
+                          : 'نیا پودا اسکین کریں'}
+                      </span>
+                    </button>
+                  </div>
+                  {diarySaveNote && (
+                    <p className="text-[11px] text-ink/70 text-center font-medium">
+                      {diarySaveNote}
+                    </p>
+                  )}
                 </div>
               </div>
             </motion.section>

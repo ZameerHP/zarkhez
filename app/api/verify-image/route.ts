@@ -3,6 +3,9 @@ import { VerifyImageRequestSchema } from '@/lib/schemas';
 import { checkRateLimit } from '@/lib/ratelimit';
 import { verifyLeafImageWithVision } from '@/lib/gemini';
 
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   const ip =
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';

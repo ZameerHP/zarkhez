@@ -2,13 +2,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import diseasesData from '@/data/diseases.json';
 import type { ImageQualityReport } from './image-quality';
+import { extractAndParseJson } from './json-extractor';
+import { normalizeAndValidateDiagnosis } from './diagnosis-normalizer';
 import {
   Advice,
   AdviceSchema,
   SecondOpinion,
   SecondOpinionSchema,
   CropDiagnosis,
-  CropDiagnosisSchema,
+  GEMINI_DIAGNOSIS_RESPONSE_SCHEMA,
+  ScanErrorCategory,
+  FieldValidationIssue,
+  StructuredScanError,
   LocalizedString,
 } from './schemas';
 
@@ -283,25 +288,38 @@ export function generateFallbackChatReply(
     : `I am Zarkhez, your personal agricultural advisor.\n1. If you notice signs of disease on your crops, use "Scan Leaf" to inspect a clear daylight photograph.\n2. Use the "Crop Calendar" and "Fertilizer Calculator" to plan your inputs.\n3. Which crop can I assist you with today (wheat, rice, cotton, sugarcane, maize, or tomato)?`;
 }
 
-export function getGeminiApiKey(clientApiKey?: string): string | undefined {
-  if (clientApiKey && clientApiKey.trim().length > 15) {
-    return clientApiKey.trim();
+function readEnvLocalValue(keys: string[]): string | undefined {
+  for (const key of keys) {
+    const val = process.env[key];
+    if (val && val.trim()) return val.trim();
   }
-  if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
-  if (process.env.GOOGLE_API_KEY) return process.env.GOOGLE_API_KEY;
-  if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) return process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
   try {
     const envLocalPath = path.resolve(process.cwd(), '.env.local');
     if (fs.existsSync(envLocalPath)) {
       const content = fs.readFileSync(envLocalPath, 'utf8');
-      const match = content.match(/^(?:GEMINI_API_KEY|GOOGLE_API_KEY)\s*=\s*([^\r\n#]+)/m);
-      if (match && match[1]) {
-        return match[1].trim().replace(/^['"]|['"]$/g, '');
+      for (const key of keys) {
+        const rgx = new RegExp(`^${key}\\s*=\\s*([^\\r\\n#]+)`, 'm');
+        const match = content.match(rgx);
+        if (match && match[1]) {
+          return match[1].trim().replace(/^['"]|['"]$/g, '');
+        }
       }
     }
-  } catch {}
+  } catch {
+    // ignore file access errors on restricted serverless environments
+  }
   return undefined;
+}
+
+export function getGeminiApiKey(clientApiKey?: string): string | undefined {
+  if (clientApiKey && clientApiKey.trim().length > 15) {
+    return clientApiKey.trim();
+  }
+  return readEnvLocalValue([
+    'GEMINI_API_KEY',
+    'GOOGLE_API_KEY',
+    'NEXT_PUBLIC_GEMINI_API_KEY',
+  ]);
 }
 
 export function extractImageMimeType(dataUrlOrBase64: string): string {
@@ -313,30 +331,175 @@ export function extractImageMimeType(dataUrlOrBase64: string): string {
 }
 
 export function cleanBase64Payload(dataUrlOrBase64: string): string {
-  return dataUrlOrBase64.replace(/^data:[^;]+;base64,/, '').trim();
+  return dataUrlOrBase64.replace(/^data:[^;]+;base64,/i, '').trim();
+}
+
+const ALLOWED_SCAN_MIMES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
+
+export function validateScanImagePayload(base64Image: string): {
+  mimeType: string;
+  cleanBase64: string;
+} {
+  if (!base64Image || typeof base64Image !== 'string') {
+    throw new GeminiVisionError(
+      'Uploaded image is missing or empty.',
+      400,
+      'EMPTY_IMAGE',
+      {
+        errorCategory: 'invalid_image_input',
+        retryable: false,
+        userMessage: {
+          en: 'No image data received. Please select or capture a plant photo.',
+          ur: 'کوئی تصویر موصول نہیں ہوئی۔ براہِ کرم پودے کی تصویر منتخب کریں یا کھینچیں۔',
+        },
+      }
+    );
+  }
+
+  const rawTrimmed = base64Image.trim();
+  const dataHeaderMatch = rawTrimmed.match(/^data:([^;]+);base64,/i);
+  const declaredMime = dataHeaderMatch?.[1]?.toLowerCase().trim();
+
+  if (declaredMime && !ALLOWED_SCAN_MIMES.has(declaredMime)) {
+    throw new GeminiVisionError(
+      `Unsupported image MIME type: ${declaredMime}. Only JPEG, PNG, WebP, or HEIC images are supported.`,
+      400,
+      'UNSUPPORTED_MIME',
+      {
+        errorCategory: 'invalid_image_input',
+        retryable: false,
+        userMessage: {
+          en: `Image format "${declaredMime}" is not supported. Please use a JPEG or PNG camera photo.`,
+          ur: `یہ تصویر کا فارمیٹ (${declaredMime}) قابل قبول نہیں ہے۔ براہِ کرم عام کیمرہ فوٹو (JPEG یا PNG) اپلوڈ کریں۔`,
+        },
+      }
+    );
+  }
+
+  const mimeType = declaredMime === 'image/jpg' ? 'image/jpeg' : declaredMime || 'image/jpeg';
+  const cleanBase64 = cleanBase64Payload(rawTrimmed);
+
+  if (cleanBase64.length < 100) {
+    throw new GeminiVisionError(
+      'Uploaded image file is empty or corrupt (too small for visual analysis).',
+      400,
+      'CORRUPT_OR_EMPTY_IMAGE',
+      {
+        errorCategory: 'invalid_image_input',
+        retryable: false,
+        userMessage: {
+          en: 'The selected image file is empty or corrupted. Please choose a clear photo.',
+          ur: 'منتخب کردہ تصویر خالی یا خراب ہے۔ براہِ کرم پودے کی واضح تصویر دوبارہ منتخب کریں۔',
+        },
+      }
+    );
+  }
+
+  if (cleanBase64.length > 4_400_000) {
+    throw new GeminiVisionError(
+      'Image payload exceeds maximum upload size for cloud analysis.',
+      413,
+      'IMAGE_TOO_LARGE',
+      {
+        errorCategory: 'invalid_image_input',
+        retryable: false,
+        userMessage: {
+          en: 'The photo file is too large to upload smoothly. Please take a standard resolution photo.',
+          ur: 'تصویر کا سائز بہت بڑا ہے۔ براہِ کرم کیمرے سے عام سائز کی تصویر لیں۔',
+        },
+      }
+    );
+  }
+
+  // Validate base64 character integrity on a sample
+  const sample = cleanBase64.slice(0, 512);
+  if (!/^[A-Za-z0-9+/=\r\n]+$/.test(sample)) {
+    throw new GeminiVisionError(
+      'Invalid base64 image encoding detected.',
+      400,
+      'INVALID_IMAGE_ENCODING',
+      {
+        errorCategory: 'invalid_image_input',
+        retryable: false,
+        userMessage: {
+          en: 'The image file format could not be read properly. Please try taking another photo.',
+          ur: 'تصویر کی فائل پڑھی نہیں جا سکی۔ براہِ کرم نئی تصویر لیں۔',
+        },
+      }
+    );
+  }
+
+  return { mimeType, cleanBase64 };
+}
+
+function sanitizeErrorMessage(msg: string): string {
+  return msg.replace(/key=[A-Za-z0-9_-]+/gi, 'key=[REDACTED]');
 }
 
 export class GeminiVisionError extends Error {
   statusCode: number;
   code: string;
+  errorCategory: ScanErrorCategory;
+  retryable: boolean;
+  userMessage: { en: string; ur: string };
+  fieldErrors?: FieldValidationIssue[];
 
-  constructor(message: string, statusCode = 502, code = 'GEMINI_VISION_ERROR') {
-    super(message);
+  constructor(
+    message: string,
+    statusCode = 502,
+    code = 'GEMINI_VISION_ERROR',
+    options?: {
+      errorCategory?: ScanErrorCategory;
+      retryable?: boolean;
+      userMessage?: { en: string; ur: string };
+      fieldErrors?: FieldValidationIssue[];
+    }
+  ) {
+    super(sanitizeErrorMessage(message));
     this.name = 'GeminiVisionError';
     this.statusCode = statusCode;
     this.code = code;
+    this.errorCategory = options?.errorCategory || 'temporary_service_failure';
+    this.retryable = options?.retryable ?? statusCode >= 500;
+    this.userMessage = options?.userMessage || {
+      en: 'Could not complete cloud plant inspection right now. Your photo is preserved — please retry in a moment.',
+      ur: 'کلاؤڈ پودا معائنہ مکمل نہیں ہو سکا۔ آپ کی تصویر محفوظ ہے — براہِ کرم دوبارہ کوشش کریں۔',
+    };
+    this.fieldErrors = options?.fieldErrors;
+  }
+
+  toStructuredError(): StructuredScanError {
+    return {
+      error: 'structured_scan_error',
+      error_category: this.errorCategory,
+      code: this.code,
+      retryable: this.retryable,
+      user_message: this.userMessage,
+      technical_summary: sanitizeErrorMessage(this.message),
+      ...(this.fieldErrors && this.fieldErrors.length > 0
+        ? { field_errors: this.fieldErrors }
+        : {}),
+    };
   }
 }
 
 /**
  * Call Google Gemini REST API directly using standard fetch.
- * Implements automated model fallback if the primary model returns 404/deprecated.
+ * Implements strict error classification, secret protection, and verified model fallback.
  */
 async function callGeminiApi({
   model,
   systemInstruction,
   contents,
-  temperature = 0.2,
+  temperature = 0.15,
+  maxOutputTokens = 4096,
   responseSchema,
   apiKeyOverride,
 }: {
@@ -350,42 +513,64 @@ async function callGeminiApi({
     >;
   }>;
   temperature?: number;
+  maxOutputTokens?: number;
   responseSchema?: Record<string, unknown>;
   apiKeyOverride?: string;
-}): Promise<string> {
+}): Promise<{ text: string; modelUsed: string }> {
   const apiKey = getGeminiApiKey(apiKeyOverride);
   if (!apiKey) {
     throw new GeminiVisionError(
-      'Missing GEMINI_API_KEY. Please configure your Gemini API Key in server environment.',
+      'Missing GEMINI_API_KEY in server environment.',
       503,
-      'MISSING_API_KEY'
+      'MISSING_API_KEY',
+      {
+        errorCategory: 'permanent_config_error',
+        retryable: false,
+        userMessage: {
+          en: 'Cloud AI vision service is not configured on the server yet. Please contact support.',
+          ur: 'کلاؤڈ اے آئی وژن سروس سرور پر کنفیگر نہیں ہے۔ براہِ کرم ایڈمن سے رابطہ کریں۔',
+        },
+      }
     );
   }
 
-  // Ordered list of candidate models with fallback (fastest high-availability models only)
+  const envFast = readEnvLocalValue(['GEMINI_MODEL_FAST']);
+  const envDetail = readEnvLocalValue(['GEMINI_MODEL_DETAIL']);
+
+  // Verified live high-availability Gemini Vision model priority list (max 4 tries within 45s budget)
   const modelsToTry = Array.from(
     new Set([
-      process.env.GEMINI_MODEL_FAST,
-      process.env.GEMINI_MODEL_DETAIL,
+      envFast,
+      envDetail,
       model,
       'gemini-flash-lite-latest',
       'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
     ])
-  ).filter(Boolean) as string[];
+  )
+    .filter(Boolean)
+    .slice(0, 4) as string[];
 
-  let lastError: Error | null = null;
+  const overallDeadlineMs = Date.now() + 45000;
+  let lastError: GeminiVisionError | null = null;
 
   for (let i = 0; i < modelsToTry.length; i++) {
+    const remainingBudgetMs = overallDeadlineMs - Date.now();
+    if (remainingBudgetMs < 3500) break;
+
     const candidateModel = modelsToTry[i];
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${candidateModel}:generateContent?key=${apiKey}`;
 
+    const generationConfig: Record<string, unknown> = {
+      temperature,
+      maxOutputTokens,
+      response_mime_type: 'application/json',
+      ...(responseSchema ? { response_schema: responseSchema } : {}),
+    };
+
     const payload: Record<string, unknown> = {
       contents,
-      generationConfig: {
-        temperature,
-        response_mime_type: 'application/json',
-        ...(responseSchema ? { response_schema: responseSchema } : {}),
-      },
+      generationConfig,
     };
 
     if (systemInstruction) {
@@ -395,60 +580,220 @@ async function callGeminiApi({
     }
 
     try {
+      const attemptTimeoutMs = Math.min(14000, remainingBudgetMs);
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(attemptTimeoutMs),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        // If 404 (model not found / deprecated) or 503 (model overloaded) and there are fallback models, try next
-        if ((response.status === 404 || response.status === 503) && i < modelsToTry.length - 1) {
+        const errorText = sanitizeErrorMessage(await response.text());
+
+        // Permanent config/auth errors (401/403): DO NOT retry or loop models!
+        if (response.status === 401 || response.status === 403) {
+          throw new GeminiVisionError(
+            `Gemini API authentication rejected [${response.status}]`,
+            response.status,
+            'INVALID_API_KEY',
+            {
+              errorCategory: 'permanent_config_error',
+              retryable: false,
+              userMessage: {
+                en: 'Server AI credentials were rejected. Please check Gemini API key configuration.',
+                ur: 'سرور کی اے آئی کی تصدیق ناکام ہو گئی ہے۔ براہِ کرم سیٹنگ چیک کریں۔',
+              },
+            }
+          );
+        }
+
+        // Bad input (400): distinguish bad image from schema rejection
+        if (response.status === 400) {
+          const isSchemaErr = /response_schema|schema|generation_config/i.test(errorText);
+          if (isSchemaErr && i < modelsToTry.length - 1) {
+            console.warn(`[Gemini API] Model ${candidateModel} rejected schema, trying next model...`);
+            lastError = new GeminiVisionError(`Model schema incompatibility [${response.status}]`, 400, 'SCHEMA_NOT_SUPPORTED');
+            continue;
+          }
+          throw new GeminiVisionError(
+            `Invalid image or request rejected by Gemini [${response.status}]: ${errorText.slice(0, 220)}`,
+            400,
+            'INVALID_IMAGE_REJECTED',
+            {
+              errorCategory: 'invalid_image_input',
+              retryable: false,
+              userMessage: {
+                en: 'The uploaded image could not be processed. Please upload a valid clear plant photo.',
+                ur: 'تصویر پروسیس نہیں ہو سکی۔ براہِ کرم واضح پودے کی تصویر دوبارہ اپلوڈ کریں۔',
+              },
+            }
+          );
+        }
+
+        // Rate limit or Quota (429): distinguish daily quota from per-minute spike
+        if (response.status === 429) {
+          const isQuotaExhausted = /quota|billing|exceeded your current quota/i.test(errorText);
+          if (!isQuotaExhausted && i < modelsToTry.length - 1) {
+            console.warn(`[Gemini API] Model ${candidateModel} rate-limited (429). Trying next model...`);
+            lastError = new GeminiVisionError(
+              `Gemini API rate limited [429]`,
+              429,
+              'RATE_LIMITED',
+              { errorCategory: 'rate_limited', retryable: true }
+            );
+            continue;
+          }
+          throw new GeminiVisionError(
+            `Gemini API capacity reached [${response.status}]`,
+            429,
+            isQuotaExhausted ? 'QUOTA_EXHAUSTED' : 'RATE_LIMITED',
+            {
+              errorCategory: isQuotaExhausted ? 'quota_exhausted' : 'rate_limited',
+              retryable: !isQuotaExhausted,
+              userMessage: isQuotaExhausted
+                ? {
+                    en: 'Cloud AI daily quota is temporarily exhausted. Please try again later or inspect with a local officer.',
+                    ur: 'کلاؤڈ اے آئی کی یومیہ حد پوری ہو گئی ہے۔ براہِ کرم کچھ دیر بعد کوشش کریں۔',
+                  }
+                : {
+                    en: 'Too many scan requests at once. Please wait 20 seconds and tap Retry.',
+                    ur: 'اس وقت بہت زیادہ درخواستیں آ رہی ہیں۔ براہِ کرم 20 سیکنڈ انتظار کر کے دوبارہ کوشش کریں۔',
+                  },
+            }
+          );
+        }
+
+        // Transient 404 (deprecated model) or 5xx (overloaded) -> cascade cleanly
+        if ((response.status === 404 || response.status >= 500) && i < modelsToTry.length - 1) {
           console.warn(
-            `[Gemini API] Model ${candidateModel} returned ${response.status}. Trying fallback model (${modelsToTry[i + 1]})...`
+            `[Gemini API] Model ${candidateModel} returned ${response.status}. Falling back to ${modelsToTry[i + 1]}...`
           );
           lastError = new GeminiVisionError(
-            `Gemini API error [${response.status}]: ${errorText}`,
-            response.status,
-            'MODEL_UNAVAILABLE'
+            `Gemini model ${candidateModel} unavailable [${response.status}]`,
+            503,
+            'MODEL_UNAVAILABLE',
+            {
+              errorCategory: 'temporary_service_failure',
+              retryable: true,
+              userMessage: {
+                en: 'Cloud AI vision service is temporarily busy due to high demand. Tap Retry to re-scan.',
+                ur: 'کلاؤڈ اے آئی سرور اس وقت عارضی طور پر مصروف ہے۔ براہِ کرم دوبارہ کوشش کریں۔',
+              },
+            }
           );
           continue;
         }
+
         throw new GeminiVisionError(
-          `Gemini API error [${response.status}]: ${errorText}`,
-          response.status,
-          'API_ERROR'
+          `Gemini API error [${response.status}]: ${errorText.slice(0, 240)}`,
+          response.status >= 500 ? 503 : response.status,
+          'API_ERROR',
+          {
+            errorCategory: response.status >= 500 ? 'temporary_service_failure' : 'malformed_ai_response',
+            retryable: response.status >= 500,
+          }
         );
       }
 
       const data = await response.json();
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) {
-        throw new GeminiVisionError('Empty response from Gemini API', 502, 'EMPTY_RESPONSE');
+      if (!text || typeof text !== 'string' || !text.trim()) {
+        const blockReason = data?.promptFeedback?.blockReason || data?.candidates?.[0]?.finishReason;
+        if (blockReason === 'SAFETY') {
+          throw new GeminiVisionError(
+            'Vision analysis blocked by safety filter.',
+            422,
+            'SAFETY_BLOCKED',
+            {
+              errorCategory: 'invalid_image_input',
+              retryable: false,
+              userMessage: {
+                en: 'Please take a clearer close-up photo focused directly on the plant leaf or stem.',
+                ur: 'براہِ کرم صرف پودے یا پتے پر فوکس کر کے واضح تصویر دوبارہ لیں۔',
+              },
+            }
+          );
+        }
+        if (i < modelsToTry.length - 1) {
+          lastError = new GeminiVisionError('Empty response from Gemini API', 502, 'EMPTY_RESPONSE', {
+            errorCategory: 'malformed_ai_response',
+            retryable: true,
+          });
+          continue;
+        }
+        throw new GeminiVisionError('Empty response received from Gemini Vision.', 502, 'EMPTY_RESPONSE', {
+          errorCategory: 'malformed_ai_response',
+          retryable: true,
+          userMessage: {
+            en: 'AI vision returned an empty response. Your photo is preserved — tap Retry.',
+            ur: 'اے آئی سروس نے خالی جواب بھیجا ہے۔ آپ کی تصویر محفوظ ہے — دوبارہ کوشش کریں۔',
+          },
+        });
       }
-      return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+      return { text: text.trim(), modelUsed: candidateModel };
     } catch (err: unknown) {
-      if (err instanceof GeminiVisionError && err.code === 'MODEL_UNAVAILABLE' && i < modelsToTry.length - 1) {
-        continue;
-      }
-      const isTimeout = (err as any)?.name === 'TimeoutError' || (err as any)?.name === 'AbortError';
-      if (isTimeout && i < modelsToTry.length - 1) {
-        console.warn(`[Gemini API] Model ${candidateModel} timed out. Trying fallback model (${modelsToTry[i + 1]})...`);
-        continue;
-      }
       if (err instanceof GeminiVisionError) {
+        if (!err.retryable || (err.code !== 'MODEL_UNAVAILABLE' && err.code !== 'SCHEMA_NOT_SUPPORTED' && err.code !== 'RATE_LIMITED' && err.code !== 'EMPTY_RESPONSE')) {
+          throw err;
+        }
+        lastError = err;
+        if (i < modelsToTry.length - 1) continue;
         throw err;
       }
-      lastError = err instanceof Error ? err : new Error(String(err));
-      if (i === modelsToTry.length - 1) {
-        throw new GeminiVisionError(`Gemini API connection error: ${lastError.message}`, 503, 'NETWORK_ERROR');
+
+      const isTimeout =
+        (err as { name?: string })?.name === 'TimeoutError' ||
+        (err as { name?: string })?.name === 'AbortError';
+
+      if (isTimeout) {
+        lastError = new GeminiVisionError(
+          `Gemini API request timed out on ${candidateModel}`,
+          504,
+          'API_TIMEOUT',
+          {
+            errorCategory: 'network_or_timeout',
+            retryable: true,
+            userMessage: {
+              en: 'Cloud plant analysis took too long (Timeout). Tap Retry — your photo is preserved.',
+              ur: 'کلاؤڈ تجزیے میں معمول سے زیادہ وقت لگا۔ براہِ کرم دوبارہ کوشش کریں — آپ کی تصویر محفوظ ہے۔',
+            },
+          }
+        );
+        if (i < modelsToTry.length - 1) {
+          console.warn(`[Gemini API] ${candidateModel} timed out. Falling back to ${modelsToTry[i + 1]}...`);
+          continue;
+        }
+        throw lastError;
       }
+
+      const msg = err instanceof Error ? err.message : String(err);
+      lastError = new GeminiVisionError(
+        `Network error connecting to Gemini API: ${msg}`,
+        503,
+        'NETWORK_ERROR',
+        {
+          errorCategory: 'network_or_timeout',
+          retryable: true,
+          userMessage: {
+            en: 'Could not reach cloud AI server. Check your internet connection and tap Retry.',
+            ur: 'انٹرنیٹ یا کلاؤڈ سرور سے رابطہ نہیں ہو سکا۔ کنکشن چیک کر کے دوبارہ کوشش کریں۔',
+          },
+        }
+      );
+      if (i < modelsToTry.length - 1) continue;
+      throw lastError;
     }
   }
 
-  throw lastError || new GeminiVisionError('All Gemini models failed to respond', 503, 'ALL_MODELS_FAILED');
+  throw (
+    lastError ||
+    new GeminiVisionError('All Gemini models failed to respond', 503, 'ALL_MODELS_FAILED', {
+      errorCategory: 'temporary_service_failure',
+      retryable: true,
+    })
+  );
 }
 
 /**
@@ -476,9 +821,8 @@ export async function generateCropAdvice(
   }
 
   const model =
-    process.env.GEMINI_MODEL_FAST ||
-    process.env.GEMINI_MODEL_DETAIL ||
-    'gemini-3.5-flash-lite';
+    readEnvLocalValue(['GEMINI_MODEL_FAST', 'GEMINI_MODEL_DETAIL']) ||
+    'gemini-flash-lite-latest';
 
   const systemPrompt = `You are Zarkhez (زرخیز), a senior Pakistani agricultural plant doctor, pathologist and agronomist speaking to a small farmer.
 Rules:
@@ -539,31 +883,33 @@ Provide actionable Pakistani agricultural advice in JSON:
 
   const userParts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }> = [];
   if (base64Image) {
-    const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, '');
     userParts.push({
       inline_data: {
-        mime_type: 'image/jpeg',
-        data: cleanBase64,
+        mime_type: extractImageMimeType(base64Image),
+        data: cleanBase64Payload(base64Image),
       },
     });
   }
   userParts.push({ text: userPrompt });
 
   try {
-    const rawText = await callGeminiApi({
+    const { text: rawText } = await callGeminiApi({
       model,
       systemInstruction: systemPrompt,
       contents: [
         {
           role: 'user',
-          parts: userParts as any,
+          parts: userParts as Array<{ text: string } | { inline_data: { mime_type: string; data: string } }>,
         },
       ],
       temperature: 0.2,
     });
 
-    const parsedJson = JSON.parse(rawText);
-    const parsed = AdviceSchema.safeParse(parsedJson);
+    const jsonRes = extractAndParseJson(rawText);
+    if (!jsonRes.ok) {
+      throw new Error(jsonRes.message);
+    }
+    const parsed = AdviceSchema.safeParse(jsonRes.data);
     if (!parsed.success) {
       throw new Error(`Zod validation error: ${parsed.error.message}`);
     }
@@ -603,8 +949,9 @@ export async function verifyLeafImageWithVision(
     };
   }
 
-  const model = process.env.GEMINI_MODEL_FAST || process.env.GEMINI_MODEL_DETAIL || 'gemini-3.5-flash-lite';
-  const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, '');
+  const model = readEnvLocalValue(['GEMINI_MODEL_FAST', 'GEMINI_MODEL_DETAIL']) || 'gemini-flash-lite-latest';
+  const cleanBase64 = cleanBase64Payload(base64Image);
+  const mimeType = extractImageMimeType(base64Image);
 
   const prompt = `Look at this crop photo. The on-device model thinks it shows ${label} on ${crop} with low confidence. Say whether the photo is a clear plant leaf, what visible symptoms you see, and whether you agree. If the image is unclear or not a plant, say so. Return JSON:
 {
@@ -616,7 +963,7 @@ export async function verifyLeafImageWithVision(
 }`;
 
   try {
-    const rawText = await callGeminiApi({
+    const { text: rawText } = await callGeminiApi({
       model,
       contents: [
         {
@@ -624,7 +971,7 @@ export async function verifyLeafImageWithVision(
           parts: [
             {
               inline_data: {
-                mime_type: 'image/jpeg',
+                mime_type: mimeType,
                 data: cleanBase64,
               },
             },
@@ -635,8 +982,11 @@ export async function verifyLeafImageWithVision(
       temperature: 0.2,
     });
 
-    const parsedJson = JSON.parse(rawText);
-    const parsed = SecondOpinionSchema.safeParse(parsedJson);
+    const jsonRes = extractAndParseJson(rawText);
+    if (!jsonRes.ok) {
+      throw new Error(jsonRes.message);
+    }
+    const parsed = SecondOpinionSchema.safeParse(jsonRes.data);
     if (!parsed.success) {
       throw new Error(parsed.error.message);
     }
@@ -683,9 +1033,8 @@ export async function streamGeminiChatResponse(
   }
 
   const model =
-    process.env.GEMINI_MODEL_FAST ||
-    process.env.GEMINI_MODEL_DETAIL ||
-    'gemini-3.5-flash-lite';
+    readEnvLocalValue(['GEMINI_MODEL_FAST', 'GEMINI_MODEL_DETAIL']) ||
+    'gemini-flash-lite-latest';
 
   const customSystem = buildAdvisorSystemPrompt(lang, farmerProfile);
 
@@ -695,7 +1044,7 @@ export async function streamGeminiChatResponse(
   }));
 
   try {
-    const text = await callGeminiApi({
+    const { text } = await callGeminiApi({
       model,
       systemInstruction: customSystem,
       contents: geminiContents,
@@ -703,13 +1052,12 @@ export async function streamGeminiChatResponse(
     });
 
     // In chat mode, if response is wrapped in JSON or quotes, extract reply
-    try {
-      const parsed = JSON.parse(text);
-      if (parsed.reply) return String(parsed.reply).trim();
-      if (parsed.speech_ur) return String(parsed.speech_ur).trim();
-      if (parsed.answer) return String(parsed.answer).trim();
-    } catch {
-      // Plain text
+    const parsedChat = extractAndParseJson(text);
+    if (parsedChat.ok && typeof parsedChat.data === 'object' && parsedChat.data !== null) {
+      const chatObj = parsedChat.data as Record<string, unknown>;
+      if (chatObj.reply) return String(chatObj.reply).trim();
+      if (chatObj.speech_ur) return String(chatObj.speech_ur).trim();
+      if (chatObj.answer) return String(chatObj.answer).trim();
     }
     return text
       .replace(/^```(?:json)?\s*/i, '')
@@ -893,6 +1241,9 @@ export function getServiceUnavailableDiagnosis(selectedCrop: string): CropDiagno
     },
     requires_retake: false,
     requires_expert_review: true,
+    inspection_source: 'offline_assessment',
+    gemini_inspection_status: 'not_run',
+    scan_timestamp: new Date().toISOString(),
     message: {
       en: 'AI diagnostic service is temporarily reconnecting. Please retry shortly.',
       ur: 'اے آئی تشخیصی سروس عارضی طور پر دوبارہ جڑ رہی ہے۔ براہِ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔',
@@ -903,7 +1254,9 @@ export function getServiceUnavailableDiagnosis(selectedCrop: string): CropDiagno
 }
 
 /**
- * Two-Stage Intelligent Crop Scanner with Independent Crop & Organ Vision Analysis
+ * Two-Stage Intelligent Crop Scanner with Independent Crop & Organ Vision Analysis.
+ * Uses Gemini structured response_schema, robust JSON extraction/repair,
+ * canonical Zod normalization, and max-1 controlled retry on transient malformed outputs.
  */
 export async function analyzeCropImageWithGemini(
   base64Image: string,
@@ -911,272 +1264,79 @@ export async function analyzeCropImageWithGemini(
   confirmMismatchOverride = false,
   clientQuality?: ImageQualityReport
 ): Promise<CropDiagnosis> {
-  const apiKey = getGeminiApiKey();
-  const cleanBase64 = cleanBase64Payload(base64Image);
-  const mimeType = extractImageMimeType(base64Image);
+  // Stage 0: Strict input image validation (never charges Gemini API on empty/corrupt/unsupported files)
+  const { mimeType, cleanBase64 } = validateScanImagePayload(base64Image);
 
+  const apiKey = getGeminiApiKey();
   if (!apiKey) {
     throw new GeminiVisionError(
-      'Gemini API key is not configured. Please add GEMINI_API_KEY in server environment settings.',
+      'Gemini API key is not configured in server environment settings.',
       503,
-      'MISSING_API_KEY'
+      'MISSING_API_KEY',
+      {
+        errorCategory: 'permanent_config_error',
+        retryable: false,
+        userMessage: {
+          en: 'Cloud AI vision service is not configured on the server yet. Please contact support.',
+          ur: 'کلاؤڈ اے آئی وژن سروس سرور پر کنفیگر نہیں ہے۔ براہِ کرم ایڈمن سے رابطہ کریں۔',
+        },
+      }
     );
   }
 
-  const model =
-    process.env.GEMINI_MODEL_DETAIL ||
-    process.env.GEMINI_MODEL_FAST ||
-    'gemini-3.5-flash-lite';
+  const primaryModel =
+    readEnvLocalValue(['GEMINI_MODEL_FAST', 'GEMINI_MODEL_DETAIL']) ||
+    'gemini-flash-lite-latest';
 
-  const systemInstruction = `You are Zarkhez's Senior Agricultural Computer Vision Specialist, Senior Plant Pathologist, and Full-Stack Agronomy Engineer serving Pakistani farmers across Punjab, Sindh, Khyber Pakhtunkhwa, and Balochistan.
-Your mission is to perform an honest, rigorous, scientifically sound, multi-stage visual intelligence analysis of the uploaded farm photograph.
+  const systemInstruction = `You are Zarkhez's Senior Agricultural Plant Pathologist & Computer Vision Specialist serving Pakistani farmers.
+Perform an accurate, honest, concise visual analysis of the uploaded agricultural photograph.
 
-CORE SCIENTIFIC PRINCIPLES:
-1. USER SELECTION IS NOT VISUAL PROOF:
-   The user selected "${selectedCrop}". NEVER force or assume the uploaded photo belongs to this crop! Independently identify the actual visible crop purely from pixel evidence.
-2. ACCURATE PLANT PART DETECTION:
-   Identify the real visible organ: "Leaf" (پتا), "Stem" (تنا), "Roots" (جڑیں), "Fruit" (پھل), "Flower" (پھول), "Seed" (بیج), or "Whole plant" (پورا پودا). Never misclassify stems, fruits, or roots as leaves!
-3. CROP MISMATCH PROTECTION:
-   Compare the detected crop with selected_crop: "${selectedCrop}".
-   If they do NOT match (e.g. user selected Wheat, but image shows Rice or Tomato):
-     Set crop_match = false.
-     If confirmMismatchOverride is false:
-       Set diagnosis_status = "crop_mismatch".
-       Set problem_name = { "en": "Crop Mismatch Detected", "ur": "فصل کی عدم مطابقت", "roman_ur": "Fasal ki adam mutabiqat", "sd": "فصل جي غير مطابقت" }
-       Set plant_condition = "Not assessed pending crop confirmation", plant_condition_ur = "فصل کی تصدیق تک معائنہ روک دیا گیا ہے", plant_condition_roman_ur = "Fasal ki tasdeeq tak muaina rok diya gaya hai", plant_condition_sd = "فصل جي تصديق تائين چڪاس روڪي وئي آهي"
-       Set severity = "not_assessed", severity_level = "unable_to_determine"
-       Set message = {
-         "en": "The image appears to show a " + detected_crop + " (" + detected_plant_part + "), but " + selectedCrop + " was selected. Please confirm your crop before diagnosis.",
-         "ur": "تصویر میں " + detected_crop_ur + " کا " + detected_plant_part_ur + " نظر آرہا ہے، جبکہ آپ نے " + selectedCrop + " منتخب کی ہے۔ براہِ کرم درست فصل کی تصدیق کریں۔",
-         "roman_ur": "Tasveer mein " + detected_crop + " ka " + detected_plant_part + " nazar araha hai, jabke aap ne " + selectedCrop + " chuni hai. Barah-e-karam durust fasal ki tasdeeq karein.",
-         "sd": "تصوير ۾ " + (detected_crop_sd || detected_crop) + " جو " + (detected_plant_part_sd || detected_plant_part) + " نظر اچي پيو، جڏهن ته اوهان " + selectedCrop + " چونڊيو آهي. مهرباني ڪري تصديق ڪريو."
-       }
-       Do NOT report disease diagnosis for the mismatched crop!
-4. STAGE 1: IMAGE VALIDITY & QUALITY INSPECTION:
-   - Check if the image contains a real agricultural plant or crop. If it shows an electronic screen, mobile phone, animal, person, car, furniture, or non-plant object:
-     Set image_valid = false, diagnosis_status = "invalid_image", requires_retake = true.
-     Set problem_name = { "en": "Invalid Plant Image", "ur": "پودے کی غیر متعلقہ تصویر", "roman_ur": "Poday ki ghair mutaliqa tasveer", "sd": "ٻوٽي جي غير لاڳاپيل تصوير" }
-     Set message = { "en": "The photograph does not appear to show a farm crop. Please photograph your actual crop foliage or stem.", "ur": "اپلوڈ کی گئی تصویر میں کوئی فصل یا پودا نظر نہیں آ رہا۔ براہِ کرم اپنی فصل کی واضح تصویر لیں۔", "roman_ur": "Uploaded tasveer mein koi fasal ya poda nazar nahi araha. Fasal ki saf tasveer lein.", "sd": "اپلوڊ ٿيل تصوير ۾ ڪوبه ٻوٽو يا فصل ناهي. مهرباني ڪري پنهنجي فصل جي تصوير ڪڍو." }
-     Return immediately.
-   - Check focus and lighting: If the image is excessively blurry, dark, or distant:
-     Set requires_retake = true, diagnosis_status = "uncertain", confidence_category = "uncertain".
+CRITICAL SCHEMA & SCIENTIFIC RULES:
+1. INDEPENDENT CROP & PART IDENTIFICATION:
+   - Farmer selected crop: "${selectedCrop}". NEVER blindly assume the photo matches!
+   - Identify real visible crop from pixel evidence and plant part ("Leaf", "Stem", "Roots", "Fruit", "Flower", "Seed", "Whole plant", or "Tuber").
+2. CROP MISMATCH (when detected crop differs from "${selectedCrop}" and confirmMismatchOverride is FALSE):
+   - Set crop_match = false, diagnosis_status = "crop_mismatch", severity = "not_assessed", severity_level = "unable_to_determine", requires_retake = false, requires_expert_review = false.
+   - ALWAYS populate ALL required root fields including problem_name, plant_condition, plant_condition_ur, and message confirming what crop was seen vs selected.
+3. NON-PLANT / INVALID IMAGE (screen, phone, person, furniture, random object):
+   - Set image_valid = false, crop_match = false, diagnosis_status = "invalid_image", severity = "not_assessed", severity_level = "unable_to_determine", requires_retake = true, requires_expert_review = false.
+   - ALWAYS populate problem_name and message asking clearly for a real farm plant photo.
+4. QUALITY & LESION SCREENING:
+   - If image is too blurry/dark/distant, set requires_retake = true, diagnosis_status = "uncertain", confidence_category = "uncertain", severity = "not_assessed".
+   - If ANY abnormal lesions, spots, blast spindles, rust pustules, curling, chlorosis, necrosis, or pests exist, NEVER classify as "healthy_no_symptoms".
+   - Keep visual_inspection.detected_hotspots coordinates between 0 and 100.
+   - Do not fabricate laboratory confirmation or hazardous chemical dosages; state registered active ingredient classes and safety intervals only.
+5. CONCISE MULTI-LANGUAGE OUTPUT:
+   - ALWAYS populate EVERY required field strictly matching the JSON response_schema in English ("en"), Urdu ("ur"), Roman Urdu ("roman_ur"), and Sindhi ("sd"). Keep individual explanations concise (1-2 clear sentences) and include top 1-2 differential diagnoses when diseased.`;
 
-5. STAGE 2: ADVANCED MACROSCOPIC SYMPTOM & LESION DETECTION:
-   Before deciding the diagnosis status, inspect foliar/stem tissue at pixel level:
-   - Identify lesion count or estimated range (e.g. "4 to 7 discrete lesions", "dense coalescing spots", "none").
-   - Lesion geometry & shape: "spindle_shaped" (diamond/eye-shaped with pointed ends), "circular_oval", "elongated_irregular", "water_soaked_streaks", "angular_vein_delimited", "target_board_bullseye", or "none".
-   - Lesion size estimate: e.g. "2 to 6 mm diameter", "large patch > 20 mm", "none".
-   - Colors: e.g. ["whitish_grey_center", "dark_reddish_brown_margin", "chlorotic_yellow_halo"].
-   - Margins: distinct necrotic border, diffuse water-soaked, chlorotic halo.
-   - Distribution: scattered across lamina, along midrib/veins, at tip/margins, lower canopy.
-   - Tissue damage & necrosis: chlorosis_detected (boolean), necrosis_detected (boolean), wilting_detected (boolean), affected_area_pct (0 to 100).
-   - Hotspot localization: detected_hotspots: [{ "x": number, "y": number, "w": number, "h": number, "label": "string" }] where x,y,w,h are normalized percentage coordinates (0-100) bounding the visible lesion clusters on the image.
-
-6. STRICT HEALTHY INVARIANT (NON-NEGOTIABLE):
-   - NEVER classify a plant as "healthy_no_symptoms" if visible abnormal lesions, spots, yellowing, chlorosis, or necrotic damage are detected!
-   - Green background is NEVER proof of health! An upright green rice leaf with spindle lesions has active Rice Blast and is SICK, NOT healthy!
-   - If visible lesions or symptoms exist, diagnosis_status MUST BE "possible_disease", "possible_pest", "possible_nutrient_deficiency", or "uncertain".
-   - Only when tissue is completely intact with uniform green color, zero spots, and zero lesions should diagnosis_status be "healthy_no_symptoms".
-
-7. CROP-SPECIFIC PATHOLOGICAL KNOWLEDGE (PAKISTAN REGION):
-   - RICE (دھان / چاول):
-     * Blast (Magnaporthe oryzae): Characteristic spindle-shaped (eye/diamond) lesions with whitish-grey center and dark brown/reddish margins.
-     * Brown Spot (Bipolaris oryzae): Circular to oval dark brown spots, often with lighter center and yellow halo; worsened by potassium/zinc deficit.
-     * Bacterial Leaf Blight (Xanthomonas oryzae pv. oryzae): Wavy water-soaked yellowing stripes extending along leaf margins drying to grayish-white.
-     * Sheath Blight (Rhizoctonia solani): Oval/elliptical greenish-grey water-soaked lesions on lower leaf sheaths with dark brown borders.
-   - WHEAT (گندم):
-     * Stripe / Yellow Rust (Puccinia striiformis): Linear stripes of bright yellow-orange powdery pustules along leaf veins.
-     * Leaf / Brown Rust (Puccinia triticina): Scattered, round orange-brown pustules randomly on upper leaf surface.
-     * Stem / Black Rust (Puccinia graminis): Elongated reddish-brown ragged pustules on stems and leaf sheaths.
-     * Powdery Mildew (Blumeria graminis): White to gray powdery fungal patches on foliage.
-     * Loose Smut (Ustilago tritici): Ear heads completely replaced by black powdery mass of fungal spores.
-   - COTTON (کپاس):
-     * Cotton Leaf Curl Virus (CLCuV): Thickening of veins, upward/downward leaf curling, enations (leaf outgrowths) under leaf. Transmitted by Whitefly (Bemisia tabaci).
-     * Bacterial Blight / Angular Leaf Spot (Xanthomonas citri pv. malvacearum): Angular water-soaked lesions delimited by veinlets, turning dark brown, black arm on stems.
-     * Sucking Pest Damage (Jassid / Thrips / Whitefly): Downward edge cupping, marginal scorching, hopper burn, silvery underside.
-   - SUGARCANE (کماد / گنا):
-     * Red Rot (Colletotrichum falcatum): Longitudinal reddening of internal stalk pith with characteristic white transverse patches; yellowing and withering of leaves.
-     * Whip Smut (Sporisorium scitamineum): Curved black whip-like apical shoot.
-     * Pokkah Boeng (Fusarium moniliforme): Malformed, twisted, crumpled leaf bases with chlorosis.
-   - MAIZE (مکئی):
-     * Fall Armyworm (Spodoptera frugiperda): Large ragged feeding holes in whorl with abundant moist sawdust-like frass; windowpane leaf damage.
-     * Turcicum Leaf Blight (Exserohilum turcicum): Long elliptical grayish-green cigar-shaped lesions.
-     * Maydis Leaf Blight (Bipolaris maydis): Rectangular or diamond-shaped lesions between veins.
-   - TOMATO (ٹماٹر):
-     * Early Blight (Alternaria solani): Concentric target-board (bullseye) rings surrounded by yellow chlorotic halo on older foliage.
-     * Late Blight (Phytophthora infestans): Irregular water-soaked greasy brown lesions rapidly expanding, white downy sporulation on underside in humid cool weather.
-     * Tomato Yellow Leaf Curl Virus (TYLCV): Upward leaf cupping, severe stunting, chlorotic margins (vectored by whitefly).
-   - POTATO (آلو):
-     * Late Blight (Phytophthora infestans): Greasy water-soaked lesions starting from tips/margins, rapidly rotting foliage.
-     * Early Blight (Alternaria solani): Brown concentric rings on foliage.
-     * Potato Virus Y (PVY): Severe mosaic mottling, vein necrosis.
-   - CHILI (مرچ):
-     * Anthracnose / Dieback (Colletotrichum capsici): Sunken circular necrotic lesions with concentric rings of black acervuli, twig dieback from tip down.
-     * Chili Leaf Curl Virus: Severe upward leaf curling, puckering, reduction of leaf blade.
-   - MANGO (آم):
-     * Anthracnose (Colletotrichum gloeosporioides): Dark brown to black angular spots on leaves, tear-staining on fruit.
-     * Powdery Mildew (Oidium mangiferae): Whitish powdery coating on young leaves and blossoms.
-   - CITRUS (کنو / مالٹا / لیموں):
-     * Citrus Canker (Xanthomonas axonopodis pv. citri): Raised corky brownish crater-like pustules surrounded by oily water-soaked margin and yellow halo on leaves and fruit.
-     * Citrus Greening (Huanglongbing / HLB): Asymmetric blotchy mottle crossing leaf veins, upright small yellowing leaves.
-   - ONION (پیاز):
-     * Purple Blotch (Alternaria porri): Water-soaked lesions turning brown, developing purple/violet concentric centers with chlorotic halos.
-     * Thrips (Thrips tabaci): Silvery speckling and blotches on foliage.
-
-8. SCIENTIFIC CONFIDENCE & SEVERITY ASSESSMENT:
-   - Differentiate AI model confidence from laboratory confirmation. Set confidence_category ("high" | "moderate" | "low" | "uncertain") and populate confidence_limitations explicitly stating that visual inspection is not a laboratory culture.
-   - Set severity_level: "healthy_none" | "low" | "medium" | "high" | "critical" | "unable_to_determine".
-   - Differentiate single-leaf severity from field-level severity! Set severity_scope: { leaf_affected_pct: number, scope_note: LocalizedString }. Never extrapolate field infection rate from one leaf.
-
-9. DIFFERENTIAL DIAGNOSIS:
-   - Always supply top 1 to 3 relevant alternative diagnoses in differential_diagnoses. For each: name, scientific_name, similarities, differences, likelihood ("less_likely" | "possible_coinfection" | "unlikely"), and field_distinction_tip.
-
-10. 4-PILLAR TREATMENT MODEL (GROUNDED IN PAKISTANI EXTENSION REALITY):
-   - Immediate Actions: Urgent steps the farmer must take today (e.g. stop excess urea, isolate infected plants, scout field).
-   - Cultural Management: Field hygiene, water management, balanced NPK fertilization, plant spacing, resistant varieties.
-   - Biological Management: Evidence-backed biocontrols (e.g. Trichoderma, Bacillus subtilis, neem/azadirachtin extracts).
-   - Chemical Management: Active ingredient classes registered in Pakistan (e.g. tricyclazole, isoprothiolane, azoxystrobin, propiconazole, copper oxychloride). NEVER fabricate dangerous dosages; state purpose, safety precautions, PPE, and mandatory instruction to consult the local agriculture extension officer and product container label.
-
-11. DUAL EXPLANATIONS & VOICE SCRIPT:
-   - farmer_friendly: Empathetic, simple, actionable language for ordinary farmers in all 4 languages.
-   - scientific: Formal phytopathological terminology, etiology, taxonomy, and microscopic considerations for agronomists.
-   - voice_script: Natural, flowing spoken sentence summarizing diagnosis, seriousness, and what to do now.
-
-12. MULTI-LANGUAGE REQUIREMENT:
-   Every localized string must support "en", "ur" (Pakistani agricultural Urdu), "roman_ur" (phonetic Latin Urdu), and "sd" (authentic Sindhi).
-
-OUTPUT FORMAT:
-Return ONLY a valid JSON object matching this schema:
-{
-  "image_valid": boolean,
-  "detected_crop": "string",
-  "detected_crop_ur": "string",
-  "detected_crop_roman_ur": "string",
-  "detected_crop_sd": "string",
-  "selected_crop": "string",
-  "crop_match": boolean,
-  "detected_plant_part": "Leaf" | "Stem" | "Roots" | "Fruit" | "Flower" | "Seed" | "Whole plant",
-  "detected_plant_part_ur": "string",
-  "detected_plant_part_roman_ur": "string",
-  "detected_plant_part_sd": "string",
-  "growth_stage": "Seedling" | "Tillering" | "Vegetative" | "Flowering" | "Fruiting" | "Maturity" | "Uncertain",
-  "growth_stage_ur": "string",
-  "growth_stage_roman_ur": "string",
-  "growth_stage_sd": "string",
-  "identification_confidence": number between 0 and 1,
-  "scientific_name": "string",
-  "pathogen_type": "fungal" | "bacterial" | "viral" | "pest" | "nutrient_deficiency" | "environmental_stress" | "healthy" | "unknown",
-  "confidence_category": "high" | "moderate" | "low" | "uncertain",
-  "confidence_limitations": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
-  "visual_inspection": {
-    "lesion_detected": boolean,
-    "lesion_count": "string",
-    "lesion_shape": "spindle_shaped" | "circular_oval" | "elongated_irregular" | "water_soaked_streaks" | "angular_vein_delimited" | "target_board_bullseye" | "none",
-    "lesion_size_est": "string",
-    "lesion_colors": ["string"],
-    "lesion_margins": "string",
-    "lesion_distribution": "string",
-    "tissue_damage": "string",
-    "chlorosis_detected": boolean,
-    "necrosis_detected": boolean,
-    "wilting_detected": boolean,
-    "affected_area_pct": number between 0 and 100,
-    "detected_hotspots": [
-      { "x": number, "y": number, "w": number, "h": number, "label": "string" }
-    ]
-  },
-  "diagnosis_status": "healthy_no_symptoms" | "possible_disease" | "possible_pest" | "possible_nutrient_deficiency" | "environmental_stress" | "uncertain" | "crop_mismatch" | "invalid_image",
-  "plant_condition": "string",
-  "plant_condition_ur": "string",
-  "plant_condition_roman_ur": "string",
-  "plant_condition_sd": "string",
-  "problem_name": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
-  "possible_disease": [
-    { "name": "string", "name_ur": "string", "name_roman_ur": "string", "name_sd": "string", "confidence": number, "is_primary": boolean }
-  ],
-  "alternative_diagnoses": [
-    { "name": "string", "reason": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" } }
-  ],
-  "differential_diagnoses": [
-    {
-      "name": "string",
-      "scientific_name": "string",
-      "similarities": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
-      "differences": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
-      "likelihood": "less_likely" | "possible_coinfection" | "unlikely",
-      "field_distinction_tip": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-    }
-  ],
-  "why_suspected": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
-  "observed_symptoms": [
-    { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-  ],
-  "possible_causes": [
-    { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-  ],
-  "severity": "low" | "medium" | "high" | "not_assessed",
-  "severity_level": "healthy_none" | "low" | "medium" | "high" | "critical" | "unable_to_determine",
-  "severity_explanation": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
-  "severity_scope": {
-    "leaf_affected_pct": number,
-    "scope_note": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-  },
-  "what_to_do_now": [
-    { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-  ],
-  "treatment_pillars": {
-    "immediate_actions": [
-      { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-    ],
-    "cultural_management": [
-      { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-    ],
-    "biological_management": [
-      { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-    ],
-    "chemical_management": [
-      {
-        "active_ingredient": "string",
-        "purpose": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
-        "safety_precautions": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-      }
-    ]
-  },
-  "recommendations": [
-    { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-  ],
-  "prevention": [
-    { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-  ],
-  "when_to_consult_expert": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
-  "explanations": {
-    "farmer_friendly": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
-    "scientific": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-  },
-  "voice_script": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" },
-  "requires_retake": boolean,
-  "requires_expert_review": boolean,
-  "message": { "en": "string", "ur": "string", "roman_ur": "string", "sd": "string" }
-}`;
-
-  const promptText = `Perform visual plant pathology examination on this farm photo:
+  const basePromptText = `Inspect this farm photo carefully:
 - Farmer Selected Crop: "${selectedCrop}"
-- Confirm Mismatch Override: ${confirmMismatchOverride ? 'TRUE (User confirmed detected crop)' : 'FALSE'}
-${
-  clientQuality
-    ? `- Optical Pre-Scan: Subject Ratio: ${clientQuality.subjectRatio}, Lesion Ratio: ${clientQuality.lesionRatio ?? 0}, Has Visible Lesions: ${clientQuality.hasVisibleLesions ? 'YES' : 'NO'}`
-    : ''
-}
+- Confirm Mismatch Override: ${confirmMismatchOverride ? 'TRUE' : 'FALSE'}${
+    clientQuality
+      ? `\n- Optical Pre-Scan Metrics: Subject=${clientQuality.subjectRatio}, LesionRatio=${clientQuality.lesionRatio ?? 0}, VisibleLesions=${clientQuality.hasVisibleLesions ? 'YES' : 'NO'}`
+      : ''
+  }
 
-Remember:
-1. First, inspect pixels for any abnormal spots or lesions. Describe them under "visual_inspection".
-2. If lesions exist, you MUST NOT return "healthy_no_symptoms".
-3. Provide natural translations in Urdu, Roman Urdu, Sindhi, and English.
-Return valid JSON matching the schema.`;
+Return strict valid JSON matching the structured schema with ALL required fields populated.`;
 
-  try {
-    const rawText = await callGeminiApi({
-      model,
+  const MAX_FORMAT_RETRIES = 1;
+  let lastValidationError: GeminiVisionError | null = null;
+  let retryFeedbackHint = '';
+
+  for (let attempt = 0; attempt <= MAX_FORMAT_RETRIES; attempt++) {
+    const attemptModel =
+      attempt === 0
+        ? primaryModel
+        : primaryModel === 'gemini-3.1-flash-lite'
+        ? 'gemini-flash-lite-latest'
+        : 'gemini-3.1-flash-lite';
+
+    const promptForAttempt = retryFeedbackHint
+      ? `${basePromptText}\n\nIMPORTANT CORRECTION REQUIRED ON RETRY:\n${retryFeedbackHint}`
+      : basePromptText;
+
+    const { text: rawText, modelUsed } = await callGeminiApi({
+      model: attemptModel,
       systemInstruction,
       contents: [
         {
@@ -1188,77 +1348,83 @@ Return valid JSON matching the schema.`;
                 data: cleanBase64,
               },
             },
-            { text: promptText },
+            { text: promptForAttempt },
           ],
         },
       ],
-      temperature: 0.15,
+      temperature: attempt === 0 ? 0.15 : 0.05,
+      maxOutputTokens: 4096,
+      responseSchema: GEMINI_DIAGNOSIS_RESPONSE_SCHEMA,
     });
 
-    const parsedJson = JSON.parse(rawText);
-    const parsed = CropDiagnosisSchema.safeParse(parsedJson);
-    if (!parsed.success) {
-      console.warn('[Gemini Crop Diagnosis] Schema validation issue:', parsed.error);
-      throw new Error(`Zod validation error: ${parsed.error.message}`);
-    }
-
-    const diagnosis = parsed.data;
-
-    // CRITICAL INVARIANT SAFEGUARD:
-    // Programmatically enforce that visible lesions can NEVER be classified as healthy
-    const inspection = diagnosis.visual_inspection;
-    const hasLesions =
-      Boolean(inspection?.lesion_detected) ||
-      (inspection?.lesion_count && inspection.lesion_count !== 'none' && inspection.lesion_count !== '0') ||
-      diagnosis.observed_symptoms.some((s) =>
-        /lesion|spot|spindle|dhabba|blast|blight|scorch|chlorosis|necros/i.test(s.en + ' ' + s.ur)
+    // Stage 1: Robust JSON extraction & deterministic syntax repair
+    const extracted = extractAndParseJson(rawText);
+    if (!extracted.ok) {
+      lastValidationError = new GeminiVisionError(
+        `Gemini Vision inspection failed (${modelUsed}): ${extracted.message}`,
+        502,
+        extracted.code,
+        {
+          errorCategory: 'malformed_ai_response',
+          retryable: true,
+          userMessage: {
+            en: 'AI vision response could not be read clearly. Your photo is preserved — tap Retry Scan.',
+            ur: 'اے آئی تجزیے کا جواب درست شکل میں موصول نہیں ہو سکا۔ آپ کی تصویر محفوظ ہے — دوبارہ کوشش کریں۔',
+          },
+        }
       );
 
-    if (hasLesions && diagnosis.diagnosis_status === 'healthy_no_symptoms') {
-      diagnosis.diagnosis_status = 'possible_disease';
-      if (diagnosis.severity === 'low') {
-        diagnosis.severity = 'medium';
+      if (attempt < MAX_FORMAT_RETRIES) {
+        console.warn(`[Gemini Crop Diagnosis] Attempt ${attempt + 1} returned malformed JSON (${extracted.code}). Performing controlled retry...`);
+        retryFeedbackHint = 'Previous output had invalid JSON syntax. Return strictly valid single-object JSON with all strings double-quoted and balanced braces.';
+        continue;
       }
-      if (/no obvious|healthy|تندرست/i.test(diagnosis.problem_name.en + ' ' + diagnosis.problem_name.ur)) {
-        const isRice = normalizeCropName(diagnosis.detected_crop) === 'rice';
-        if (isRice) {
-          diagnosis.problem_name = {
-            en: 'Suspected Rice Leaf Lesions (Blast / Brown Spot Symptoms)',
-            ur: 'دھان کے پتے پر مشتبہ دھبے (بلاسٹ یا براؤن سپاٹ کی علامات)',
-            roman_ur: 'Dhan ke patte par dhabbe (Blast / Brown Spot alamaat)',
-            sd: 'چانورن جي پن تي نشان (بلاست يا ناسي داغ)',
-          };
-        } else {
-          diagnosis.problem_name = {
-            en: 'Visible Leaf Lesions Detected (Further Confirmation Required)',
-            ur: 'پتے پر مشتبہ دھبے دیکھے گئے (مزید تصدیق درکار)',
-            roman_ur: 'Patte par mushtaba dhabbe (Tasdeeq darkaar)',
-            sd: 'پن تي نشان نظر آيا (وڌيڪ تصديق گهربل)',
-          };
+      throw lastValidationError;
+    }
+
+    // Stage 2: Safe normalization & strict canonical Zod validation
+    const normalized = normalizeAndValidateDiagnosis(extracted.data, {
+      selectedCrop,
+      inspectionSource: 'gemini_vision',
+      geminiStatus: 'completed',
+      clientQuality,
+    });
+
+    if (!normalized.ok) {
+      lastValidationError = new GeminiVisionError(
+        `Gemini Vision inspection failed (${modelUsed}): ${normalized.message}`,
+        502,
+        normalized.code,
+        {
+          errorCategory:
+            normalized.code === 'ZOD_VALIDATION_FAILED'
+              ? 'schema_validation_failed'
+              : 'malformed_ai_response',
+          retryable: true,
+          userMessage: {
+            en: 'AI diagnosis report was incomplete for safe advice. Your photo is preserved — please tap Retry Scan.',
+            ur: 'اے آئی تشخیصی رپورٹ مکمل موصول نہیں ہوئی۔ حفاظتی اصول کے تحت دوبارہ اسکین کریں (تصویر محفوظ ہے)۔',
+          },
+          fieldErrors: normalized.fieldErrors,
         }
+      );
+
+      if (attempt < MAX_FORMAT_RETRIES) {
+        const missingPaths = normalized.fieldErrors.slice(0, 8).map((e) => e.path).join(', ');
+        console.warn(`[Gemini Crop Diagnosis] Attempt ${attempt + 1} failed Zod validation [${missingPaths}]. Performing controlled retry...`);
+        retryFeedbackHint = `Previous JSON omitted or invalid-typed required fields: ${missingPaths}. Ensure problem_name, severity, requires_retake (boolean), requires_expert_review (boolean), and message are all included with exact types.`;
+        continue;
       }
+      throw lastValidationError;
     }
 
-    // Ensure recommendations exist
-    if (!diagnosis.recommendations || diagnosis.recommendations.length === 0) {
-      if (diagnosis.what_to_do_now && diagnosis.what_to_do_now.length > 0) {
-        diagnosis.recommendations = diagnosis.what_to_do_now;
-      }
-    }
-
-    return diagnosis;
-  } catch (err: unknown) {
-    console.error('[Gemini Crop Diagnosis Error]:', err);
-    if (err instanceof GeminiVisionError) {
-      throw err;
-    }
-    const errMessage = err instanceof Error ? err.message : String(err);
-    throw new GeminiVisionError(
-      `Gemini Vision inspection failed: ${errMessage}`,
-      502,
-      'VISION_INSPECTION_FAILED'
-    );
+    return normalized.data;
   }
+
+  throw (
+    lastValidationError ||
+    new GeminiVisionError('Gemini Vision inspection failed after retry', 502, 'VISION_INSPECTION_FAILED')
+  );
 }
 
 /**
@@ -1425,6 +1591,9 @@ export function getFallbackCropDiagnosis(
       },
       requires_retake: true,
       requires_expert_review: false,
+      inspection_source: 'offline_assessment',
+      gemini_inspection_status: 'not_run',
+      scan_timestamp: new Date().toISOString(),
       message: {
         en: 'The photograph is too blurry for an accurate diagnosis. Please take a clear daylight photo.',
         ur: 'تصویر کافی دھندلی ہے؛ درست معائنے کے لیے براہِ کرم کیمرہ مضبوطی سے تھام کر دوبارہ صاف تصویر لیں۔',
@@ -1742,11 +1911,14 @@ export function getFallbackCropDiagnosis(
         },
         requires_retake: false,
         requires_expert_review: true,
+        inspection_source: 'offline_assessment',
+        gemini_inspection_status: 'not_run',
+        scan_timestamp: new Date().toISOString(),
         message: {
-          en: 'Visible spindle-shaped lesions observed on rice leaf. Blast-like symptoms detected; follow cultural hygiene and consult extension officer.',
-          ur: 'دھان کے پتے پر بلاسٹ نما تکلا دھبے دیکھے گئے ہیں۔ یوریا کھاد روکیں اور مقامی زرعی توسیعی افسر سے معائنہ کروائیں۔',
-          roman_ur: 'Dhan ke patte par blast numa dhabbe dekhay gaye hain. Urea rokein aur zaria afsar se rabta karein.',
-          sd: 'چانورن جي پن تي بلاست جهڙا نشان ڏٺا ويا آهن. يوريا روڪيو ۽ زرعي عملدار سان صلاح ڪريو.',
+          en: 'Visible spindle-shaped lesions observed in offline screening on rice leaf. Confirm with Gemini Vision or extension officer before spraying.',
+          ur: 'دھان کے پتے پر آف لائن معائنے میں مشتبہ دھبے دیکھے گئے ہیں۔ سپرے سے قبل کلاؤڈ اے آئی یا مقامی زرعی افسر سے تصدیق کروائیں۔',
+          roman_ur: 'Offline muainay mein dhan ke patte par dhabbe dekhay gaye hain. Spray se pehle tasdeeq karwayein.',
+          sd: 'آف لائن چڪاس ۾ چانورن جي پن تي داغ ڏٺا ويا آهن. اسپري کان اڳ تصديق ڪرايو.',
         },
       };
     }
@@ -1937,11 +2109,14 @@ export function getFallbackCropDiagnosis(
       },
       requires_retake: false,
       requires_expert_review: false,
+      inspection_source: 'offline_assessment',
+      gemini_inspection_status: 'not_run',
+      scan_timestamp: new Date().toISOString(),
       message: {
-        en: 'No obvious disease or pest symptoms observed. Note: visual inspection does not guarantee 100% absence of latent micro-pathogens.',
-        ur: 'اس پودے پر کوئی واضح بیماری نہیں ملی۔ معمول کی دیکھ بھال جاری رکھیں۔ یاد رہے کہ بصری معائنہ سو فیصد پوشیدہ جراثیم کی غیر موجودگی کی حتمی ضمانت نہیں۔',
-        roman_ur: 'Poday par koi wazeh bemari nahi mili. Mamool ki dekh bhal jari rakhein.',
-        sd: 'ٻوٽي تي ڪابه واضح بيماري ناهي. عام سنڀال جاري رکو.',
+        en: 'No obvious lesions seen in offline optical screening. For deep pathology analysis, retry cloud Gemini Vision when connected.',
+        ur: 'بنیادی آف لائن معائنے میں کوئی واضح دھبے نہیں ملے۔ مکمل تصدیق کے لیے انٹرنیٹ آنے پر کلاؤڈ اے آئی اسکین کریں۔',
+        roman_ur: 'Offline muainay mein wazeh dhabbe nahi mile. Mukammal tasdeeq ke liye online Gemini scan karein.',
+        sd: 'بنيادي آف لائن چڪاس ۾ ڪوبه واضح داغ ناهي مليو. مڪمل تصديق لاءِ آن لائن جيمنائي اسڪين ڪريو.',
       },
     };
   }
@@ -1963,15 +2138,15 @@ export function getFallbackCropDiagnosis(
     growth_stage_ur: 'بڑھوتری کا مرحلہ',
     growth_stage_roman_ur: 'Barhotri ka marhala',
     growth_stage_sd: 'واڌ ويجهه جو مرحلو',
-    identification_confidence: 0.60,
+    identification_confidence: 0,
     scientific_name: '',
     pathogen_type: 'unknown',
     confidence_category: 'uncertain',
     confidence_limitations: {
-      en: 'Analysis was performed in offline baseline mode without active cloud neural pathology network.',
-      ur: 'یہ معائنہ کلاؤڈ نیورل نیٹ ورک کے بغیر بنیادی موڈ میں ہوا ہے۔',
-      roman_ur: 'Yeh muaina basic mode mein hua hai.',
-      sd: 'هي چڪاس بنيادي موڊ ۾ ٿي آهي.',
+      en: 'Offline preliminary screening could not inspect crop pathology without active Gemini Cloud Vision.',
+      ur: 'کلاؤڈ وژن سرور کے بغیر یہ ابتدائی آف لائن جائزہ حتمی بیماری کی شناخت نہیں کر سکتا۔',
+      roman_ur: 'Cloud Vision ke baghair offline jaiza hatmi tashkhees nahi kar sakta.',
+      sd: 'ڪلائوڊ ويزن کان سواءِ هي آف لائن چڪاس حتمي بيماري جي سڃاڻپ نٿي ڪري سگهي.',
     },
     visual_inspection: {
       lesion_detected: false,
@@ -2036,10 +2211,10 @@ export function getFallbackCropDiagnosis(
     },
     recommendations: [
       {
-        en: 'Connect your Gemini API Key in the scanner settings to get instant live diagnosis.',
-        ur: 'اسکینر کی سیٹنگز میں اپنی جیمنائی کی داخل کریں تاکہ فوری معائنہ ہو سکے۔',
-        roman_ur: 'Scanner settings mein Gemini key connect karein.',
-        sd: 'اسڪينر سيٽنگز ۾ جيمنائي ڪي داخل ڪريو.',
+        en: 'Retry online Cloud Vision analysis once internet connection stabilizes.',
+        ur: 'انٹرنیٹ بحال ہونے پر دوبارہ کلاؤڈ اے آئی معائنہ کریں۔',
+        roman_ur: 'Internet bahal hone par dobara Cloud AI muaina karein.',
+        sd: 'انٽرنيٽ بحال ٿيڻ تي ٻيهر ڪلائوڊ اسڪين ڪريو.',
       },
     ],
     what_to_do_now: [],
@@ -2065,31 +2240,34 @@ export function getFallbackCropDiagnosis(
     },
     explanations: {
       farmer_friendly: {
-        en: 'The scan could not connect to the cloud vision server. If your crop has visible spots or problems, please show it to your local agricultural extension officer.',
-        ur: 'کلاؤڈ سرور سے مکمل رابطہ نہ ہو سکا۔ اگر پتے پر کوئی دھبے یا خرابی نظر آرہی ہے تو اپنے قریبی زرعی توسیعی دفتر سے رابطہ فرمائیں۔',
-        roman_ur: 'Server se rabta nahi ho saka. Agar poda bimar hai to zaria afsar ko dikhayein.',
-        sd: 'ڪلائوڊ سرور سان رابطو نٿي سگهيو. جيڪڏهن ٻوٽو بيمار آهي ته زرعي عملدار کي ڏيکاريو.',
+        en: 'Cloud Vision inspection could not connect. This offline check does not confirm plant health. If your crop shows spots or stress, retry online scan or consult a local agriculture officer.',
+        ur: 'کلاؤڈ وژن سرور سے رابطہ نہیں ہو سکا۔ یہ آف لائن جائزہ فصل کی مکمل صحت کی ضمانت نہیں دیتا۔ براہِ کرم انٹرنیٹ بحال ہونے پر دوبارہ اسکین کریں یا زرعی افسر سے رجوع کریں۔',
+        roman_ur: 'Cloud server se rabta nahi ho saka. Online hone par dobara scan karein ya zaria afsar ko dikhayein.',
+        sd: 'ڪلائوڊ سرور سان رابطو نه ٿي سگهيو. مهرباني ڪري وري آن لائن اسڪين ڪريو.',
       },
       scientific: {
-        en: 'Offline heuristic inference fallback was utilized. Deep visual feature extraction requires active API connectivity.',
-        ur: 'آف لائن فال بیک کا استعمال کیا گیا ہے۔ مکمل بافتی تجزیے کے لیے انٹرنیٹ کنکشن درکار ہے۔',
-        roman_ur: 'Offline fallback istemal hua hai.',
-        sd: 'آف لائن تجزيو استعمال ٿيو.',
+        en: 'Offline preliminary assessment only; Gemini Multimodal Vision server was not reached.',
+        ur: 'صرف ابتدائی آف لائن جائزہ؛ کلاؤڈ جیمنائی وژن سرور سے رابطہ نہیں ہو سکا۔',
+        roman_ur: 'Sirf ibtidai offline jaiza; Cloud Gemini Vision se rabta nahi ho saka.',
+        sd: 'صرف ابتدائي آف لائن جائزو؛ ڪلائوڊ ويزن تائين پهچ نه ٿي سگهي.',
       },
     },
     voice_script: {
-      en: 'Offline scan inconclusive. If your crop foliage has abnormal spots, please consult your local agriculture officer.',
-      ur: 'آف لائن معائنہ غیر حتمی ہے۔ اگر پتے پر مشتبہ دھبے ہیں تو مقامی زرعی افسر سے مشورہ فرمائیں۔',
-      roman_ur: 'Offline muaina ghair yaqeeni hai. Zaria afsar se mashwara karein.',
-      sd: 'آف لائن چڪاس غير حتمي آهي. زرعي آفيسر سان صلاح ڪريو.',
+      en: 'Offline scan inconclusive. Please retry cloud analysis when online or consult your local agriculture officer.',
+      ur: 'آف لائن معائنہ غیر حتمی ہے۔ براہِ کرم انٹرنیٹ بحال ہونے پر دوبارہ اسکین کریں یا مقامی زرعی افسر سے مشورہ کریں۔',
+      roman_ur: 'Offline muaina ghair yaqeeni hai. Online ho kar dobara scan karein.',
+      sd: 'آف لائن چڪاس غير حتمي آهي. آن لائن ٿي وري اسڪين ڪريو.',
     },
     requires_retake: false,
     requires_expert_review: true,
+    inspection_source: 'offline_assessment',
+    gemini_inspection_status: 'not_run',
+    scan_timestamp: new Date().toISOString(),
     message: {
-      en: 'Visual pathology analysis is inconclusive offline. Please connect your Gemini API key for complete diagnosis.',
-      ur: 'آف لائن تجزیہ غیر حتمی ہے۔ براہ کرم مکمل معائنے کے لیے جیمنائی کی کنیکٹ کریں۔',
-      roman_ur: 'Offline tajzia ghair yaqeeni hai. Mukammal muainay ke liye Gemini connect karein.',
-      sd: 'آف لائن چڪاس غير حتمي آهي. مڪمل چڪاس لاءِ جيمنائي ڪنيڪٽ ڪريو.',
+      en: 'Offline preliminary check is inconclusive. Retry online Gemini Vision scan for confirmed analysis.',
+      ur: 'آف لائن جائزہ غیر حتمی ہے۔ مکمل تشخیص کے لیے انٹرنیٹ کے ساتھ دوبارہ اسکین کریں۔',
+      roman_ur: 'Offline jaiza ghair yaqeeni hai. Mukammal tashkhees ke liye dobara scan karein.',
+      sd: 'آف لائن چڪاس غير حتمي آهي. مڪمل تشخيص لاءِ ٻيهر اسڪين ڪريو.',
     },
   };
 }

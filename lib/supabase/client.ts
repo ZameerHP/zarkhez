@@ -117,6 +117,7 @@ export interface SavedScan {
   label: string;
   confidence: number;
   advice: Advice;
+  cloudSynced?: boolean;
   created_at: string;
 }
 
@@ -809,14 +810,33 @@ export async function saveScanRecord(
   scan: Omit<SavedScan, 'id' | 'created_at'>
 ): Promise<SavedScan> {
   const existing = getSavedScans();
+  let cloudSynced = false;
   const record: SavedScan = {
     ...scan,
     id: `scan-${Date.now()}`,
+    cloudSynced: false,
     created_at: new Date().toISOString(),
   };
-  const updated = [record, ...existing].slice(0, 50);
+
   if (typeof window !== 'undefined') {
-    localStorage.setItem(KEYS.SCANS, JSON.stringify(updated));
+    const updated = [record, ...existing].slice(0, 50);
+    try {
+      localStorage.setItem(KEYS.SCANS, JSON.stringify(updated));
+    } catch {
+      // Storage quota exceeded: keep recent 15 scans, strip older heavy base64 thumbnails
+      try {
+        const trimmed = updated.slice(0, 15).map((item, idx) =>
+          idx === 0 ? item : { ...item, thumbnailDataUrl: '' }
+        );
+        localStorage.setItem(KEYS.SCANS, JSON.stringify(trimmed));
+      } catch {
+        // Last-resort: strip thumbnail on current record too so metadata still persists
+        localStorage.setItem(
+          KEYS.SCANS,
+          JSON.stringify([{ ...record, thumbnailDataUrl: '' }])
+        );
+      }
+    }
   }
 
   const supabase = getSupabaseClient();
@@ -828,15 +848,19 @@ export async function saveScanRecord(
       if (session?.user?.id) {
         const userId = session.user.id;
         const imagePath = `${userId}/${record.id}.jpg`;
-        if (scan.thumbnailDataUrl.startsWith('data:image')) {
-          const res = await fetch(scan.thumbnailDataUrl);
-          const blob = await res.blob();
-          await supabase.storage.from('scans').upload(imagePath, blob, {
-            contentType: 'image/jpeg',
-            upsert: true,
-          });
+        if (scan.thumbnailDataUrl && scan.thumbnailDataUrl.startsWith('data:image')) {
+          try {
+            const res = await fetch(scan.thumbnailDataUrl);
+            const blob = await res.blob();
+            await supabase.storage.from('scans').upload(imagePath, blob, {
+              contentType: 'image/jpeg',
+              upsert: true,
+            });
+          } catch (storageErr) {
+            console.warn('[Supabase Scans Storage] Thumbnail upload skipped:', storageErr);
+          }
         }
-        await supabase.from('scans').insert({
+        const { error: dbError } = await supabase.from('scans').insert({
           user_id: userId,
           field_id: scan.field_id || null,
           image_path: imagePath,
@@ -844,11 +868,19 @@ export async function saveScanRecord(
           confidence: scan.confidence,
           advice: scan.advice,
         });
+        if (dbError) {
+          console.warn('[Supabase Scans DB] Insert returned error:', dbError.message);
+          cloudSynced = false;
+        } else {
+          cloudSynced = true;
+        }
       }
-    } catch {
-      // ignore offline error
+    } catch (err) {
+      console.warn('[Supabase Scans] Cloud sync failed:', err);
     }
   }
+
+  record.cloudSynced = cloudSynced;
   return record;
 }
 

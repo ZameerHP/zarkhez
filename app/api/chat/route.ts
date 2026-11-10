@@ -6,6 +6,9 @@ import {
   streamGeminiChatResponse,
 } from '@/lib/gemini';
 
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   const ip =
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
