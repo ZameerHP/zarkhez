@@ -105,23 +105,15 @@ export default function AssistantPage() {
     });
 
     const personalWelcome =
-      locale === 'ur'
-        ? `Assalam o Alaikum! Main Zarkhez hoon — aap ki kheti ka mukhlis digital advisor. Fasal, pani, khad ya kisi bhi bimari ke baare mein aap yahan be-jhijhak pooch sakte hain.`
-        : locale === 'en'
-        ? `Assalam o Alaikum! I am Zarkhez, your personal farming advisor. Speak or type any question below about your crops, water, fertilizer, or plant diseases.`
-        : t('welcomeMsg');
-
-    const spokenWelcome =
       locale === 'en'
-        ? 'Assalam o Alaikum. I am Zarkhez, your farm advisor. Ask me by voice about your crops, water, fertilizer, or plant diseases.'
-        : 'السلام علیکم کسان بھائی۔ میں آپ کا زرعی مشیر ہوں۔ بتائیے آج کس فصل کے بارے میں مشورہ چاہیے؟';
+        ? 'Assalam o Alaikum! I am Zarkhez, your farm advisor. Ask any question below about your crops, water, fertilizer, or plant diseases.'
+        : 'السلام علیکم کسان بھائی! میں زرخیز ہوں، آپ کا زرعی مشیر۔ اپنی فصل، پانی، کھاد یا بیماری کے بارے میں جو چاہیں پوچھیں۔';
 
     setMessages([
       {
         id: 'welcome-turn',
         role: 'assistant',
         content: personalWelcome,
-        spokenContent: spokenWelcome,
         voiceLang: locale === 'en' ? 'en' : 'ur',
       },
     ]);
@@ -215,19 +207,19 @@ export default function AssistantPage() {
           spokenText?: string;
           language?: VoiceLang;
         };
-        const screenText = (dual.screenText || dual.spokenText || '').trim();
-        const spokenText = (dual.spokenText || screenText).trim();
+        // Keep ONE exact clean message on screen matching the spoken answer 1:1
+        const unifiedText = (dual.spokenText || dual.screenText || '').trim();
         const replyLang: VoiceLang = dual.language || voiceLang;
 
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantTurnId
-              ? { ...m, content: screenText, spokenContent: spokenText, voiceLang: replyLang }
+              ? { ...m, content: unifiedText, voiceLang: replyLang }
               : m
           )
         );
-        if (spokenText) {
-          speakAssistantReply(spokenText, replyLang);
+        if (unifiedText) {
+          speakAssistantReply(unifiedText, replyLang);
         } else {
           setVoicePhase('idle');
         }

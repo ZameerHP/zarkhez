@@ -239,14 +239,16 @@ async function synthesizeWithGeminiTts(params: {
   // in contents or the TTS engine will speak the prompt rules aloud.
   const ttsInputText = params.spokenText;
 
+  // Use gemini-3.1-flash-tts-preview first consistently across all languages (same female voice Aoede);
+  // keep 2.5-flash-preview-tts (ur/en) and 3.8 models cleanly ordered as fallback only.
   const modelsToTry =
     params.lang === 'sd'
-      ? ['gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts', 'gemini-3.1-flash-tts-preview']
+      ? ['gemini-3.1-flash-tts-preview', 'gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts']
       : [
-          'gemini-3.8-flash-lite-tts',
-          'gemini-3.8-flash-tts',
           'gemini-3.1-flash-tts-preview',
           'gemini-2.5-flash-preview-tts',
+          'gemini-3.8-flash-tts',
+          'gemini-3.8-flash-lite-tts',
         ];
 
   for (const model of modelsToTry) {

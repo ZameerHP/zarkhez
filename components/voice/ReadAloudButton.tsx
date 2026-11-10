@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Volume2, Square, Pause, Play, Turtle, Flag } from 'lucide-react';
+import { Volume2, Square, Pause, Play, Turtle } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   getSavedVoiceSpeed,
@@ -11,9 +11,7 @@ import {
   setSavedVoiceSpeed,
   speakText,
   stopSpeaking,
-  submitPronunciationReport,
   unlockAudio,
-  VoiceAudioMeta,
   VoiceLang,
   VoicePhase,
   VoiceSpeedMode,
@@ -43,12 +41,6 @@ export function ReadAloudButton({
   const [phase, setPhase] = useState<VoicePhase>('idle');
   const [speedMode, setSpeedMode] = useState<VoiceSpeedMode>('normal');
   const [voiceFailed, setVoiceFailed] = useState(false);
-  const [highlightIndex, setHighlightIndex] = useState(-1);
-  const [spokenWords, setSpokenWords] = useState<string[]>([]);
-  const [audioMeta, setAudioMeta] = useState<VoiceAudioMeta | null>(null);
-  const [showReportBox, setShowReportBox] = useState(false);
-  const [badWordInput, setBadWordInput] = useState('');
-  const [reportSent, setReportSent] = useState(false);
 
   useEffect(() => {
     setSpeedMode(getSavedVoiceSpeed());
@@ -61,7 +53,6 @@ export function ReadAloudButton({
     unlockAudio();
     setVoiceFailed(false);
     setPaused(false);
-    setReportSent(false);
 
     if (!text || !text.trim()) {
       setVoiceFailed(true);
@@ -78,11 +69,6 @@ export function ReadAloudButton({
       clipId,
       onPhaseChange: (p) => setPhase(p),
       onPauseChange: (isPaused) => setPaused(isPaused),
-      onMeta: (m) => setAudioMeta(m),
-      onWordHighlight: (idx, words) => {
-        setHighlightIndex(idx);
-        if (words.length > 0) setSpokenWords(words);
-      },
       onStart: () => {
         setSpeaking(true);
         setPaused(false);
@@ -90,13 +76,11 @@ export function ReadAloudButton({
       onEnd: () => {
         setSpeaking(false);
         setPaused(false);
-        setHighlightIndex(-1);
         setPhase('idle');
       },
       onError: () => {
         setSpeaking(false);
         setPaused(false);
-        setHighlightIndex(-1);
         setVoiceFailed(true);
         setPhase('error');
       },
@@ -108,7 +92,6 @@ export function ReadAloudButton({
       stopSpeaking();
       setSpeaking(false);
       setPaused(false);
-      setHighlightIndex(-1);
       setPhase('idle');
       return;
     }
@@ -127,23 +110,6 @@ export function ReadAloudButton({
     startPlayback('slow');
   };
 
-  const handleSendPronunciationFlag = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const word = badWordInput.trim() || spokenWords[highlightIndex] || text.slice(0, 40);
-    if (!word) return;
-    const ok = await submitPronunciationReport({
-      word,
-      lang: targetLang,
-      audioId: audioMeta?.audioId,
-      phrase: audioMeta?.spokenText || text.slice(0, 200),
-    });
-    if (ok) {
-      setReportSent(true);
-      setBadWordInput('');
-      setTimeout(() => setShowReportBox(false), 1600);
-    }
-  };
-
   const listenLabel =
     targetLang === 'sd'
       ? speaking
@@ -154,12 +120,12 @@ export function ReadAloudButton({
       : t('listen');
 
   return (
-    <div className="inline-flex flex-col items-start gap-1.5 max-w-full">
+    <div className="inline-flex flex-col items-start gap-1 max-w-full">
       <div className="flex flex-wrap items-center gap-1.5">
         <button
           type="button"
           onClick={handleToggle}
-          className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-full font-semibold text-sm transition-all active:scale-95 ${
+          className={`inline-flex items-center justify-center gap-2 min-h-[42px] px-4 py-2 rounded-full font-semibold text-sm transition-all active:scale-95 ${
             speaking
               ? 'bg-alert-amber text-ink shadow-soft'
               : 'bg-olive/12 text-olive-dark hover:bg-olive/20 border border-olive/25'
@@ -184,130 +150,57 @@ export function ReadAloudButton({
           )}
         </button>
 
-        {!compact && (
-          <>
-            {speaking && (
-              <button
-                type="button"
-                onClick={handlePauseResume}
-                className="min-h-[38px] px-3 rounded-full bg-white border border-olive/25 text-ink text-xs font-bold inline-flex items-center gap-1 hover:bg-olive/10"
-                title={paused ? 'Resume' : 'Pause'}
-              >
-                {paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-                <span>{paused ? (targetLang === 'en' ? 'Resume' : 'جاری') : (targetLang === 'en' ? 'Pause' : 'وقفہ')}</span>
-              </button>
-            )}
+        {!compact && speaking && (
+          <button
+            type="button"
+            onClick={handlePauseResume}
+            className="min-h-[38px] px-3 rounded-full bg-white border border-olive/25 text-ink text-xs font-bold inline-flex items-center gap-1 hover:bg-olive/10"
+            title={paused ? 'Resume' : 'Pause'}
+          >
+            {paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+            <span>
+              {paused
+                ? targetLang === 'en'
+                  ? 'Resume'
+                  : 'جاری'
+                : targetLang === 'en'
+                ? 'Pause'
+                : 'وقفہ'}
+            </span>
+          </button>
+        )}
 
-            <button
-              type="button"
-              onClick={handleRepeatSlowly}
-              className={`min-h-[38px] px-3 rounded-full border text-xs font-bold inline-flex items-center gap-1 transition-all ${
-                speedMode === 'slow' && speaking
-                  ? 'bg-olive text-white border-olive'
-                  : 'bg-white border-olive/25 text-ink/85 hover:bg-olive/10'
-              }`}
-              title="Repeat slowly (0.75x)"
-            >
-              <Turtle className="w-3.5 h-3.5" />
-              <span>
-                {targetLang === 'sd'
-                  ? 'آهستي ٻڌو'
-                  : targetLang === 'ur'
-                  ? 'آہستہ سنیں'
-                  : 'Repeat Slowly'}
-              </span>
-            </button>
-          </>
+        {!compact && (
+          <button
+            type="button"
+            onClick={handleRepeatSlowly}
+            className={`min-h-[38px] px-3 rounded-full border text-xs font-bold inline-flex items-center gap-1 transition-all ${
+              speedMode === 'slow' && speaking
+                ? 'bg-olive text-white border-olive'
+                : 'bg-white border-olive/25 text-ink/85 hover:bg-olive/10'
+            }`}
+            title="Repeat slowly"
+          >
+            <Turtle className="w-3.5 h-3.5" />
+            <span>
+              {targetLang === 'sd'
+                ? 'آهستي ٻڌو'
+                : targetLang === 'ur'
+                ? 'آہستہ سنیں'
+                : 'Slow'}
+            </span>
+          </button>
         )}
       </div>
 
-      {/* Live Highlighted Spoken Transcript */}
-      {speaking && spokenWords.length > 0 && !compact && (
-        <div
-          className="w-full rounded-2xl bg-olive/5 border border-olive/15 px-3 py-2 text-xs leading-relaxed text-ink/90"
-          dir={targetLang === 'en' ? 'ltr' : 'rtl'}
-        >
-          {spokenWords.map((w, idx) => (
-            <span
-              key={`${idx}-${w}`}
-              className={`inline-block me-1 px-1 rounded transition-colors ${
-                idx === highlightIndex
-                  ? 'bg-emerald-600 text-white font-bold'
-                  : idx < highlightIndex
-                  ? 'text-ink/50'
-                  : 'text-ink/85'
-              }`}
-            >
-              {w}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Wrong Pronunciation Feedback Trigger */}
-      {!compact && (audioMeta || voiceFailed) && (
-        <div className="flex flex-col gap-1 w-full">
-          <button
-            type="button"
-            onClick={() => setShowReportBox((v) => !v)}
-            className="text-[11px] font-semibold text-ink/60 hover:text-olive inline-flex items-center gap-1 self-start"
-          >
-            <Flag className="w-3 h-3" />
-            <span>
-              {targetLang === 'sd'
-                ? 'اچار غلط آهي؟ اسان کي ٻڌايو'
-                : targetLang === 'ur'
-                ? 'تلفظ غلط ہے؟ ہمیں بتائیں'
-                : 'Wrong pronunciation? Tell us'}
-            </span>
-          </button>
-
-          {showReportBox && (
-            <form
-              onSubmit={handleSendPronunciationFlag}
-              className="flex flex-wrap items-center gap-1.5 bg-white border border-olive/20 rounded-xl p-2"
-            >
-              <input
-                type="text"
-                value={badWordInput}
-                onChange={(e) => setBadWordInput(e.target.value)}
-                placeholder={
-                  targetLang === 'en'
-                    ? 'Which word sounded wrong?'
-                    : targetLang === 'sd'
-                    ? 'ڪهڙو لفظ غلط پڙهيو ويو؟'
-                    : 'کون سا لفظ غلط بولا گیا؟'
-                }
-                className="flex-1 min-w-[140px] text-xs px-2.5 py-1.5 rounded-lg bg-canvas border border-olive/20"
-              />
-              <button
-                type="submit"
-                className="px-3 py-1.5 rounded-lg bg-olive text-white text-xs font-bold"
-              >
-                {reportSent
-                  ? targetLang === 'en'
-                    ? 'Saved ✓'
-                    : 'محفوظ ✓'
-                  : targetLang === 'en'
-                  ? 'Send'
-                  : 'بھیجیں'}
-              </button>
-            </form>
-          )}
-        </div>
-      )}
-
       {voiceFailed && (
-        <div className="text-[11px] text-amber-900 bg-amber-50 px-2.5 py-1.5 rounded-xl border border-amber-200 max-w-md">
-          <span className="font-bold block">
-            {targetLang === 'sd'
-              ? 'هن وقت آواز نه هلي سگهيو، پر مڪمل لکيل ڄاڻ موجود آهي:'
-              : targetLang === 'ur'
-              ? 'اس وقت آواز نہیں چل سکی، لیکن تحریری معلومات موجود ہیں:'
-              : 'Audio unavailable right now; written details are shown:'}
-          </span>
-          {compact && <span className="block mt-0.5 text-ink/80">{text}</span>}
-        </div>
+        <span className="text-[11px] text-amber-800 ps-1">
+          {targetLang === 'sd'
+            ? 'آواز هن وقت مصروف آهي.'
+            : targetLang === 'ur'
+            ? 'آواز اس وقت مصروف ہے۔'
+            : 'Audio unavailable right now.'}
+        </span>
       )}
     </div>
   );

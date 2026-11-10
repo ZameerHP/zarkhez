@@ -415,9 +415,7 @@ export async function generateVoiceDualReply(
     return generateSpokenFallbackChatReply(lastUserMsg, voiceLang, farmerProfile);
   }
 
-  const model =
-    readEnvLocalValue(['GEMINI_MODEL_FAST', 'GEMINI_MODEL_DETAIL']) ||
-    'gemini-flash-lite-latest';
+  const model = 'gemini-3.5-flash-lite';
 
   const systemInstruction = buildVoiceAdvisorPrompt(voiceLang, farmerProfile);
   const geminiContents = messages.map((m) => ({
@@ -734,15 +732,16 @@ async function callGeminiApi({
   const envFast = readEnvLocalValue(['GEMINI_MODEL_FAST']);
   const envDetail = readEnvLocalValue(['GEMINI_MODEL_DETAIL']);
 
-  // Verified live high-availability Gemini Vision model priority list (max 4 tries within 45s budget)
+  // Verified live high-availability Gemini model priority list: put explicit caller model
+  // and fast 3.5-flash-lite ahead of -latest so transient 503 on -latest never slows chat down
   const modelsToTry = Array.from(
     new Set([
+      model,
+      'gemini-3.5-flash-lite',
+      'gemini-3-flash-preview',
+      'gemini-3.1-flash-lite-preview',
       envFast,
       envDetail,
-      model,
-      'gemini-flash-lite-latest',
-      'gemini-3.5-flash-lite',
-      'gemini-3.1-flash-lite',
     ])
   )
     .filter(Boolean)

@@ -556,73 +556,38 @@ export async function speakText(
       return;
     }
 
-    // Stream-like fast start: fetch first 2 short sentences together if <= 3 sentences,
-    // or pipeline chunk 0 immediately while prefetching chunk 1 for <1.5s first-audio start!
-    const sentences = normalized.sentences;
-    const chunks: string[] = [];
-    if (sentences.length <= 2) {
-      chunks.push(spokenText);
-    } else {
-      chunks.push(sentences[0]);
-      for (let i = 1; i < sentences.length; i += 2) {
-        chunks.push(sentences.slice(i, i + 2).join(' '));
-      }
-    }
-
+    // Fetch ONE seamless cohesive audio clip for the whole reply so the voice never splits or switches mid-answer
     const controller = new AbortController();
-    const firstTimeout = setTimeout(() => controller.abort(), 11000);
-    const firstResultPromise = fetchTtsBlob({
-      text: chunks[0],
+    const firstTimeout = setTimeout(() => controller.abort(), 14000);
+    const singleResult = await fetchTtsBlob({
+      text: spokenText.slice(0, 1100),
       lang,
       gender,
       speedMode,
-      clipId: chunks.length === 1 ? callbacks?.clipId : undefined,
+      clipId: callbacks?.clipId,
       signal: controller.signal,
     }).finally(() => clearTimeout(firstTimeout));
 
-    // Prefetch second chunk in parallel if multi-chunk
-    const remainingPromises = chunks.slice(1).map((c) =>
-      fetchTtsBlob({
-        text: c,
-        lang,
-        gender,
-        speedMode,
-      })
-    );
-
-    const firstResult = await firstResultPromise;
     if (sessionId !== currentVoiceSession) return;
 
-    if (!firstResult) {
+    if (!singleResult) {
       speakWithOfflineFallback(spokenText, lang, sessionId, speedMode, callbacks);
       return;
     }
 
-    if (chunks.length === 1) {
-      if (preloadedBlobs.size >= PRELOAD_CACHE_MAX) {
-        const firstKey = preloadedBlobs.keys().next().value;
-        if (firstKey) preloadedBlobs.delete(firstKey);
-      }
-      preloadedBlobs.set(preloadKey, firstResult);
+    if (preloadedBlobs.size >= PRELOAD_CACHE_MAX) {
+      const firstKey = preloadedBlobs.keys().next().value;
+      if (firstKey) preloadedBlobs.delete(firstKey);
     }
+    preloadedBlobs.set(preloadKey, singleResult);
 
-    const firstOk = await playBlobWithHighlight(firstResult.blob, {
-      ...firstResult.meta,
+    const playedOk = await playBlobWithHighlight(singleResult.blob, {
+      ...singleResult.meta,
       spokenText,
     });
-    if (!firstOk) {
+    if (!playedOk) {
       speakWithOfflineFallback(spokenText, lang, sessionId, speedMode, callbacks);
       return;
-    }
-
-    for (const p of remainingPromises) {
-      if (sessionId !== currentVoiceSession) return;
-      const chunkRes = await p;
-      if (!chunkRes || sessionId !== currentVoiceSession) break;
-      await playBlobWithHighlight(chunkRes.blob, {
-        ...chunkRes.meta,
-        spokenText,
-      });
     }
 
     if (sessionId === currentVoiceSession) {

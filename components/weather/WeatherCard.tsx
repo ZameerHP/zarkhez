@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   CloudSun,
   CloudRain,
@@ -16,7 +16,6 @@ import { useLocale, useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import { WeatherForecastResponse } from '@/lib/weather';
 import { ReadAloudButton } from '@/components/voice/ReadAloudButton';
-import { preloadSpeechAudio } from '@/lib/voice';
 
 interface WeatherCardProps {
   placeName: string;
@@ -76,12 +75,6 @@ export function WeatherCard({
       : `Today in ${cityLabel}, temperature is ${current.temperature}°C with ${current.humidity}% humidity. Wind speed is ${current.windSpeed} m/s and soil temperature is ${current.soilTemperature}°C. ${
           activeAlertText || 'Weather is favorable for normal farm work.'
         }`;
-
-  useEffect(() => {
-    if (weather && spokenSummary) {
-      void preloadSpeechAudio(spokenSummary, locale);
-    }
-  }, [weather, spokenSummary, locale]);
 
   if (loading && !weather) {
     return (
