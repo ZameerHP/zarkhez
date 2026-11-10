@@ -47,7 +47,7 @@ export const VOICE_PROFILES: Record<VoiceLang, Record<VoiceGender, VoiceProfileS
       id: 'ur-pk-female-calm',
       label: 'عظمیٰ — وقار اور اپنائیت بھرا لہجہ',
       gender: 'female',
-      geminiVoice: 'Aoede',
+      geminiVoice: 'Kore',
       azureVoice: 'ur-PK-UzmaNeural',
       elevenLabsDefaultVoice: 'EXAVITQu4vr4xnSDxMaL',
       toneInstruction:
@@ -243,59 +243,66 @@ async function synthesizeWithGeminiTts(params: {
   // keep 2.5-flash-preview-tts (ur/en) and 3.8 models cleanly ordered as fallback only.
   const modelsToTry =
     params.lang === 'sd'
-      ? ['gemini-3.1-flash-tts-preview', 'gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts']
+      ? ['gemini-3.1-flash-tts-preview', 'gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts']
       : [
           'gemini-3.1-flash-tts-preview',
           'gemini-2.5-flash-preview-tts',
-          'gemini-3.8-flash-tts',
           'gemini-3.8-flash-lite-tts',
+          'gemini-3.8-flash-tts',
         ];
 
+  const geminiLangCode =
+    params.lang === 'ur' ? 'ur-PK' : params.lang === 'en' ? 'en-US' : undefined;
+
   for (const model of modelsToTry) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: ttsInputText }] }],
-            generationConfig: {
-              responseModalities: ['AUDIO'],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: { voiceName: params.profile.geminiVoice },
+    for (const includeLangCode of geminiLangCode ? [true, false] : [false]) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: ttsInputText }] }],
+              generationConfig: {
+                responseModalities: ['AUDIO'],
+                speechConfig: {
+                  ...(includeLangCode && geminiLangCode ? { languageCode: geminiLangCode } : {}),
+                  voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: params.profile.geminiVoice },
+                  },
                 },
               },
-            },
-          }),
-          signal: AbortSignal.timeout(12000),
+            }),
+            signal: AbortSignal.timeout(16000),
+          }
+        );
+
+        if (!res.ok) {
+          if (res.status === 400 && includeLangCode) continue;
+          if (res.status === 401 || res.status === 403) return null;
+          break;
         }
-      );
 
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) break;
-        continue;
+        const data = await res.json();
+        const parts = (data?.candidates?.[0]?.content?.parts || []) as Array<{
+          inlineData?: { mimeType?: string; data?: string };
+        }>;
+        const audioPart = parts.find((p) => Boolean(p.inlineData?.data))?.inlineData;
+        if (!audioPart?.data) break;
+
+        const rawBytes = new Uint8Array(Buffer.from(audioPart.data, 'base64'));
+        const mime = (audioPart.mimeType || '').toLowerCase();
+        if (mime.includes('wav') || (rawBytes[0] === 0x52 && rawBytes[1] === 0x49)) {
+          return { buffer: rawBytes, contentType: 'audio/wav' };
+        }
+        // PCM audio/L16;rate=24000 -> wrap as standard playable WAV
+        const rateMatch = mime.match(/rate=(\d+)/);
+        const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000;
+        return { buffer: wrapPcmAsWav(rawBytes, sampleRate, 1), contentType: 'audio/wav' };
+      } catch {
+        break;
       }
-
-      const data = await res.json();
-      const parts = (data?.candidates?.[0]?.content?.parts || []) as Array<{
-        inlineData?: { mimeType?: string; data?: string };
-      }>;
-      const audioPart = parts.find((p) => Boolean(p.inlineData?.data))?.inlineData;
-      if (!audioPart?.data) continue;
-
-      const rawBytes = new Uint8Array(Buffer.from(audioPart.data, 'base64'));
-      const mime = (audioPart.mimeType || '').toLowerCase();
-      if (mime.includes('wav') || (rawBytes[0] === 0x52 && rawBytes[1] === 0x49)) {
-        return { buffer: rawBytes, contentType: 'audio/wav' };
-      }
-      // PCM audio/L16;rate=24000 -> wrap as standard playable WAV
-      const rateMatch = mime.match(/rate=(\d+)/);
-      const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000;
-      return { buffer: wrapPcmAsWav(rawBytes, sampleRate, 1), contentType: 'audio/wav' };
-    } catch {
-      // try next Gemini TTS candidate
     }
   }
   return null;
@@ -313,34 +320,47 @@ async function synthesizeWithElevenLabs(params: {
   const envVoiceKey = `ELEVENLABS_VOICE_${params.lang.toUpperCase()}_${params.profile.gender.toUpperCase()}`;
   const voiceId = process.env[envVoiceKey]?.trim() || params.profile.elevenLabsDefaultVoice;
 
-  try {
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-      method: 'POST',
-      headers: {
-        'xi-api-key': apiKey,
-        'Content-Type': 'application/json',
-        Accept: 'audio/mpeg',
-      },
-      body: JSON.stringify({
+  const elevenUrl = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
+  const attempts: Array<{ includeSpeed: boolean }> =
+    params.speedRate !== 1.0 ? [{ includeSpeed: true }, { includeSpeed: false }] : [{ includeSpeed: false }];
+
+  for (const opt of attempts) {
+    try {
+      const bodyPayload: Record<string, unknown> = {
         text: params.spokenText,
         model_id: 'eleven_v3',
         language_code: params.lang,
         voice_settings: {
-          stability: 0.62,
-          similarity_boost: 0.78,
-          speed: params.speedRate,
+          stability: 0.5,
+          similarity_boost: 0.8,
+          use_speaker_boost: true,
         },
-      }),
-      signal: AbortSignal.timeout(12000),
-    });
+        ...(opt.includeSpeed ? { speed: Math.min(1.15, Math.max(0.7, params.speedRate)) } : {}),
+      };
 
-    if (!res.ok) return null;
-    const buf = await res.arrayBuffer();
-    if (buf.byteLength < 128) return null;
-    return { buffer: new Uint8Array(buf), contentType: 'audio/mpeg' };
-  } catch {
-    return null;
+      const res = await fetch(elevenUrl, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': apiKey,
+          'Content-Type': 'application/json',
+          Accept: 'audio/mpeg',
+        },
+        body: JSON.stringify(bodyPayload),
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (!res.ok) {
+        if ((res.status === 400 || res.status === 422) && opt.includeSpeed) continue;
+        return null;
+      }
+      const buf = await res.arrayBuffer();
+      if (buf.byteLength < 128) return null;
+      return { buffer: new Uint8Array(buf), contentType: 'audio/mpeg' };
+    } catch {
+      return null;
+    }
   }
+  return null;
 }
 
 async function synthesizeWithAzureNeural(params: {

@@ -386,6 +386,90 @@
       "ipaUr": "zəɾˈxeːz",
       "ipaSd": "zəɾˈxeːz",
       "needs_native_review": true
+    },
+    {
+      "id": "fert_npk",
+      "term": "NPK",
+      "aliases": ["npk", "N.P.K"],
+      "category": "fertilizer",
+      "spokenUr": "این پی کے",
+      "spokenSd": "اين پي ڪي",
+      "spokenEn": "N P K",
+      "ipaUr": "ɛn piː keː",
+      "ipaSd": "ɛn piː keː",
+      "needs_native_review": false
+    },
+    {
+      "id": "fert_sop",
+      "term": "SOP",
+      "aliases": ["S.O.P"],
+      "category": "fertilizer",
+      "spokenUr": "ایس او پی پوٹاش",
+      "spokenSd": "ايس او پي پوٽاش",
+      "spokenEn": "S O P potash",
+      "ipaUr": "ɛs oː piː",
+      "ipaSd": "ɛs oː piː",
+      "needs_native_review": false
+    },
+    {
+      "id": "fert_mop",
+      "term": "MOP",
+      "aliases": ["M.O.P"],
+      "category": "fertilizer",
+      "spokenUr": "ایم او پی پوٹاش",
+      "spokenSd": "ايم او پي پوٽاش",
+      "spokenEn": "M O P potash",
+      "ipaUr": "ɛm oː piː",
+      "ipaSd": "ɛm oː piː",
+      "needs_native_review": false
+    },
+    {
+      "id": "chem_ph",
+      "term": "pH",
+      "aliases": ["ph"],
+      "category": "farming",
+      "spokenUr": "پی ایچ",
+      "spokenSd": "پي ايڇ",
+      "spokenEn": "P H",
+      "ipaUr": "piː eːtʃ",
+      "ipaSd": "piː eːtʃ",
+      "needs_native_review": false
+    },
+    {
+      "id": "fert_ssp",
+      "term": "SSP",
+      "aliases": ["S.S.P"],
+      "category": "fertilizer",
+      "spokenUr": "ایس ایس پی فاسفیٹ",
+      "spokenSd": "ايس ايس پي فاسفيٽ",
+      "spokenEn": "S S P phosphate",
+      "ipaUr": "ɛs ɛs piː",
+      "ipaSd": "ɛs ɛs piː",
+      "needs_native_review": false
+    },
+    {
+      "id": "fert_can",
+      "term": "CAN",
+      "aliases": ["calcium ammonium nitrate"],
+      "category": "fertilizer",
+      "spokenUr": "گوارہ کھاد",
+      "spokenSd": "گوارا ڀاڻ",
+      "spokenEn": "calcium ammonium nitrate",
+      "ipaUr": "ɡəwɑːɾɑː",
+      "ipaSd": "ɡəwɑːɾɑː",
+      "needs_native_review": false
+    },
+    {
+      "id": "disease_clcuv",
+      "term": "CLCuV",
+      "aliases": ["clcuv"],
+      "category": "farming",
+      "spokenUr": "پتہ مروڑ وائرس",
+      "spokenSd": "پن موڙ وائرس",
+      "spokenEn": "Cotton Leaf Curl Virus",
+      "ipaUr": "pət̪ːɑː məɾoːɽ",
+      "ipaSd": "pən moːɽ",
+      "needs_native_review": false
     }
   ]
 }

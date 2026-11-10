@@ -40,6 +40,7 @@ import {
   FarmField,
   getSavedFields,
   getSavedProfile,
+  restorePersistentSession,
   saveProfile,
   syncSupabaseAuthSession,
 } from '@/lib/supabase/client';
@@ -101,6 +102,13 @@ export default function HomePage() {
     setProfile(savedProfile);
     setFields(getSavedFields());
     setNewFieldDate(new Date().toISOString().slice(0, 10));
+
+    restorePersistentSession().then((restored) => {
+      if (restored) {
+        setProfile(restored);
+        setFields(getSavedFields());
+      }
+    });
 
     syncSupabaseAuthSession().then((synced) => {
       if (synced) {

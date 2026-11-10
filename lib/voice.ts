@@ -75,10 +75,52 @@ export interface SpeakCallbacks {
 }
 
 const PRELOAD_CACHE_MAX = 40;
+const VOICE_PERSISTENT_CACHE_NAME = 'zarkhez-tts-v1';
 const preloadedBlobs = new Map<
   string,
   { blob: Blob; meta: VoiceAudioMeta }
 >();
+
+async function readPersistentAudioCache(
+  key: string
+): Promise<{ blob: Blob; meta: VoiceAudioMeta } | null> {
+  if (typeof window === 'undefined' || !('caches' in window)) return null;
+  try {
+    const cache = await caches.open(VOICE_PERSISTENT_CACHE_NAME);
+    const cacheUrl = `/__voice_cache__/${encodeURIComponent(key)}`;
+    const matched = await cache.match(cacheUrl);
+    if (!matched) return null;
+    const blob = await matched.blob();
+    if (!blob || blob.size < 128) return null;
+    const metaHeader = matched.headers.get('X-Voice-Meta');
+    const parsedMeta: VoiceAudioMeta = metaHeader
+      ? JSON.parse(decodeURIComponent(metaHeader))
+      : { audioId: key, provider: 'cache', locale: 'ur-PK', cacheStatus: 'hit', spokenText: '' };
+    return { blob, meta: { ...parsedMeta, cacheStatus: 'hit' } };
+  } catch {
+    return null;
+  }
+}
+
+async function writePersistentAudioCache(
+  key: string,
+  entry: { blob: Blob; meta: VoiceAudioMeta }
+): Promise<void> {
+  if (typeof window === 'undefined' || !('caches' in window)) return;
+  try {
+    const cache = await caches.open(VOICE_PERSISTENT_CACHE_NAME);
+    const cacheUrl = `/__voice_cache__/${encodeURIComponent(key)}`;
+    const resp = new Response(entry.blob, {
+      headers: {
+        'Content-Type': entry.blob.type || 'audio/wav',
+        'X-Voice-Meta': encodeURIComponent(JSON.stringify(entry.meta)),
+      },
+    });
+    await cache.put(cacheUrl, resp);
+  } catch {
+    // ignore storage quota errors cleanly
+  }
+}
 
 let sharedAudio: HTMLAudioElement | null = null;
 let activeObjectUrl: string | null = null;
@@ -341,12 +383,14 @@ function speakWithOfflineFallback(
         voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('ur-pk')) ||
         voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('ur')) ||
         null;
-      if (urduVoice) {
-        utterance.voice = urduVoice;
-        utterance.lang = urduVoice.lang;
-      } else {
-        utterance.lang = 'ur-PK';
+      if (!urduVoice) {
+        // NEVER push Urdu Unicode script into a non-Urdu English OS voice (causes unintelligible gibberish)
+        callbacks?.onPhaseChange?.('error');
+        callbacks?.onError?.();
+        return;
       }
+      utterance.voice = urduVoice;
+      utterance.lang = urduVoice.lang;
     } else {
       const enVoice =
         voices.find((v) => v.lang.toLowerCase().startsWith('en') && v.name.includes('Natural')) ||
@@ -476,6 +520,11 @@ export async function speakText(
     activeObjectUrl = objUrl;
     audio.volume = 1;
     audio.playbackRate = targetRate <= 0.8 ? 0.85 : 1.0;
+    try {
+      (audio as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = true;
+    } catch {
+      // ignore on older browsers
+    }
 
     return new Promise<boolean>((resolve) => {
       let resolved = false;
@@ -543,8 +592,13 @@ export async function speakText(
   };
 
   try {
-    if (cachedEntry) {
-      const ok = await playBlobWithHighlight(cachedEntry.blob, cachedEntry.meta);
+    const persistentHit = cachedEntry || (await readPersistentAudioCache(preloadKey));
+    if (persistentHit) {
+      if (!cachedEntry) preloadedBlobs.set(preloadKey, persistentHit);
+      const ok = await playBlobWithHighlight(persistentHit.blob, {
+        ...persistentHit.meta,
+        spokenText,
+      });
       if (sessionId === currentVoiceSession) {
         if (ok) {
           callbacks?.onPhaseChange?.('idle');
@@ -558,7 +612,7 @@ export async function speakText(
 
     // Fetch ONE seamless cohesive audio clip for the whole reply so the voice never splits or switches mid-answer
     const controller = new AbortController();
-    const firstTimeout = setTimeout(() => controller.abort(), 14000);
+    const firstTimeout = setTimeout(() => controller.abort(), 24000);
     const singleResult = await fetchTtsBlob({
       text: spokenText.slice(0, 1100),
       lang,
@@ -580,6 +634,7 @@ export async function speakText(
       if (firstKey) preloadedBlobs.delete(firstKey);
     }
     preloadedBlobs.set(preloadKey, singleResult);
+    writePersistentAudioCache(preloadKey, singleResult);
 
     const playedOk = await playBlobWithHighlight(singleResult.blob, {
       ...singleResult.meta,

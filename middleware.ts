@@ -18,25 +18,42 @@ const PROTECTED_ROUTES = [
 ];
 
 export default function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const { pathname, searchParams } = req.nextUrl;
 
   // Let next-intl handle internationalization routing first
   const response = intlMiddleware(req);
+  const authCookie = req.cookies.get('zarkhez_auth')?.value;
+  const matchLocale = pathname.match(/^\/(en|ur)(?:\/|$)/);
+  const locale = matchLocale ? matchLocale[1] : 'ur';
+
+  // Returning authenticated farmers opening root welcome URL enter /home automatically (zero repeat login)
+  const isRootWelcome =
+    pathname === '/' ||
+    pathname === '/ur' ||
+    pathname === '/en' ||
+    pathname === '/ur/' ||
+    pathname === '/en/';
+
+  if (
+    isRootWelcome &&
+    authCookie === '1' &&
+    !searchParams.has('switch') &&
+    !searchParams.has('logout')
+  ) {
+    return NextResponse.redirect(new URL(`/${locale}/home`, req.url));
+  }
 
   // Check if target is an inner protected interface route
   const isProtected = PROTECTED_ROUTES.some((route) =>
     pathname.includes(route)
   );
 
-  if (isProtected) {
-    const authCookie = req.cookies.get('zarkhez_auth')?.value;
-    // If not authenticated, NEVER show inner interface - redirect to Welcome/Login/Signup
-    if (authCookie !== '1') {
-      const matchLocale = pathname.match(/^\/(en|ur)/);
-      const locale = matchLocale ? matchLocale[1] : 'ur';
-      const redirectUrl = new URL(`/${locale}`, req.url);
-      return NextResponse.redirect(redirectUrl);
-    }
+  // Allow Supabase OAuth return (?code=...) so client exchanges code and sets cookie cleanly
+  const isOAuthReturn = searchParams.has('code');
+
+  if (isProtected && authCookie !== '1' && !isOAuthReturn) {
+    const redirectUrl = new URL(`/${locale}`, req.url);
+    return NextResponse.redirect(redirectUrl);
   }
 
   return response;

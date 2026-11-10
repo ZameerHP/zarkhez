@@ -3,7 +3,12 @@
 import React, { useEffect, useState } from 'react';
 import { useLocale } from 'next-intl';
 import { usePathname, useRouter } from '@/i18n/routing';
-import { getSavedProfile, FarmerProfile } from '@/lib/supabase/client';
+import {
+  getSavedProfile,
+  FarmerProfile,
+  restorePersistentSession,
+  syncSupabaseAuthSession,
+} from '@/lib/supabase/client';
 
 export function isUserAuthenticated(profile?: FarmerProfile): boolean {
   const p = profile || (typeof window !== 'undefined' ? getSavedProfile() : null);
@@ -42,29 +47,58 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    let active = true;
+
     if (isPublicWelcomeRoute) {
       setAuthorized(true);
-      return;
+      return () => {
+        active = false;
+      };
     }
 
-    const profile = getSavedProfile();
-    const authed = isUserAuthenticated(profile);
+    const verifySession = async () => {
+      const localProfile = getSavedProfile();
+      if (isUserAuthenticated(localProfile)) {
+        if (typeof document !== 'undefined') {
+          document.cookie = 'zarkhez_auth=1; path=/; max-age=31536000; SameSite=Lax';
+        }
+        if (active) setAuthorized(true);
+        return;
+      }
 
-    if (!authed) {
-      // Clear any invalid cookie
+      // Recover session seamlessly from IndexedDB durable mirror or Supabase OAuth before logging out
+      const restored = await restorePersistentSession();
+      if (restored && isUserAuthenticated(restored)) {
+        if (typeof document !== 'undefined') {
+          document.cookie = 'zarkhez_auth=1; path=/; max-age=31536000; SameSite=Lax';
+        }
+        if (active) setAuthorized(true);
+        return;
+      }
+
+      const synced = await syncSupabaseAuthSession();
+      if (synced && isUserAuthenticated(synced)) {
+        if (typeof document !== 'undefined') {
+          document.cookie = 'zarkhez_auth=1; path=/; max-age=31536000; SameSite=Lax';
+        }
+        if (active) setAuthorized(true);
+        return;
+      }
+
       if (typeof document !== 'undefined') {
         document.cookie = 'zarkhez_auth=; path=/; max-age=0; SameSite=Lax';
       }
-      setAuthorized(false);
-      // Hard redirect to Welcome / Login / Signup page
-      router.replace('/');
-    } else {
-      // Keep auth cookie in sync for middleware protection
-      if (typeof document !== 'undefined') {
-        document.cookie = 'zarkhez_auth=1; path=/; max-age=31536000; SameSite=Lax';
+      if (active) {
+        setAuthorized(false);
+        router.replace('/');
       }
-      setAuthorized(true);
-    }
+    };
+
+    void verifySession();
+
+    return () => {
+      active = false;
+    };
   }, [pathname, isPublicWelcomeRoute, locale, router]);
 
   // If this is the public Welcome / Login / Sign Up page, render immediately

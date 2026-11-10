@@ -26,6 +26,7 @@ import {
   FarmerProfile,
   generateFarmerPersonaId,
   getSavedProfile,
+  restorePersistentSession,
   saveProfile,
   signOutFarmer,
   syncSupabaseAuthSession,
@@ -86,6 +87,12 @@ export default function ProfilePage() {
   useEffect(() => {
     const p = getSavedProfile();
     hydrateFieldsFromProfile(p);
+
+    restorePersistentSession().then((restored) => {
+      if (restored) {
+        hydrateFieldsFromProfile(restored);
+      }
+    });
 
     syncSupabaseAuthSession().then((synced) => {
       if (synced) {

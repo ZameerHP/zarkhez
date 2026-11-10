@@ -24,6 +24,8 @@ import {
   generateFarmerPersonaId,
   getSavedProfile,
   isEmailRegistered,
+  restoreAccountByEmail,
+  restorePersistentSession,
   saveProfile,
   signInGuestAnonymously,
   syncSupabaseAuthSession,
@@ -68,11 +70,23 @@ export default function WelcomePage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
+    const wantsSwitch =
+      typeof window !== 'undefined' &&
+      (window.location.search.includes('switch=1') || window.location.search.includes('logout=1'));
+
     const existing = getSavedProfile();
-    if (existing.isAuthenticated && existing.email) {
+    if (
+      existing.isAuthenticated &&
+      existing.email &&
+      existing.authProvider !== 'anonymous'
+    ) {
       setSavedUser(existing);
       setEmailInput(existing.email);
       setNameInput(existing.fullName);
+      if (!wantsSwitch) {
+        router.replace('/home');
+        return;
+      }
     }
 
     // Auto-detect user district via edge IP geocode header
@@ -86,12 +100,24 @@ export default function WelcomePage() {
       })
       .catch(() => {});
 
+    restorePersistentSession().then((restored) => {
+      if (restored && restored.isAuthenticated) {
+        setSavedUser(restored);
+        if (!wantsSwitch) {
+          router.replace('/home');
+        }
+      }
+    });
+
     syncSupabaseAuthSession().then((synced) => {
       if (synced && synced.isAuthenticated) {
         setSavedUser(synced);
+        if (!wantsSwitch) {
+          router.replace('/home');
+        }
       }
     });
-  }, []);
+  }, [router]);
 
   const switchLanguage = (nextLocale: 'ur' | 'en') => {
     if (nextLocale === locale) return;
@@ -107,20 +133,37 @@ export default function WelcomePage() {
     if (activeClientId) {
       try {
         const realUser: RealGoogleUserInfo = await launchRealGoogleAccountChooser(activeClientId);
-        const existing = findRegisteredAccount(realUser.email) || getSavedProfile();
-        const farmerId = existing.farmerId || generateFarmerPersonaId(realUser.email);
+        const restoredVault = await restoreAccountByEmail(realUser.email);
+        const current = getSavedProfile();
+        const sameEmailExisting =
+          restoredVault ||
+          (current.email?.toLowerCase() === realUser.email.toLowerCase() ? current : null);
+
+        const farmerId = sameEmailExisting?.farmerId || generateFarmerPersonaId(realUser.email);
+        const hasSavedName =
+          sameEmailExisting?.fullName &&
+          !['guest farmer', 'مہمان کسان', 'farmer', 'کسان بھائی'].includes(
+            sameEmailExisting.fullName.trim().toLowerCase()
+          );
+
         const updated = await saveProfile({
+          ...(sameEmailExisting || {}),
           farmerId,
-          fullName: realUser.name || realUser.email.split('@')[0],
+          fullName: hasSavedName
+            ? sameEmailExisting!.fullName
+            : realUser.name || realUser.email.split('@')[0],
           email: realUser.email,
-          avatarUrl: realUser.picture || deriveGoogleIdentityFromEmail(realUser.email).avatarUrl,
-          placeName: selectedDistrict.name,
-          district: selectedDistrict.name.split(',')[0].trim(),
-          lat: selectedDistrict.lat,
-          lon: selectedDistrict.lon,
+          avatarUrl:
+            sameEmailExisting?.avatarUrl ||
+            realUser.picture ||
+            deriveGoogleIdentityFromEmail(realUser.email).avatarUrl,
+          placeName: sameEmailExisting?.placeName || selectedDistrict.name,
+          district: sameEmailExisting?.district || selectedDistrict.name.split(',')[0].trim(),
+          lat: sameEmailExisting?.lat || selectedDistrict.lat,
+          lon: sameEmailExisting?.lon || selectedDistrict.lon,
           authProvider: 'google',
           isAuthenticated: true,
-          language: locale,
+          language: sameEmailExisting?.language || locale,
         });
 
         if (!updated.onboardingDone) {
@@ -136,6 +179,11 @@ export default function WelcomePage() {
 
     const res = await triggerSupabaseGoogleOAuth(`/${locale}/home`);
     if (!res.startedRedirect) {
+      setOauthError(
+        locale === 'ur'
+          ? 'گوگل ونڈو دستیاب نہیں؛ براہِ کرم نیچے اپنا ای میل درج کر کے فوراً داخل ہوں۔'
+          : 'Google sign-in popup unavailable here — please enter your email below to continue straight in.'
+      );
       setSubmitting(false);
     }
   };
@@ -152,7 +200,8 @@ export default function WelcomePage() {
     setOauthError(null);
     setAccountNotFoundError(false);
 
-    const existing = findRegisteredAccount(cleanEmail);
+    const restoredVault = await restoreAccountByEmail(cleanEmail);
+    const existing = restoredVault || findRegisteredAccount(cleanEmail);
 
     if (authMode === 'login' && !existing && !isEmailRegistered(cleanEmail)) {
       setAccountNotFoundError(true);
@@ -166,20 +215,24 @@ export default function WelcomePage() {
     }
 
     const identity = deriveGoogleIdentityFromEmail(cleanEmail, nameInput.trim());
-    const profile = existing || getSavedProfile();
+    const current = getSavedProfile();
+    const profile =
+      existing ||
+      (current.email?.toLowerCase() === cleanEmail.toLowerCase() ? current : null);
 
     const updated = await saveProfile({
-      farmerId: profile.farmerId || identity.farmerId,
-      fullName: nameInput.trim() || profile.fullName || identity.fullName,
+      ...(profile || {}),
+      farmerId: profile?.farmerId || identity.farmerId,
+      fullName: nameInput.trim() || profile?.fullName || identity.fullName,
       email: cleanEmail,
-      avatarUrl: profile.avatarUrl || identity.avatarUrl,
-      placeName: selectedDistrict.name,
-      district: selectedDistrict.name.split(',')[0].trim(),
-      lat: selectedDistrict.lat,
-      lon: selectedDistrict.lon,
+      avatarUrl: profile?.avatarUrl || identity.avatarUrl,
+      placeName: profile?.placeName || selectedDistrict.name,
+      district: profile?.district || selectedDistrict.name.split(',')[0].trim(),
+      lat: profile?.lat || selectedDistrict.lat,
+      lon: profile?.lon || selectedDistrict.lon,
       authProvider: 'google',
       isAuthenticated: true,
-      language: locale,
+      language: profile?.language || locale,
     });
 
     setSubmitting(false);

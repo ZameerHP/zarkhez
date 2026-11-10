@@ -29,7 +29,9 @@ import {
   DiaryEntry,
   getDiaryEntries,
   getSavedScans,
+  restorePersistentSession,
   SavedScan,
+  syncSupabaseAuthSession,
 } from '@/lib/supabase/client';
 
 /**
@@ -60,6 +62,20 @@ export default function DiaryPage() {
   useEffect(() => {
     setEntries(getDiaryEntries());
     setScans(getSavedScans());
+
+    restorePersistentSession().then((restored) => {
+      if (restored) {
+        setEntries(getDiaryEntries());
+        setScans(getSavedScans());
+      }
+    });
+
+    syncSupabaseAuthSession().then((synced) => {
+      if (synced) {
+        setEntries(getDiaryEntries());
+        setScans(getSavedScans());
+      }
+    });
   }, []);
 
   const totalIncome = entries

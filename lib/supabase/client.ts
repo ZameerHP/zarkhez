@@ -175,7 +175,205 @@ const KEYS = {
   SCANS: 'zarkhez_real_scans_v2',
   DIARY: 'zarkhez_real_diary_v2',
   REGISTERED_ACCOUNTS: 'zarkhez_registered_accounts_v2',
+  VAULT_PREFIX: 'zarkhez_account_vault_v1:',
 };
+
+const IDB_NAME = 'zarkhez_durable_db_v1';
+const IDB_STORE = 'kv';
+
+interface AccountVaultSnapshot {
+  profile: FarmerProfile;
+  fields: FarmField[];
+  scans: SavedScan[];
+  diary: DiaryEntry[];
+  updatedAt: string;
+}
+
+function openDurableDb(): Promise<IDBDatabase | null> {
+  if (typeof window === 'undefined' || !('indexedDB' in window)) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    try {
+      const req = window.indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function idbGet<T>(key: string): Promise<T | null> {
+  const db = await openDurableDb();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve((req.result as T) ?? null);
+      req.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function idbSet(key: string, value: unknown): Promise<void> {
+  const db = await openDurableDb();
+  if (!db) return;
+  await new Promise<void>((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+}
+
+async function idbDelete(key: string): Promise<void> {
+  const db = await openDurableDb();
+  if (!db) return;
+  await new Promise<void>((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+}
+
+function setAuthCookie(active: boolean): void {
+  if (typeof document === 'undefined') return;
+  document.cookie = active
+    ? 'zarkhez_auth=1; path=/; max-age=31536000; SameSite=Lax'
+    : 'zarkhez_auth=; path=/; max-age=0; SameSite=Lax';
+}
+
+function writeEmailVaultSnapshot(profile: FarmerProfile): void {
+  if (typeof window === 'undefined') return;
+  const cleanEmail = (profile.email || '').trim().toLowerCase();
+  if (!cleanEmail || !profile.isAuthenticated || profile.authProvider === 'anonymous') return;
+
+  const snapshot: AccountVaultSnapshot = {
+    profile,
+    fields: getSavedFields(),
+    scans: getSavedScans(),
+    diary: getDiaryEntries(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    localStorage.setItem(`${KEYS.VAULT_PREFIX}${cleanEmail}`, JSON.stringify(snapshot));
+  } catch {
+    // Fallback without heavy scan thumbnails if localStorage is near quota
+    try {
+      localStorage.setItem(
+        `${KEYS.VAULT_PREFIX}${cleanEmail}`,
+        JSON.stringify({
+          ...snapshot,
+          scans: snapshot.scans.map((s) => ({ ...s, thumbnailDataUrl: '' })),
+        })
+      );
+    } catch {
+      // ignore localStorage limit cleanly; IndexedDB still stores full snapshot
+    }
+  }
+
+  void idbSet('active_session', snapshot);
+  void idbSet(`vault:${cleanEmail}`, snapshot);
+}
+
+export async function restoreAccountByEmail(rawEmail: string): Promise<FarmerProfile | null> {
+  if (typeof window === 'undefined') return null;
+  const cleanEmail = (rawEmail || '').trim().toLowerCase();
+  if (!cleanEmail) return null;
+
+  let snapshot: AccountVaultSnapshot | null = null;
+  try {
+    const raw = localStorage.getItem(`${KEYS.VAULT_PREFIX}${cleanEmail}`);
+    if (raw) snapshot = JSON.parse(raw) as AccountVaultSnapshot;
+  } catch {
+    // ignore
+  }
+  if (!snapshot) {
+    snapshot = await idbGet<AccountVaultSnapshot>(`vault:${cleanEmail}`);
+  }
+
+  if (snapshot?.profile?.email) {
+    try {
+      localStorage.setItem(KEYS.PROFILE, JSON.stringify(snapshot.profile));
+      if (Array.isArray(snapshot.fields)) {
+        localStorage.setItem(KEYS.FIELDS, JSON.stringify(snapshot.fields));
+      }
+      if (Array.isArray(snapshot.scans)) {
+        localStorage.setItem(KEYS.SCANS, JSON.stringify(snapshot.scans));
+      }
+      if (Array.isArray(snapshot.diary)) {
+        localStorage.setItem(KEYS.DIARY, JSON.stringify(snapshot.diary));
+      }
+    } catch {
+      // ignore
+    }
+    setAuthCookie(true);
+    return snapshot.profile;
+  }
+
+  return findRegisteredAccount(cleanEmail);
+}
+
+export async function restorePersistentSession(): Promise<FarmerProfile | null> {
+  if (typeof window === 'undefined') return null;
+  const current = getSavedProfile();
+  if (
+    current.isAuthenticated &&
+    current.email &&
+    current.authProvider !== 'anonymous' &&
+    current.authProvider !== 'none'
+  ) {
+    setAuthCookie(true);
+    writeEmailVaultSnapshot(current);
+    return current;
+  }
+
+  const snapshot = await idbGet<AccountVaultSnapshot>('active_session');
+  if (
+    snapshot?.profile?.isAuthenticated &&
+    snapshot.profile.email &&
+    snapshot.profile.authProvider !== 'anonymous'
+  ) {
+    try {
+      localStorage.setItem(KEYS.PROFILE, JSON.stringify(snapshot.profile));
+      if (Array.isArray(snapshot.fields) && getSavedFields().length === 0) {
+        localStorage.setItem(KEYS.FIELDS, JSON.stringify(snapshot.fields));
+      }
+      if (Array.isArray(snapshot.scans) && getSavedScans().length === 0) {
+        localStorage.setItem(KEYS.SCANS, JSON.stringify(snapshot.scans));
+      }
+      if (Array.isArray(snapshot.diary) && getDiaryEntries().length === 0) {
+        localStorage.setItem(KEYS.DIARY, JSON.stringify(snapshot.diary));
+      }
+    } catch {
+      // ignore
+    }
+    setAuthCookie(true);
+    return snapshot.profile;
+  }
+
+  return null;
+}
 
 export function getRegisteredAccounts(): FarmerProfile[] {
   if (typeof window === 'undefined') return [];
@@ -455,10 +653,12 @@ export async function syncSupabaseAuthSession(): Promise<FarmerProfile | null> {
     // Sync user's saved fields & diary entries from cloud DB into local cache if present
     if (typeof window !== 'undefined') {
       try {
-        const [{ data: remoteFields }, { data: remoteDiary }] = await Promise.all([
-          supabase.from('fields').select('*').eq('user_id', u.id).order('created_at', { ascending: false }),
-          supabase.from('diary_entries').select('*').eq('user_id', u.id).order('created_at', { ascending: false }),
-        ]);
+        const [{ data: remoteFields }, { data: remoteDiary }, { data: remoteScans }] =
+          await Promise.all([
+            supabase.from('fields').select('*').eq('user_id', u.id).order('created_at', { ascending: false }),
+            supabase.from('diary_entries').select('*').eq('user_id', u.id).order('created_at', { ascending: false }),
+            supabase.from('scans').select('*').eq('user_id', u.id).order('created_at', { ascending: false }).limit(50),
+          ]);
 
         if (Array.isArray(remoteFields) && remoteFields.length > 0) {
           const localFields = getSavedFields();
@@ -499,6 +699,33 @@ export async function syncSupabaseAuthSession(): Promise<FarmerProfile | null> {
           ];
           localStorage.setItem(KEYS.DIARY, JSON.stringify(mergedDiary));
         }
+
+        if (Array.isArray(remoteScans) && remoteScans.length > 0) {
+          const localScans = getSavedScans();
+          const seenScanCreated = new Set(localScans.map((s) => `${s.label}:${s.created_at?.slice(0, 16)}`));
+          const mergedScans: SavedScan[] = [...localScans];
+          for (const rs of remoteScans) {
+            const rsLabel = String(rs.label || 'Plant Scan');
+            const rsCreated = String(rs.created_at || new Date().toISOString());
+            const key = `${rsLabel}:${rsCreated.slice(0, 16)}`;
+            if (!seenScanCreated.has(key)) {
+              mergedScans.push({
+                id: String(rs.id),
+                field_id: rs.field_id ? String(rs.field_id) : null,
+                crop: String(rs.advice?.plant_name?.en || 'wheat'),
+                thumbnailDataUrl: '',
+                label: rsLabel,
+                confidence: Number(rs.confidence || 0),
+                advice: rs.advice as Advice,
+                cloudSynced: true,
+                created_at: rsCreated,
+              });
+            }
+          }
+          localStorage.setItem(KEYS.SCANS, JSON.stringify(mergedScans.slice(0, 50)));
+        }
+
+        writeEmailVaultSnapshot(merged);
       } catch {
         // ignore cloud pull errors when offline
       }
@@ -764,19 +991,18 @@ export async function saveProfile(
 
   if (typeof window !== 'undefined') {
     localStorage.setItem(KEYS.PROFILE, JSON.stringify(merged));
+    writeEmailVaultSnapshot(merged);
   }
 
   if (typeof document !== 'undefined') {
-    if (
-      merged.isAuthenticated &&
-      merged.email &&
-      merged.authProvider !== 'anonymous' &&
-      merged.authProvider !== 'none'
-    ) {
-      document.cookie = 'zarkhez_auth=1; path=/; max-age=31536000; SameSite=Lax';
-    } else {
-      document.cookie = 'zarkhez_auth=; path=/; max-age=0; SameSite=Lax';
-    }
+    setAuthCookie(
+      Boolean(
+        merged.isAuthenticated &&
+        merged.email &&
+        merged.authProvider !== 'anonymous' &&
+        merged.authProvider !== 'none'
+      )
+    );
   }
 
   // Sync to Supabase database reliably (await upsert so caller knows save reached DB)
@@ -828,6 +1054,10 @@ export async function saveProfile(
 
 export async function signOutFarmer(): Promise<void> {
   const current = getSavedProfile();
+  // Preserve this user's vault cleanly before signing out so logging back in restores all fields/scans/diary
+  writeEmailVaultSnapshot(current);
+  await idbDelete('active_session');
+
   const signedOut: FarmerProfile = {
     ...DEFAULT_UNAUTHENTICATED_PROFILE,
     placeName: current.placeName,
@@ -838,9 +1068,7 @@ export async function signOutFarmer(): Promise<void> {
   if (typeof window !== 'undefined') {
     localStorage.setItem(KEYS.PROFILE, JSON.stringify(signedOut));
   }
-  if (typeof document !== 'undefined') {
-    document.cookie = 'zarkhez_auth=; path=/; max-age=0; SameSite=Lax';
-  }
+  setAuthCookie(false);
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
@@ -878,6 +1106,7 @@ export async function addFarmField(
   const updated = [newField, ...existing];
   if (typeof window !== 'undefined') {
     localStorage.setItem(KEYS.FIELDS, JSON.stringify(updated));
+    writeEmailVaultSnapshot(getSavedProfile());
   }
 
   const supabase = getSupabaseClient();
@@ -911,6 +1140,7 @@ export function deleteFarmField(fieldId: string): FarmField[] {
   const updated = getSavedFields().filter((f) => f.id !== fieldId);
   if (typeof window !== 'undefined') {
     localStorage.setItem(KEYS.FIELDS, JSON.stringify(updated));
+    writeEmailVaultSnapshot(getSavedProfile());
   }
   const supabase = getSupabaseClient();
   if (supabase && isValidUuid(fieldId)) {
@@ -942,6 +1172,7 @@ export function toggleFieldTaskDone(fieldId: string, taskId: string): FarmField[
   });
   if (typeof window !== 'undefined') {
     localStorage.setItem(KEYS.FIELDS, JSON.stringify(updated));
+    writeEmailVaultSnapshot(getSavedProfile());
   }
   return updated;
 }
@@ -1035,6 +1266,9 @@ export async function saveScanRecord(
   }
 
   record.cloudSynced = cloudSynced;
+  if (typeof window !== 'undefined') {
+    writeEmailVaultSnapshot(getSavedProfile());
+  }
   return record;
 }
 
@@ -1064,6 +1298,7 @@ export async function addDiaryEntry(
   const updated = [record, ...existing];
   if (typeof window !== 'undefined') {
     localStorage.setItem(KEYS.DIARY, JSON.stringify(updated));
+    writeEmailVaultSnapshot(getSavedProfile());
   }
 
   const supabase = getSupabaseClient();
@@ -1098,6 +1333,7 @@ export async function deleteDiaryEntry(id: string): Promise<DiaryEntry[]> {
   const existing = getDiaryEntries().filter((e) => e.id !== id);
   if (typeof window !== 'undefined') {
     localStorage.setItem(KEYS.DIARY, JSON.stringify(existing));
+    writeEmailVaultSnapshot(getSavedProfile());
   }
   const supabase = getSupabaseClient();
   if (supabase && isValidUuid(id)) {
@@ -1120,19 +1356,26 @@ export async function deleteDiaryEntry(id: string): Promise<DiaryEntry[]> {
 }
 
 export async function deleteAllUserData(): Promise<void> {
+  const current = getSavedProfile();
+  const cleanEmail = (current.email || '').trim().toLowerCase();
   if (typeof window !== 'undefined') {
     localStorage.removeItem(KEYS.FIELDS);
     localStorage.removeItem(KEYS.SCANS);
     localStorage.removeItem(KEYS.DIARY);
     localStorage.removeItem('zarkhez_scan_sessions_v2');
-    // Also clear legacy v1 keys if present
+    // Also clear legacy v1 keys & active account vault if present
     localStorage.removeItem('zarkhez_fields_v1');
     localStorage.removeItem('zarkhez_scans_v1');
     localStorage.removeItem('zarkhez_diary_v1');
+    if (cleanEmail) {
+      localStorage.removeItem(`${KEYS.VAULT_PREFIX}${cleanEmail}`);
+    }
   }
-  if (typeof document !== 'undefined') {
-    document.cookie = 'zarkhez_auth=; path=/; max-age=0; SameSite=Lax';
+  await idbDelete('active_session');
+  if (cleanEmail) {
+    await idbDelete(`vault:${cleanEmail}`);
   }
+  setAuthCookie(false);
   const supabase = getSupabaseClient();
   if (supabase) {
     try {

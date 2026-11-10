@@ -221,7 +221,7 @@ function applyPronunciationLexicon(
 export function splitShortSpokenSentences(
   text: string,
   lang: VoiceLang,
-  maxWords = 18
+  maxWords = 32
 ): string[] {
   const defaultDelimiter = lang === 'en' ? '.' : '۔';
   const rawSentences = text
@@ -329,7 +329,7 @@ export function toSpokenText(
   const sentences = splitShortSpokenSentences(
     lexApplied.text,
     lang,
-    options?.maxWordsPerSentence ?? 18
+    options?.maxWordsPerSentence ?? 32
   );
 
   const spokenText = cleanPreserveScript(sentences.join(' '));
