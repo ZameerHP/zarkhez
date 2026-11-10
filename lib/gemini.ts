@@ -113,12 +113,59 @@ ${profileSection}`;
 
 export const GEMINI_CHAT_SYSTEM_PROMPT = buildAdvisorSystemPrompt('ur');
 
+type DiseaseCatalogEntry = Advice & {
+  crop?: string;
+  scientific_name?: string;
+  pathogen_type?: string;
+};
+
+function findDiseaseCatalogEntry(
+  label: string,
+  crop?: string
+): DiseaseCatalogEntry {
+  const diseases = diseasesData as Record<string, DiseaseCatalogEntry>;
+  if (diseases[label]) return diseases[label];
+
+  const cleanLabel = label.toLowerCase().trim();
+  const cleanCrop = crop ? normalizeCropName(crop) : '';
+  const values = Object.entries(diseases);
+
+  const exactNameMatch = values.find(([, v]) => {
+    const enMatch = v.problem_name?.en?.toLowerCase().includes(cleanLabel);
+    const sciMatch = v.scientific_name?.toLowerCase().includes(cleanLabel);
+    return (!cleanCrop || v.crop === cleanCrop) && (enMatch || sciMatch);
+  });
+  if (exactNameMatch) return exactNameMatch[1];
+
+  if (cleanCrop) {
+    const cropFallback = values.find(([k, v]) => v.crop === cleanCrop && !k.endsWith('_healthy'));
+    if (cropFallback) return cropFallback[1];
+  }
+
+  return diseases['not_a_plant'];
+}
+
+function buildCropReferenceHint(selectedCrop: string): string {
+  const norm = normalizeCropName(selectedCrop);
+  const diseases = diseasesData as Record<string, DiseaseCatalogEntry>;
+  const matches = Object.values(diseases).filter(
+    (entry) => entry.crop === norm && entry.pathogen_type !== 'healthy'
+  );
+  if (matches.length === 0) return '';
+  const summaryLines = matches
+    .map(
+      (m) =>
+        `  * ${m.problem_name.en} / ${m.problem_name.ur}${m.scientific_name ? ` (${m.scientific_name}, ${m.pathogen_type || 'disease'})` : ''}`
+    )
+    .join('\n');
+  return `\n- Pakistani Regional Reference Profiles for "${norm}" (use ONLY if pixel symptoms genuinely match; if plant looks healthy, ALWAYS diagnose Healthy):\n${summaryLines}`;
+}
+
 export function getStaticFallbackAdvice(
   label: string,
   confidence: number
 ): Advice {
-  const diseases = diseasesData as Record<string, Advice & { crop?: string }>;
-  const entry = diseases[label] || diseases['not_a_plant'];
+  const entry = findDiseaseCatalogEntry(label);
   const lowConf = confidence < 0.75 || label === 'not_a_plant';
 
   return {
@@ -694,6 +741,22 @@ export class GeminiVisionError extends Error {
  * Call Google Gemini REST API directly using standard fetch.
  * Implements strict error classification, secret protection, and verified model fallback.
  */
+function resolvePreferredModel(kind: 'fast' | 'vision'): string {
+  const configured = readEnvLocalValue(
+    kind === 'vision'
+      ? ['GEMINI_MODEL_DETAIL', 'GEMINI_MODEL_FAST']
+      : ['GEMINI_MODEL_FAST', 'GEMINI_MODEL_DETAIL']
+  );
+  if (configured && !configured.includes('-latest')) {
+    return configured;
+  }
+  return kind === 'vision' ? 'gemini-3.1-flash-lite' : 'gemini-3.5-flash-lite';
+}
+
+/**
+ * Shared Cloud Vision transport caller.
+ * Implements strict error classification, secret protection, and verified model fallback.
+ */
 async function callGeminiApi({
   model,
   systemInstruction,
@@ -737,9 +800,9 @@ async function callGeminiApi({
   const modelsToTry = Array.from(
     new Set([
       model,
+      'gemini-3.1-flash-lite',
       'gemini-3.5-flash-lite',
-      'gemini-3-flash-preview',
-      'gemini-3.1-flash-lite-preview',
+      'gemini-3.6-flash',
       envFast,
       envDetail,
     ])
@@ -757,10 +820,15 @@ async function callGeminiApi({
     const candidateModel = modelsToTry[i];
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${candidateModel}:generateContent?key=${apiKey}`;
 
+    const isFlashThinkingModel =
+      candidateModel === 'gemini-3.6-flash' ||
+      candidateModel === 'gemini-3.5-flash';
+
     const generationConfig: Record<string, unknown> = {
       temperature,
       maxOutputTokens,
       response_mime_type: 'application/json',
+      ...(isFlashThinkingModel ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
       ...(responseSchema ? { response_schema: responseSchema } : {}),
     };
 
@@ -776,7 +844,7 @@ async function callGeminiApi({
     }
 
     try {
-      const attemptTimeoutMs = Math.min(14000, remainingBudgetMs);
+      const attemptTimeoutMs = Math.min(9000, remainingBudgetMs);
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -803,7 +871,7 @@ async function callGeminiApi({
 
         // Bad input (400): distinguish bad image from schema rejection
         if (response.status === 400) {
-          const isSchemaErr = /response_schema|schema|generation_config/i.test(errorText);
+          const isSchemaErr = /response_schema|schema|generation_config|thinking/i.test(errorText);
           if (isSchemaErr && i < modelsToTry.length - 1) {
             console.warn(`[Cloud Vision API] Model ${candidateModel} rejected schema, trying next model...`);
             lastError = new GeminiVisionError(`Model schema incompatibility [${response.status}]`, 400, 'SCHEMA_NOT_SUPPORTED');
@@ -1004,9 +1072,7 @@ export async function generateCropAdvice(
     return { advice: fallback, cached: false, source: 'fallback' };
   }
 
-  const model =
-    readEnvLocalValue(['GEMINI_MODEL_FAST', 'GEMINI_MODEL_DETAIL']) ||
-    'gemini-flash-lite-latest';
+  const model = resolvePreferredModel('fast');
 
   const systemPrompt = `You are Zarkhez (زرخیز), a senior Pakistani agricultural plant doctor, pathologist and agronomist speaking to a small farmer.
 Rules:
@@ -1133,7 +1199,7 @@ export async function verifyLeafImageWithVision(
     };
   }
 
-  const model = readEnvLocalValue(['GEMINI_MODEL_FAST', 'GEMINI_MODEL_DETAIL']) || 'gemini-flash-lite-latest';
+  const model = resolvePreferredModel('fast');
   const cleanBase64 = cleanBase64Payload(base64Image);
   const mimeType = extractImageMimeType(base64Image);
 
@@ -1216,9 +1282,7 @@ export async function streamGeminiChatResponse(
     return generateFallbackChatReply(lastUserMsg, lang, farmerProfile);
   }
 
-  const model =
-    readEnvLocalValue(['GEMINI_MODEL_FAST', 'GEMINI_MODEL_DETAIL']) ||
-    'gemini-flash-lite-latest';
+  const model = resolvePreferredModel('fast');
 
   const customSystem = buildAdvisorSystemPrompt(lang, farmerProfile);
 
@@ -1271,7 +1335,12 @@ export function normalizeCropName(name?: string): string {
   return clean;
 }
 
-export function getServiceUnavailableDiagnosis(selectedCrop: string): CropDiagnosis {
+function getLocalizedCropNames(selectedCrop: string): {
+  en: string;
+  ur: string;
+  roman_ur: string;
+  sd: string;
+} {
   const norm = normalizeCropName(selectedCrop);
   const cropNames: Record<
     string,
@@ -1285,14 +1354,25 @@ export function getServiceUnavailableDiagnosis(selectedCrop: string): CropDiagno
     tomato: { en: 'Tomato', ur: 'ٹماٹر', roman_ur: 'Tamatar', sd: 'ٽماٽر' },
     potato: { en: 'Potato', ur: 'آلو', roman_ur: 'Aloo', sd: 'پٽاٽا' },
     chili: { en: 'Chili', ur: 'مرچ', roman_ur: 'Mirch', sd: 'مرچ' },
+    mango: { en: 'Mango', ur: 'آم', roman_ur: 'Aam', sd: 'انب' },
+    citrus: { en: 'Citrus / Kinnow', ur: 'مالٹا / کنو', roman_ur: 'Kinnow / Malta', sd: 'مالٽو' },
+    onion: { en: 'Onion', ur: 'پیاز', roman_ur: 'Pyaz', sd: 'بصر' },
+    banana: { en: 'Banana', ur: 'کیلا', roman_ur: 'Kela', sd: 'ڪيلو' },
   };
 
-  const crop = cropNames[norm] || {
-    en: selectedCrop,
-    ur: selectedCrop,
-    roman_ur: selectedCrop,
-    sd: selectedCrop,
-  };
+  return (
+    cropNames[norm] || {
+      en: selectedCrop,
+      ur: selectedCrop,
+      roman_ur: selectedCrop,
+      sd: selectedCrop,
+    }
+  );
+}
+
+export function getServiceUnavailableDiagnosis(selectedCrop: string): CropDiagnosis {
+  const norm = normalizeCropName(selectedCrop);
+  const crop = getLocalizedCropNames(selectedCrop);
 
   return {
     image_valid: true,
@@ -1465,41 +1545,49 @@ export async function analyzeCropImageWithGemini(
     );
   }
 
-  const primaryModel =
-    readEnvLocalValue(['GEMINI_MODEL_FAST', 'GEMINI_MODEL_DETAIL']) ||
-    'gemini-flash-lite-latest';
+  const primaryModel = resolvePreferredModel('vision');
 
   const systemInstruction = `You are Zarkhez's Senior Agricultural Plant Pathologist & Computer Vision Specialist serving Pakistani farmers.
-Perform an accurate, honest, concise visual analysis of the uploaded agricultural photograph.
+Perform an honest, thorough, high-precision visual diagnosis of the uploaded farm photograph.
 
-CRITICAL SCHEMA & SCIENTIFIC RULES:
+CRITICAL DIAGNOSTIC & SCIENTIFIC RULES:
 1. INDEPENDENT CROP & PART IDENTIFICATION:
-   - Farmer selected crop: "${selectedCrop}". NEVER blindly assume the photo matches!
-   - Identify real visible crop from pixel evidence and plant part ("Leaf", "Stem", "Roots", "Fruit", "Flower", "Seed", "Whole plant", or "Tuber").
+   - Farmer selected crop: "${selectedCrop}". Inspect the actual plant morphology rather than blindly assuming the crop matches!
+   - Identify real visible crop name (en + ur) and plant part ("Leaf", "Stem", "Roots", "Fruit", "Flower", "Seed", "Whole plant", or "Tuber").
 2. CROP MISMATCH (when detected crop differs from "${selectedCrop}" and confirmMismatchOverride is FALSE):
    - Set crop_match = false, diagnosis_status = "crop_mismatch", severity = "not_assessed", severity_level = "unable_to_determine", requires_retake = false, requires_expert_review = false.
-   - ALWAYS populate ALL required root fields including problem_name, plant_condition, plant_condition_ur, and message confirming what crop was seen vs selected.
+   - Populate problem_name, plant_condition, plant_condition_ur, and message explaining what crop is visible vs selected.
 3. NON-PLANT / INVALID IMAGE (screen, phone, person, furniture, random object):
    - Set image_valid = false, crop_match = false, diagnosis_status = "invalid_image", severity = "not_assessed", severity_level = "unable_to_determine", requires_retake = true, requires_expert_review = false.
-   - ALWAYS populate problem_name and message asking clearly for a real farm plant photo.
-4. QUALITY & LESION SCREENING:
-   - If image is too blurry/dark/distant, set requires_retake = true, diagnosis_status = "uncertain", confidence_category = "uncertain", severity = "not_assessed".
-   - If ANY abnormal lesions, spots, blast spindles, rust pustules, curling, chlorosis, necrosis, or pests exist, NEVER classify as "healthy_no_symptoms".
-   - Keep visual_inspection.detected_hotspots coordinates between 0 and 100.
-   - Do not fabricate laboratory confirmation or hazardous chemical dosages; state registered active ingredient classes and safety intervals only.
-5. CONCISE MULTI-LANGUAGE OUTPUT:
-   - ALWAYS populate EVERY required field strictly matching the JSON response_schema in English ("en"), Urdu ("ur"), Roman Urdu ("roman_ur"), and Sindhi ("sd"). Keep individual explanations concise (1-2 clear sentences) and include top 1-2 differential diagnoses when diseased.
+   - Populate problem_name and message asking politely for a clear farm plant photo.
+4. HONEST HEALTHY VERIFICATION ("جو اچھا ہے اسے اچھا ہی بولو"):
+   - If the plant organ is genuinely green, vigorous, and clean — with NO true pathological spots, blights, rust pustules, powdery/downy coatings, viral mosaic/curl, necrotic margins, sucking pest colonies, or nutrient deficiency patterns (ignore harmless natural surface dust, water drops, sunlight glare, camera shadows, or minor wind nicks):
+     * MUST set diagnosis_status = "healthy_no_symptoms", pathogen_type = "healthy", severity = "low", severity_level = "healthy_none", visual_inspection.lesion_detected = false, visual_inspection.detected_hotspots = [], requires_expert_review = false.
+     * Clearly state it is healthy in problem_name (e.g., en: "Healthy [Crop] — No Disease or Infection", ur: "تندرست [فصل] — کوئی بیماری یا انفیکشن نہیں") and advise routine field care ONLY (no unnecessary sprays). NEVER invent fake diseases!
+5. FULL DISEASE, INFECTION, PATHOGEN & SYMPTOM DETAILS WHEN DISEASED OR STRESSED:
+   - If ANY real disease, fungal/bacterial/viral infection, pest infestation, nutrient deficiency, or abiotic stress is present:
+     * NEVER classify as "healthy_no_symptoms". Set accurate diagnosis_status ("possible_disease", "possible_pest", "possible_nutrient_deficiency", or "environmental_stress").
+     * Populate exact common disease/infection name in problem_name (en + ur), exact pathogen/pest Latin binomial in scientific_name (e.g. "Puccinia striiformis", "Alternaria solani", "Xanthomonas citri", "Cotton Leaf Curl Begomovirus"), and accurate pathogen_type ("fungal" | "bacterial" | "viral" | "pest" | "nutrient_deficiency" | "environmental_stress").
+     * Populate possible_disease (1 to 3 ranked disease/infection candidates with name, name_ur, confidence, is_primary — include possible co-infections if multiple syndromes appear!).
+     * List EVERY visible symptom distinctly in observed_symptoms (spot color, concentric rings, water-soaked edges, yellow halo, spore powder/pustules, leaf curling, necrosis, chlorosis zone, chewing holes, webbing, honeydew).
+     * List real field drivers in possible_causes (humidity/dew/fog, infected seed/residue, vector insects like whitefly/aphid/thrips, excess nitrogen, Zn/Fe/K tie-up, stagnant irrigation).
+     * Populate why_suspected, visual_inspection (including 0-100 detected_hotspots on visible lesion zones), differential_diagnoses (1-2 confusing look-alike diseases/infections with field distinction tips), treatment_pillars (immediate_actions, cultural_management, biological_management, chemical_management active-ingredient classes + safety/PHI), prevention, explanations (farmer_friendly + scientific), and natural conversational voice_script (2-3 crisp sentences ready for TTS).
+     * State registered active ingredient classes and safety intervals ONLY — never fabricate banned chemicals or unsafe commercial doses.
+6. STRICT BILINGUAL ENGLISH & URDU OUTPUT:
+   - ALWAYS populate EVERY required field strictly matching the JSON response_schema in English ("en") and natural, respectful Pakistani agricultural Urdu ("ur" — using real Urdu farming terms like کنگی، جھلساؤ، دھبے، پتہ مروڑ وائرس، رس چوسنے والے کیڑے، تنے کا سڑاؤ، غذائی کمی).
+   - Do NOT include Roman Urdu or Sindhi anywhere.
    - STRICT BRANDING: NEVER mention "Gemini", "Google", or third-party AI model names in any output text. Always refer to the service as "Zarkhez Cloud Vision" or "Cloud AI".`;
 
-  const basePromptText = `Inspect this farm photo carefully:
+  const regionalHint = buildCropReferenceHint(selectedCrop);
+  const basePromptText = `Inspect this farm photo carefully for real disease, infection, pest, nutrient deficiency, or healthy state:
 - Farmer Selected Crop: "${selectedCrop}"
 - Confirm Mismatch Override: ${confirmMismatchOverride ? 'TRUE' : 'FALSE'}${
     clientQuality
       ? `\n- Optical Pre-Scan Metrics: Subject=${clientQuality.subjectRatio}, LesionRatio=${clientQuality.lesionRatio ?? 0}, VisibleLesions=${clientQuality.hasVisibleLesions ? 'YES' : 'NO'}`
       : ''
-  }
+  }${regionalHint}
 
-Return strict valid JSON matching the structured schema with ALL required fields populated.`;
+Return strict valid JSON matching the English & Urdu structured schema with ALL required fields populated completely.`;
 
   const MAX_FORMAT_RETRIES = 1;
   let lastValidationError: GeminiVisionError | null = null;
@@ -1510,7 +1598,7 @@ Return strict valid JSON matching the structured schema with ALL required fields
       attempt === 0
         ? primaryModel
         : primaryModel === 'gemini-3.1-flash-lite'
-        ? 'gemini-flash-lite-latest'
+        ? 'gemini-3.6-flash'
         : 'gemini-3.1-flash-lite';
 
     const promptForAttempt = retryFeedbackHint
@@ -1535,7 +1623,7 @@ Return strict valid JSON matching the structured schema with ALL required fields
         },
       ],
       temperature: attempt === 0 ? 0.15 : 0.05,
-      maxOutputTokens: 4096,
+      maxOutputTokens: 6144,
       responseSchema: GEMINI_DIAGNOSIS_RESPONSE_SCHEMA,
     });
 
@@ -1619,26 +1707,7 @@ export function getFallbackCropDiagnosis(
   clientQuality?: ImageQualityReport
 ): CropDiagnosis {
   const norm = normalizeCropName(selectedCrop);
-  const cropNames: Record<
-    string,
-    { en: string; ur: string; roman_ur: string; sd: string }
-  > = {
-    wheat: { en: 'Wheat', ur: 'گندم', roman_ur: 'Gandum', sd: 'ڪڻڪ' },
-    rice: { en: 'Rice', ur: 'دھان (چاول)', roman_ur: 'Dhan / Chawal', sd: 'چانور (سارين)' },
-    cotton: { en: 'Cotton', ur: 'کپاس', roman_ur: 'Kapas', sd: 'ڪپهه' },
-    maize: { en: 'Maize', ur: 'مکئی', roman_ur: 'Makai', sd: 'مڪئي' },
-    sugarcane: { en: 'Sugarcane', ur: 'کماد (گنا)', roman_ur: 'Kamad / Ganna', sd: 'ڪمند' },
-    tomato: { en: 'Tomato', ur: 'ٹماٹر', roman_ur: 'Tamatar', sd: 'ٽماٽر' },
-    potato: { en: 'Potato', ur: 'آلو', roman_ur: 'Aloo', sd: 'پٽاٽا' },
-    chili: { en: 'Chili', ur: 'مرچ', roman_ur: 'Mirch', sd: 'مرچ' },
-  };
-
-  const crop = cropNames[norm] || {
-    en: selectedCrop,
-    ur: selectedCrop,
-    roman_ur: selectedCrop,
-    sd: selectedCrop,
-  };
+  const crop = getLocalizedCropNames(selectedCrop);
 
   // Case A: Image quality issues (Blurry / Dark / Non-plant)
   if (clientQuality?.isBlurry) {

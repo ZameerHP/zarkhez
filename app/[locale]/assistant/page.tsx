@@ -62,7 +62,7 @@ export default function AssistantPage() {
   const [listening, setListening] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [aiSpeaking, setAiSpeaking] = useState(false);
-  const [voiceLang, setVoiceLang] = useState<VoiceLang>(locale === 'en' ? 'en' : 'ur');
+  const [voiceLang, setVoiceLang] = useState<'ur' | 'en'>(locale === 'en' ? 'en' : 'ur');
   const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
   const [userAvatar, setUserAvatar] = useState('');
 
@@ -246,9 +246,7 @@ export default function AssistantPage() {
       }
     } catch {
       const errText =
-        voiceLang === 'sd'
-          ? 'معاف ڪجو هاري ڀاءُ، رابطي ۾ عارضي رنڊڪ آهي. مهرباني ڪري ٻيهر پڇو.'
-          : voiceLang === 'ur'
+        voiceLang === 'ur'
           ? 'معاف کیجیے کسان بھائی، رابطے میں عارضی رکاوٹ آئی ہے۔ براہ کرم دوبارہ پوچھیں۔'
           : 'Sorry, connection interrupted. Please ask again.';
       setVoicePhase('error');
@@ -351,13 +349,12 @@ export default function AssistantPage() {
           <p className="text-xs text-cream mt-0.5">{t('subtitle')}</p>
         </div>
 
-        {/* Voice Language Selector (Urdu ur-PK | Sindhi sd-PK | English en-PK) & State Indicator */}
+        {/* Voice Language Selector (Urdu ur-PK | English en-PK) & State Indicator */}
         <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
           <div className="inline-flex items-center gap-1 rounded-full bg-white/10 p-1">
             {(
               [
                 { id: 'ur', label: 'اردو' },
-                { id: 'sd', label: 'سنڌي' },
                 { id: 'en', label: 'EN' },
               ] as const
             ).map((opt) => (
@@ -369,7 +366,7 @@ export default function AssistantPage() {
                   setAiSpeaking(false);
                   setVoiceLang(opt.id);
                 }}
-                className={`px-3 py-1 rounded-full text-xs font-extrabold transition-all ${
+                className={`px-3.5 py-1 rounded-full text-xs font-extrabold transition-all ${
                   voiceLang === opt.id
                     ? 'bg-emerald-400 text-[#062409]'
                     : 'text-white/85 hover:bg-white/10'
@@ -382,21 +379,15 @@ export default function AssistantPage() {
 
           <span className="text-[11px] font-bold text-emerald-200">
             {voicePhase === 'listening'
-              ? voiceLang === 'sd'
-                ? 'ٻڌي رهيو آهي...'
-                : voiceLang === 'ur'
+              ? voiceLang === 'ur'
                 ? 'سن رہا ہے...'
                 : 'Listening...'
               : voicePhase === 'thinking'
-              ? voiceLang === 'sd'
-                ? 'جواب تيار ٿي رهيو آهي...'
-                : voiceLang === 'ur'
+              ? voiceLang === 'ur'
                 ? 'سوچ رہا ہے...'
                 : 'Thinking...'
               : voicePhase === 'speaking'
-              ? voiceLang === 'sd'
-                ? 'ڳالهائي رهيو آهي...'
-                : voiceLang === 'ur'
+              ? voiceLang === 'ur'
                 ? 'بول رہا ہے...'
                 : 'Speaking...'
               : ''}

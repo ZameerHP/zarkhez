@@ -397,6 +397,34 @@ export function normalizeAndValidateDiagnosis(
     aliasesUsed.push('scaled_percentage_confidence');
   }
 
+  // Scale percentage confidence (0-100 -> 0-1) inside possible_disease[] and clamp hotspot coordinates cleanly
+  if (Array.isArray(d.possible_disease)) {
+    d.possible_disease = d.possible_disease
+      .filter((item): item is Record<string, unknown> => isPlainObject(item) && typeof item.name === 'string')
+      .map((item) => {
+        let conf = typeof item.confidence === 'number' ? item.confidence : 0.7;
+        if (conf > 1 && conf <= 100) conf = Number((conf / 100).toFixed(2));
+        conf = Math.max(0, Math.min(1, conf));
+        return {
+          ...item,
+          name_ur: typeof item.name_ur === 'string' && item.name_ur.trim() ? item.name_ur : String(item.name),
+          confidence: conf,
+        };
+      });
+  }
+
+  if (isPlainObject(d.visual_inspection) && Array.isArray(d.visual_inspection.detected_hotspots)) {
+    d.visual_inspection.detected_hotspots = d.visual_inspection.detected_hotspots
+      .filter((box): box is Record<string, unknown> => isPlainObject(box))
+      .map((box) => ({
+        ...box,
+        x: Math.max(0, Math.min(100, Number(box.x) || 0)),
+        y: Math.max(0, Math.min(100, Number(box.y) || 0)),
+        w: Math.max(0, Math.min(100, Number(box.w) || 0)),
+        h: Math.max(0, Math.min(100, Number(box.h) || 0)),
+      }));
+  }
+
   // 12. Normalize optional localized arrays cleanly so minor missing optional subfields don't crash valid scans
   if (Array.isArray(d.observed_symptoms)) d.observed_symptoms = normalizeLocalizedArray(d.observed_symptoms);
   if (Array.isArray(d.possible_causes)) d.possible_causes = normalizeLocalizedArray(d.possible_causes);

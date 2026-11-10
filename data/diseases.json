@@ -1,17 +1,26 @@
 {
   "tomato_early_blight": {
     "crop": "tomato",
+    "scientific_name": "Alternaria solani",
+    "pathogen_type": "fungal",
     "problem_name": { "en": "Tomato Early Blight", "ur": "ٹماٹر کا ابتدائی جھلساؤ (ارلی بلائٹ)" },
     "severity": "medium",
+    "symptoms": [
+      { "en": "Dark brown concentric target-board rings on older lower leaves", "ur": "پرانے نچلے پتوں پر گہرے بھورے گول حلقے دار دھبے (ٹارگٹ رِنگز)" },
+      { "en": "Yellow halo surrounding leaf spots with premature yellowing and leaf drop", "ur": "دھبوں کے گرد پیلا حلقہ اور متاثرہ پتوں کا وقت سے پہلے جھڑنا" }
+    ],
+    "causes": [
+      { "en": "Warm humid weather, wet foliage from overhead watering, and infected crop debris", "ur": "گرم اور نمی والا موسم، پتوں پر پانی کھڑا رہنا اور پرانی فصل کی باقیات" }
+    ],
     "summary": {
-      "en": "Dark brown rings (like target marks) appear on older lower leaves first. Warm, humid weather helps this fungus spread.",
+      "en": "Dark brown concentric target rings appear on older lower leaves first. Warm, humid weather helps this Alternaria fungus spread upward.",
       "ur": "پودے کے نچلے پرانے پتوں پر گہرے بھورے گول دھبے بن جاتے ہیں۔ نمی اور گرمی سے یہ پھپھوندی تیزی سے پھیلتی ہے۔"
     },
     "steps": [
       { "en": "Carefully pick off and bury heavily spotted lower leaves away from the field.", "ur": "شدید متاثرہ نچلے پتوں کو توڑ کر کھیت سے دور دبا دیں۔" },
       { "en": "Water at the base of plants instead of wetting the leaves.", "ur": "پتوں پر پانی گرانے کے بجائے صرف جڑوں کے پاس پانی دیں۔" },
       { "en": "Improve air flow by staking plants and removing weeds.", "ur": "پودوں کو سہارا دیں اور جڑی بوٹیاں صاف کریں تاکہ ہوا گزر سکے۔" },
-      { "en": "If spreading fast, ask your local agriculture officer about a protective copper or mancozeb class fungicide and follow the label.", "ur": "اگر بیماری پھیل رہی ہو تو زرعی افسر کے مشورے سے کاپر یا مینکوزیب قسم کی پھپھوندی کش دوا لیبل کے مطابق استعمال کریں۔" }
+      { "en": "If spreading fast, ask your local agriculture officer about a protective copper or mancozeb/chlorothalonil class fungicide and follow the label.", "ur": "اگر بیماری پھیل رہی ہو تو زرعی افسر کے مشورے سے کاپر یا مینکوزیب قسم کی پھپھوندی کش دوا لیبل کے مطابق استعمال کریں۔" }
     ],
     "prevention": [
       { "en": "Rotate tomato with non-solanaceous crops like wheat or maize for 2 seasons.", "ur": "ٹماٹر کی جگہ گندم یا مکئی جیسی فصلیں بدل کر کاشت کریں۔" },
@@ -21,16 +30,25 @@
   },
   "tomato_late_blight": {
     "crop": "tomato",
+    "scientific_name": "Phytophthora infestans",
+    "pathogen_type": "fungal",
     "problem_name": { "en": "Tomato Late Blight", "ur": "ٹماٹر کا پچھیتا جھلساؤ (لیٹ بلائٹ)" },
     "severity": "high",
+    "symptoms": [
+      { "en": "Irregular water-soaked greenish-black patches rapidly turning brown on leaves and stems", "ur": "پتوں اور تنوں پر گیلے سبز یا سیاہ بے ترتیب دھبے جو تیزی سے گلنے لگتے ہیں" },
+      { "en": "White cottony mold growth on leaf undersides during cool humid mornings", "ur": "صبح کے وقت پتوں کے نچلے حصے پر سفید روئی نما پھپھوندی" }
+    ],
+    "causes": [
+      { "en": "Cool foggy or rainy weather combined with moist leaves overnight", "ur": "ٹھنڈا، ابر آلود یا دھند والا موسم اور رات بھر پتوں کا گیلا رہنا" }
+    ],
     "summary": {
-      "en": "Water-soaked dark patches on leaves and stems that turn brown quickly in cool, wet weather. This disease can spread across a field in days.",
-      "ur": "ٹھنڈے اور نمی والے موسم میں پتوں اور تنوں پر گیلے سیاہ دھبے بنتے ہیں جو تیزی سے پھیلتے ہیں۔ یہ بیماری چند دنوں میں فصل کو نقصان پہنچا سکتی ہے۔"
+      "en": "Water-soaked dark patches on leaves and stems that turn brown quickly in cool, wet weather. This oomycete infection can destroy a crop in days.",
+      "ur": "ٹھنڈے اور نمی والے موسم میں پتوں اور تنوں پر گیلے سیاہ دھبے بنتے ہیں جو تیزی سے پھیلتے ہیں۔ یہ بیماری چند دنوں میں پوری فصل کو نقصان پہنچا سکتی ہے۔"
     },
     "steps": [
       { "en": "Uproot and destroy severely infected plants immediately—do not leave them in a pile.", "ur": "شدید متاثرہ پودوں کو فوراً اکھاڑ کر تلف کریں، کھیت کے کنارے ڈھیر نہ لگائیں۔" },
       { "en": "Avoid evening irrigation so leaves stay dry overnight.", "ur": "شام کے وقت پانی نہ لگائیں تاکہ رات کو پتے خشک رہیں۔" },
-      { "en": "Consult your local agriculture officer urgently for a systemic blight fungicide class and follow the product label.", "ur": "فوری طور پر مقامی زرعی افسر سے رابطہ کریں اور ان کے مشورے سے جھلساؤ کی مناسب دوا لیبل کے مطابق استعمال کریں۔" }
+      { "en": "Consult your local agriculture officer urgently for a systemic blight fungicide class (e.g., metalaxyl/cymoxanil + mancozeb) and follow the product label.", "ur": "فوری طور پر مقامی زرعی افسر سے رابطہ کریں اور ان کے مشورے سے جھلساؤ کی سسٹمک دوا لیبل کے مطابق استعمال کریں۔" }
     ],
     "prevention": [
       { "en": "Space plants properly on raised beds for fast drying after rain or fog.", "ur": "اونچی کھیلیوں پر مناسب فاصلے سے پودے لگائیں تاکہ دھند کے بعد پتے جلدی خشک ہوں۔" },
@@ -38,14 +56,23 @@
     ],
     "see_expert": true,
     "expert_reason": {
-      "en": "Late blight spreads rapidly in cool damp weather; confirm treatment with your local agriculture officer right away.",
+      "en": "Late blight spreads rapidly in cool damp weather; confirm systemic treatment with your local agriculture officer right away.",
       "ur": "پچھیتا جھلساؤ نمی میں بہت تیزی سے پھیلتا ہے، اس لیے فوری طور پر مقامی زرعی افسر سے مشورہ کریں۔"
     }
   },
   "tomato_leaf_curl": {
     "crop": "tomato",
+    "scientific_name": "Tomato Yellow Leaf Curl Virus (TYLCV)",
+    "pathogen_type": "viral",
     "problem_name": { "en": "Tomato Yellow Leaf Curl Virus", "ur": "ٹماٹر کے پتے مڑنے کا وائرس (لیف کرل)" },
     "severity": "high",
+    "symptoms": [
+      { "en": "New leaves severely stunted, thickened, crinkled, and curling upward like spoons", "ur": "نئے پتے چھوٹے، موٹے اور کٹوری کی طرح اوپر کو مڑ جاتے ہیں" },
+      { "en": "Chlorotic yellow margins, bushy stunted growth, and heavy flower drop", "ur": "پتوں کے کنارے پیلے پڑنا، پودے کا قد چھوٹا رہنا اور پھولوں کا گرنا" }
+    ],
+    "causes": [
+      { "en": "Transmitted directly by sweetpotato whiteflies (Bemisia tabaci) and infected nursery seedlings", "ur": "سفید مکھی کے ذریعے پھیلنے والا وائرس اور متاثرہ پنیری کی منتقلی" }
+    ],
     "summary": {
       "en": "New leaves stay small, curl upward like a cup, and turn yellow at the edges. Spread by tiny whiteflies feeding under the leaves.",
       "ur": "نئے پتے چھوٹے رہ جاتے ہیں، اوپر کی طرف مڑ جاتے ہیں اور کنارے پیلے ہو جاتے ہیں۔ یہ بیماری سفید مکھی کے ذریعے پھیلتی ہے۔"
@@ -66,354 +93,1178 @@
       "ur": "وائرس کا براہِ راست علاج نہیں ہوتا، سفید مکھی کی محفوظ روک تھام کے لیے زرعی افسر سے مشورہ کریں۔"
     }
   },
+  "tomato_bacterial_spot": {
+    "crop": "tomato",
+    "scientific_name": "Xanthomonas perforans / vesicatoria",
+    "pathogen_type": "bacterial",
+    "problem_name": { "en": "Tomato Bacterial Spot", "ur": "ٹماٹر کا بیکٹیریل دھبہ (بیکٹیریل سپاٹ)" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Small water-soaked greasy dark brown to black spots on leaves and scabby raised spots on green fruit", "ur": "پتوں پر چھوٹے گیلے سیاہ دھبے اور سبز پھل پر کھرچنے والے ابھرے داغ" }
+    ],
+    "causes": [
+      { "en": "Rain splash, overhead sprinklers, contaminated seed, and working in wet fields", "ur": "بارش کی چھینٹیں، آلودہ بیج اور گیلی فصل میں کام کرنے سے پھیلاؤ" }
+    ],
+    "summary": {
+      "en": "Small dark greasy spots speckle tomato leaves and stems, causing yellowing and corky scabs on green fruits.",
+      "ur": "ٹماٹر کے پتوں اور پھل پر چھوٹے گیلے سیاہ بیکٹیریل دھبے بنتے ہیں جس سے پتے گرنے لگتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Avoid entering or pruning plants while leaves are still wet with dew or rain.", "ur": "جب پتے اوس یا بارش سے گیلے ہوں تو کھیت میں کام یا کٹائی ہرگز نہ کریں۔" },
+      { "en": "Consult your agriculture officer about registered copper-based bactericide sprays.", "ur": "مقامی زرعی افسر کے مشورے سے کاپر بیسڈ جراثیم کش سپرے کی تصدیق کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Use certified hot-water-treated seed and rotate away from solanaceous crops.", "ur": "تصدیق شدہ صاف بیج استعمال کریں اور فصلوں کا ہیر پھیر رکھیں۔" }
+    ],
+    "see_expert": true
+  },
   "tomato_healthy": {
     "crop": "tomato",
+    "scientific_name": "Solanum lycopersicum (Healthy)",
+    "pathogen_type": "healthy",
     "problem_name": { "en": "Healthy Tomato Leaf", "ur": "صحت مند ٹماٹر کا پتا" },
     "severity": "low",
+    "symptoms": [
+      { "en": "Uniform deep green leaflet tissue with clean veins and zero spots, curling, or feeding scars", "ur": "یکساں سرسبز صحت مند پتے، کسی دھبے، مڑاؤ یا کیڑے کے نشان کے بغیر" }
+    ],
+    "causes": [],
     "summary": {
-      "en": "This tomato leaf looks green and healthy with no clear signs of fungal spots or pest damage.",
-      "ur": "ٹماٹر کا یہ پتا سرسبز اور صحت مند نظر آ رہا ہے اور اس پر بیماری کے آثار نہیں ہیں۔"
+      "en": "This tomato plant looks vibrant green and healthy with no signs of fungal blight, viral curl, or insect attack.",
+      "ur": "ٹماٹر کا یہ پتا سرسبز اور مکمل صحت مند نظر آ رہا ہے اور اس پر کسی بیماری یا انفیکشن کے آثار نہیں ہیں۔"
     },
     "steps": [
       { "en": "Continue regular light irrigation on schedule without waterlogging.", "ur": "معمول کے مطابق ہلکا پانی لگائیں اور کھیت میں پانی کھڑا نہ ہونے دیں۔" },
-      { "en": "Inspect the undersides of leaves once a week for whiteflies or caterpillars.", "ur": "ہفتے میں ایک بار پتوں کے نچلے حصے کا معائنہ کریں۔" },
-      { "en": "Keep weeds cleared from furrows and field edges.", "ur": "کھیلیوں اور کھیت کے کناروں کو جڑی بوٹیوں سے صاف رکھیں۔" }
+      { "en": "Inspect undersides of leaves weekly for whiteflies or caterpillars.", "ur": "ہفتے میں ایک بار پتوں کے نچلے حصے کا معائنہ کریں۔" }
     ],
     "prevention": [
       { "en": "Follow the crop calendar for timely split fertilizer application.", "ur": "فصل کیلنڈر کے مطابق کھاد کی اقساط وقت پر ڈالیں۔" },
-      { "en": "Avoid walking through the field when leaves are wet.", "ur": "جب پتے گیلے ہوں تو کھیت میں غیر ضروری چلنے سے گریز کریں۔" }
+      { "en": "Avoid walking through wet foliage.", "ur": "گیلے پتوں میں غیر ضروری چلنے سے گریز کریں۔" }
     ],
     "see_expert": false
   },
   "wheat_yellow_rust": {
     "crop": "wheat",
+    "scientific_name": "Puccinia striiformis",
+    "pathogen_type": "fungal",
     "problem_name": { "en": "Wheat Yellow / Stripe Rust", "ur": "گندم کی زرد کنگی (یلو رسٹ)" },
     "severity": "high",
+    "symptoms": [
+      { "en": "Bright yellow-orange powdery spore pustules arranged in straight linear stripes along leaf veins", "ur": "پتوں کی رگوں کے ساتھ سیدھی لکیروں میں چمکدار پیلے نارنجی پاؤڈر جیسے دانے" },
+      { "en": "Yellow powder rubs off onto fingers when leaf is touched", "ur": "ہاتھ لگانے سے انگلیوں پر پیلا سفوف لگ جانا" }
+    ],
+    "causes": [
+      { "en": "Airborne rust spores thriving in cool misty February–March weather and dense susceptible varieties", "ur": "فروری تا مارچ کے ٹھنڈے نمی والے موسم میں ہوا کے ذریعے پھیلنے والے جراثیم" }
+    ],
     "summary": {
-      "en": "Yellow-orange powdery stripes run in straight lines along the wheat leaf blade. It rubs off like yellow dust on your fingers.",
+      "en": "Yellow-orange powdery stripes run in straight lines along the wheat leaf blade and rub off like yellow dust on fingers.",
       "ur": "گندم کے پتوں پر پیلے اور نارنجی رنگ کی لکیریں بن جاتی ہیں جو ہاتھ لگانے سے پیلے پاؤڈر کی طرح انگلیوں پر لگتی ہیں۔"
     },
     "steps": [
-      { "en": "Check the whole field in a zig-zag pattern to see if it is only in patches or widespread.", "ur": "پورے کھیت کا معائنہ کریں کہ بیماری صرف چند حصوں میں ہے یا پھیل چکی ہے۔" },
+      { "en": "Check the whole field in a zig-zag pattern to see if it is localized in hot-spots or widespread.", "ur": "پورے کھیت کا معائنہ کریں کہ بیماری صرف چند حصوں میں ہے یا پھیل چکی ہے۔" },
       { "en": "Avoid applying extra nitrogen (Urea) on infected patches.", "ur": "متاثرہ حصوں میں اضافی یوریا کھاد ڈالنے سے گریز کریں۔" },
-      { "en": "If rust patches are spreading, consult your local agriculture officer about a triazole-class fungicide only on affected spots and follow the label.", "ur": "اگر کنگی کے دھبے پھیل رہے ہوں تو زرعی افسر کے مشورے سے ٹرائیازول قسم کی پھپھوندی کش دوا صرف متاثرہ جگہ پر لیبل کے مطابق سپرے کریں۔" }
+      { "en": "If rust patches are spreading before grain fill, consult your agriculture officer about a registered triazole or strobilurin rust fungicide.", "ur": "اگر کنگی کے دھبے پھیل رہے ہوں تو زرعی افسر کے مشورے سے ٹرائیازول یا سٹروبیلیورن گروپ کی دوا لیبل کے مطابق سپرے کریں۔" }
     ],
     "prevention": [
-      { "en": "Sow rust-resistant wheat varieties approved by the Agriculture Department.", "ur": "محکمہ زراعت کی منظور شدہ کنگی کے خلاف قوتِ مدافعت رکھنے والی اقسام کاشت کریں۔" },
-      { "en": "Use balanced Potash (SOP) and phosphorus at sowing to strengthen leaves.", "ur": "بجائی کے وقت متوازن فاسفورس اور پوٹاش استعمال کریں۔" }
+      { "en": "Sow rust-resistant wheat varieties approved by the Agriculture Department.", "ur": "محکمہ زراعت کی منظور شدہ کنگی مزاحم اقسام کاشت کریں۔" },
+      { "en": "Use balanced Potash (SOP) and phosphorus at sowing.", "ur": "بجائی کے وقت متوازن فاسفورس اور پوٹاش استعمال کریں۔" }
     ],
     "see_expert": true,
     "expert_reason": {
-      "en": "Yellow rust spreads on wind during cool humid February–March weather; confirm spot-treatment with your agriculture officer.",
-      "ur": "زرد کنگی ٹھنڈے اور نمی والے موسم میں ہوا سے پھیلتی ہے، مقامی زرعی افسر سے فوری مشورہ کریں۔"
+      "en": "Yellow rust spreads rapidly on wind during cool humid weather; confirm spot-treatment immediately.",
+      "ur": "زرد کنگی ٹھنڈے اور نمی والے موسم میں ہوا سے تیزی سے پھیلتی ہے، مقامی زرعی افسر سے فوری مشورہ کریں۔"
     }
   },
   "wheat_brown_rust": {
     "crop": "wheat",
+    "scientific_name": "Puccinia triticina",
+    "pathogen_type": "fungal",
     "problem_name": { "en": "Wheat Brown / Leaf Rust", "ur": "گندم کی بھوری کنگی (براؤن رسٹ)" },
     "severity": "medium",
+    "symptoms": [
+      { "en": "Small scattered reddish-brown round spore pustules distributed irregularly on upper leaf surfaces", "ur": "پتوں کی اوپری سطح پر بکھرے ہوئے چھوٹے گول سرخی مائل بھورے ابھرے دانے" }
+    ],
+    "causes": [
+      { "en": "Moderate warming temperatures in March–April with morning dew and wind-blown inoculum", "ur": "مارچ اپریل کا معتدل گرم موسم، صبح کی شبنم اور ہوا کے ذریعے حملہ" }
+    ],
     "summary": {
-      "en": "Small scattered orange-brown round pustules appear across the upper leaf surface as temperatures warm in spring.",
+      "en": "Small scattered orange-brown round pustules appear irregularly across the upper leaf surface as spring temperatures rise.",
       "ur": "بہار کے آغاز میں موسم گرم ہونے پر پتوں کے اوپری حصے پر چھوٹے گول بھورے دانے بکھرے ہوئے نظر آتے ہیں۔"
     },
     "steps": [
-      { "en": "Monitor the flag leaf (top leaf)—protecting the flag leaf is key for grain weight.", "ur": "سب سے اوپر والے پتے (جھنڈا پتا) کا خاص معائنہ کریں کیونکہ دانے کا وزن اسی پر منحصر ہے۔" },
+      { "en": "Monitor the flag leaf (top leaf)—protecting it preserves grain size and weight.", "ur": "سب سے اوپر والے جھنڈا پتے کا خاص معائنہ کریں کیونکہ دانے کا وزن اسی پر منحصر ہے۔" },
       { "en": "Keep irrigation balanced according to soil moisture.", "ur": "زمین کی نمی کے مطابق متوازن آبپاشی کریں۔" },
-      { "en": "If infection reaches the upper leaves before dough stage, ask your local agriculture officer about a rust fungicide class.", "ur": "اگر بیماری اوپری پتوں تک پہنچ رہی ہو تو مقامی زرعی افسر سے مشورہ کریں۔" }
+      { "en": "If pustules move onto upper leaves early, consult your local agriculture officer about a rust fungicide.", "ur": "اگر بیماری اوپری پتوں تک بڑھ رہی ہو تو مقامی زرعی افسر سے مشورہ کریں۔" }
     ],
     "prevention": [
-      { "en": "Sow wheat on time (November) to avoid late-season heat and rust buildup.", "ur": "نومبر میں بروقت بجائی کریں تاکہ پچھیتی بیماری سے بچت ہو۔" },
-      { "en": "Plant certified rust-tolerant seed varieties.", "ur": "تصدیق شدہ قوتِ مدافعت والا بیج استعمال کریں۔" }
+      { "en": "Sow wheat on time in November to escape late warm rust buildup.", "ur": "نومبر میں بروقت بجائی کریں تاکہ پچھیتی کنگی سے بچت ہو۔" },
+      { "en": "Plant certified rust-tolerant wheat varieties.", "ur": "تصدیق شدہ قوتِ مدافعت والا بیج استعمال کریں۔" }
+    ],
+    "see_expert": false
+  },
+  "wheat_loose_smut": {
+    "crop": "wheat",
+    "scientific_name": "Ustilago tritici",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Wheat Loose Smut (Kangiari)", "ur": "گندم کی کانگیاری (لوز سمٹ)" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Entire wheat ear/head replaced by a mass of loose black sooty fungal spores instead of grain", "ur": "گندم کا سٹہ دانوں کے بجائے سیاہ کوئلے جیسے سفوف میں تبدیل ہو جاتا ہے" }
+    ],
+    "causes": [
+      { "en": "Internal seed-borne fungus carried inside untreated farm-saved seed from the previous crop", "ur": "بغیر زہر آلود کیے پچھلی فصل کا اپنا بیج استعمال کرنے سے بیج کے اندر موجود پھپھوندی" }
+    ],
+    "summary": {
+      "en": "Wheat heads emerge filled with loose black powdery smut spores that blow away cleanly, leaving a bare central rachis.",
+      "ur": "گندم کے سٹے دانوں کی جگہ سیاہ پاؤڈر سے بھرے نکلتے ہیں جو ہوا میں اڑ کر صرف خالی ڈنڈی چھوڑ دیتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Carefully slip a plastic bag over smutted heads before spores disperse, pull gently, and burn or bury far from the field.", "ur": "سیاہ سٹوں پر پلاسٹک کا تھیلا چڑھا کر احتیاط سے اکھاڑیں اور کھیت سے دور جلا یا دبا دیں۔" },
+      { "en": "Do not save grain from infected fields for next year's seed.", "ur": "متاثرہ کھیت کی گندم اگلے سال بیج کے طور پر ہرگز نہ رکھیں۔" }
+    ],
+    "prevention": [
+      { "en": "Treat wheat seed prior to sowing with a systemic seed-dressing fungicide (e.g., tebuconazole or carboxin class).", "ur": "بجائی سے قبل بیج کو سسٹمک پھپھوندی کش زہر لگا کر کاشت کریں۔" }
+    ],
+    "see_expert": false
+  },
+  "wheat_aphid": {
+    "crop": "wheat",
+    "scientific_name": "Sitobion avenae / Rhopalosiphum padi",
+    "pathogen_type": "pest",
+    "problem_name": { "en": "Wheat Aphid Infestation (Tela)", "ur": "گندم کا تیلہ (ایفڈ)" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Dense colonies of green or dark soft-bodied insects sucking sap from ears and upper leaves", "ur": "سٹوں اور اوپری پتوں پر سبز یا سیاہ باریک کیڑوں کا ہجوم" },
+      { "en": "Sticky honeydew glaze or black sooty mold on leaves alongside ladybird beetles", "ur": "پتوں پر چپچپا میٹھا مادہ اور کالی پھپھوندی" }
+    ],
+    "causes": [
+      { "en": "Warm cloudy spring transition after booting and heavy succulent nitrogen growth", "ur": "فروری مارچ میں گرم ابر آلود موسم اور زیادہ نائٹروجن والی فصل" }
+    ],
+    "summary": {
+      "en": "Colonies of wheat aphids cluster on spikes and flag leaves, draining sap during milking stage if populations cross threshold.",
+      "ur": "گندم کے سٹوں اور جھنڈا پتے پر تیلہ رس چوستا ہے، جو دودھیا حالت میں زیادہ بڑھ جائے تو دانہ کمزور رہ جاتا ہے۔"
+    },
+    "steps": [
+      { "en": "Check if beneficial ladybird beetles (Bhoond) or syrphid larvae are already controlling colonies naturally before spraying.", "ur": "سپرے سے قبل چیک کریں کہ دوست کیڑے (لیڈی برڈ بیٹل) تیلہ کھا رہے ہیں یا نہیں۔" },
+      { "en": "Spray perimeter border strips only if aphid count exceeds ~15 per tiller at milking stage, after consulting your agriculture officer.", "ur": "اگر تیلہ حد سے زیادہ بڑھے تو زرعی افسر کے مشورے سے صرف متاثرہ کناروں پر مناسب سپرے کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Avoid excessive late Urea and intercrop mustard strips around borders to shelter beneficial predators.", "ur": "زیادہ یوریا سے گریز کریں اور دوست کیڑوں کی حفاظت کریں۔" }
     ],
     "see_expert": false
   },
   "wheat_healthy": {
     "crop": "wheat",
-    "problem_name": { "en": "Healthy Wheat Leaf", "ur": "صحت مند گندم کا پتا" },
+    "scientific_name": "Triticum aestivum (Healthy)",
+    "pathogen_type": "healthy",
+    "problem_name": { "en": "Healthy Wheat Plant", "ur": "صحت مند گندم کا پودا" },
     "severity": "low",
+    "symptoms": [
+      { "en": "Clean bright green leaf blades with uniform texture and zero rust pustules, stripes, or aphid clusters", "ur": "صاف سرسبز پتے، کنگی یا کسی بیماری کی علامت کے بغیر" }
+    ],
+    "causes": [],
     "summary": {
-      "en": "The wheat leaf blade is uniformly green with no visible rust stripes, powdery mildew, or yellowing.",
-      "ur": "گندم کا پتا یکساں طور پر سرسبز ہے اور اس پر کنگی یا کسی بیماری کے نشانات نہیں ہیں۔"
+      "en": "Wheat foliage is uniformly green and vigorous with zero visible rust stripes, powdery mildew, or pest injury.",
+      "ur": "گندم کا پتا یکساں طور پر سرسبز اور تندرست ہے؛ اس پر کنگی، تیلے یا کسی انفیکشن کے نشانات نہیں ہیں۔"
     },
     "steps": [
-      { "en": "Follow scheduled irrigations at critical stages (crown root, booting, milking).", "ur": "اہم مراحل (جڑ بننا، گوبھ اور دودھیا حالت) پر وقت پر پانی لگائیں۔" },
-      { "en": "Scout the field weekly during February and March for rust or aphids.", "ur": "فروری اور مارچ میں ہفتے میں ایک بار کنگی اور تیلے کا معائنہ کریں۔" },
-      { "en": "Avoid irrigating on windy days during heading/milking to prevent lodging.", "ur": "سٹہ نکلنے کے بعد تیز ہوا والے دن پانی ہرگز نہ لگائیں تاکہ فصل نہ گرے۔" }
+      { "en": "Follow scheduled irrigations at critical stages (crown root, booting, milking).", "ur": "اہم مراحل پر بروقت آبپاشی جاری رکھیں۔" },
+      { "en": "Scout weekly during February–March and avoid irrigating on windy days after heading.", "ur": "فروری مارچ میں ہفتہ وار معائنہ کریں اور تیز ہوا میں پانی نہ لگائیں۔" }
     ],
     "prevention": [
-      { "en": "Keep water channels and field borders free of weeds.", "ur": "کھالوں اور کھیت کے کناروں کو جڑی بوٹیوں سے صاف رکھیں۔" },
-      { "en": "Use balanced fertilizer according to soil fertility.", "ur": "زمین کی زرخیزی کے مطابق متوازن کھاد استعمال کریں۔" }
-    ],
-    "see_expert": false
-  },
-  "maize_northern_leaf_blight": {
-    "crop": "maize",
-    "problem_name": { "en": "Maize Northern Leaf Blight", "ur": "مکئی کے پتوں کا جھلساؤ (لیف بلائٹ)" },
-    "severity": "medium",
-    "summary": {
-      "en": "Long, cigar-shaped gray-green to tan lesions appear on lower maize leaves and move upward in humid weather.",
-      "ur": "مکئی کے نچلے پتوں پر لمبے بادامی یا سلیٹی رنگ کے دھبے بنتے ہیں جو نمی والے موسم میں اوپر کے پتوں کی طرف بڑھتے ہیں۔"
-    },
-    "steps": [
-      { "en": "Strip heavily diseased bottom leaves below the cob to reduce fungal spores.", "ur": "چھلی سے نیچے والے شدید متاثرہ پتوں کو ہٹا دیں تاکہ بیماری اوپر نہ پھیلے۔" },
-      { "en": "Ensure proper field drainage so water does not stand in furrows.", "ur": "کھیلیوں میں پانی کھڑا نہ ہونے دیں اور نکاسی کا انتظام رکھیں۔" },
-      { "en": "If lesions reach the ear leaf before silking, consult your agriculture officer about a strobilurin/triazole fungicide class.", "ur": "اگر دھبے چھلی والے پتے تک پہنچ رہے ہوں تو زرعی افسر سے مشورہ کریں۔" }
-    ],
-    "prevention": [
-      { "en": "Plough under crop residue deeply after harvest so the fungus cannot survive.", "ur": "کٹائی کے بعد فصل کی باقیات کو گہرا ہل چلا کر زمین میں دبا دیں۔" },
-      { "en": "Choose blight-tolerant hybrid maize seed.", "ur": "جھلساؤ کے خلاف قوتِ مدافعت رکھنے والا ہائبرڈ بیج لگائیں۔" }
-    ],
-    "see_expert": false
-  },
-  "maize_common_rust": {
-    "crop": "maize",
-    "problem_name": { "en": "Maize Common Rust", "ur": "مکئی کی کنگی (رسٹ)" },
-    "severity": "low",
-    "summary": {
-      "en": "Small cinnamon-brown powdery bumps appear on both sides of maize leaves during mild, humid weather.",
-      "ur": "معتدل اور نمی والے موسم میں مکئی کے پتوں کے دونوں طرف چھوٹے بھورے ابھرے ہوئے دھبے نظر آتے ہیں۔"
-    },
-    "steps": [
-      { "en": "Inspect upper leaves; mild rust on lower leaves rarely reduces hybrid maize yield.", "ur": "اوپری پتوں کا معائنہ کریں؛ نچلے پتوں پر ہلکی کنگی سے پیداوار کم نہیں ہوتی۔" },
-      { "en": "Maintain balanced irrigation and potash nutrition.", "ur": "متوازن آبپاشی اور پوٹاش کا خیال رکھیں۔" },
-      { "en": "Only if pustules cover upper leaves early, consult your local agriculture officer.", "ur": "صرف اس صورت میں جب اوپری پتے شدید متاثر ہوں، زرعی افسر سے رابطہ کریں۔" }
-    ],
-    "prevention": [
-      { "en": "Plant on time according to your region's spring or autumn window.", "ur": "اپنے علاقے کے موسم کے مطابق بروقت بجائی کریں۔" },
-      { "en": "Use certified rust-resistant hybrids.", "ur": "تصدیق شدہ ہائبرڈ بیج استعمال کریں۔" }
-    ],
-    "see_expert": false
-  },
-  "maize_healthy": {
-    "crop": "maize",
-    "problem_name": { "en": "Healthy Maize Leaf", "ur": "صحت مند مکئی کا پتا" },
-    "severity": "low",
-    "summary": {
-      "en": "Deep green, healthy maize leaf with clean margins and no blight lesions or borer holes.",
-      "ur": "مکئی کا پتا گہرا سبز اور صحت مند ہے، اس پر جھلساؤ یا سنڈی کے سوراخ نہیں ہیں۔"
-    },
-    "steps": [
-      { "en": "Check the central whorl weekly for Fall Armyworm feeding or sawdust-like frass.", "ur": "ہفتے میں ایک بار پودے کی درمیانی کونپل میں فال آرمی ورم کا معائنہ کریں۔" },
-      { "en": "Never let the crop suffer water stress during tasseling and silking.", "ur": "تاج اور چھلی کے بال نکلتے وقت فصل کو پانی کی کمی ہرگز نہ ہونے دیں۔" },
-      { "en": "Keep ridges firm around plant roots to prevent lodging.", "ur": "پودوں کو گرنے سے بچانے کے لیے جڑوں کے گرد مٹی مضبوط رکھیں۔" }
-    ],
-    "prevention": [
-      { "en": "Apply split nitrogen doses on schedule using the crop calendar.", "ur": "فصل کیلنڈر کے مطابق یوریا کھاد قسطوں میں وقت پر ڈالیں۔" },
-      { "en": "Keep field borders clean of grassy weeds.", "ur": "کھیت کے کناروں سے گھاس نما جڑی بوٹیاں صاف رکھیں۔" }
+      { "en": "Keep water channels free of weeds and balance NPK nutrition.", "ur": "کھالوں سے جڑی بوٹیاں صاف رکھیں اور متوازن کھاد استعمال کریں۔" }
     ],
     "see_expert": false
   },
   "rice_blast": {
     "crop": "rice",
-    "problem_name": {
-      "en": "Rice Leaf Blast (Magnaporthe oryzae)",
-      "ur": "دھان کا بلاسٹ / پتوں کا جھلساؤ",
-      "roman_ur": "Dhan ka Blast (Jhulsao)",
-      "sd": "چانورن جو بلاست / سڙھ"
-    },
+    "scientific_name": "Magnaporthe oryzae",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Rice Blast (Leaf & Neck Blast)", "ur": "دھان کا بلاسٹ / پتوں اور گردن کا جھلساؤ" },
     "severity": "high",
+    "symptoms": [
+      { "en": "Diamond or spindle-shaped lesions with whitish-grey centers and dark reddish-brown pointed margins", "ur": "پتوں پر تکلا نما (ڈائمنڈ) دھبے جن کا مرکز سفید سرمئی اور کنارے گہرے بھورے ہوتے ہیں" },
+      { "en": "Darkening/rotting at panicle neck node causing empty white chaffy heads (neck blast)", "ur": "سٹے کی گردن کا سیاہ ہو کر ٹوٹ جانا اور دانے خالی رہ جانا" }
+    ],
+    "causes": [
+      { "en": "Heavy Urea nitrogen doses, high nighttime humidity, heavy dew, and prolonged moisture fluctuation", "ur": "یوریا کھاد کا بے جا زیادہ استعمال، رات کی زیادہ نمی، دھند اور وتر کی کمی" }
+    ],
     "summary": {
-      "en": "Characteristic diamond or spindle-shaped lesions with whitish-gray centers and distinct brown margins visible on rice foliage.",
-      "ur": "دھان کے پتے پر تکلا نما (Spindle-shaped) دھبے جن کا درمیانی حصہ سرمئی یا سفید اور کنارے گہرے بھورے ہوتے ہیں۔",
-      "roman_ur": "Dhan ke patte par spindle-shaped dhabbe jinka center gray aur kinare brown hotay hain.",
-      "sd": "چانورن جي پن تي بيضوي يا تڪلا نما نشان جن جي وچ واري جاءِ اڇي يا سرمائي ۽ ڪنارا ناسي هوندا آهن."
+      "en": "Characteristic diamond or spindle-shaped lesions with grey centers and brown edges on rice leaves; severe attack strikes panicle necks.",
+      "ur": "دھان کے پتوں پر تکلا نما دھبے جن کا درمیانی حصہ سرمئی سفید اور کنارے گہرے بھورے ہوتے ہیں؛ شدید حملے میں سٹے کی گردن متاثر ہوتی ہے۔"
     },
     "steps": [
-      {
-        "en": "Scout neighboring tillers and nurseries immediately to check lesion spread percentage.",
-        "ur": "کھیت کے دیگر حصوں اور پودوں کا فوراً معائنہ کریں تاکہ بیماری کے پھیلاؤ کا پتہ چل سکے۔",
-        "roman_ur": "Khet ke baqi hisso ka foran muaina karein takay phailao ka andaza lagaya ja sakay.",
-        "sd": "فيلڊ جي ٻين حصن جو فوري معائنو ڪريو ته جيئن بيماري جي پکيڙ جي خبر پوي."
-      },
-      {
-        "en": "Immediately stop or delay excess top-dressed Urea; high nitrogen drastically accelerates blast fungal development.",
-        "ur": "یوریا کھاد کا اضافی استعمال فوری روک دیں؛ زیادہ نائٹروجن سے بلاسٹ کا حملہ انتہائی تیز ہو جاتا ہے۔",
-        "roman_ur": "Urea ki izafi miqdar foran rok dein kyunkay zyada nitrogen se blast tezi se phailta hai.",
-        "sd": "يوريا جو واڌو استعمال ترت بند ڪريو ڇو ته وڌيڪ نائٽروجن سان بلاست تيزي سان پکڙجي ٿو."
-      },
-      {
-        "en": "Maintain continuous shallow field moisture to prevent drought-induced susceptibility; avoid field drainage that stresses roots.",
-        "ur": "کھیت میں معتدل وتر برقرار رکھیں تاکہ پودا سوکے کے تناؤ میں نہ آئے۔",
-        "roman_ur": "Khet mein munasib watar barqarar rakhein takay poda sokhay ke dabao mein na aye.",
-        "sd": "فيلڊ ۾ پاڻي جو مناسب وتر برقرار رکو."
-      },
-      {
-        "en": "Consult local agricultural extension officer for recommended blast fungicide class (e.g., tricyclazole, isoprothiolane, or kasugamycin active ingredients per label).",
-        "ur": "محکمہ زراعت توسیعی افسر سے بلاسٹ کش پھپھوندی کش دوا کے گروپ (جیسے ٹرائی سائیکلازول یا آئسوپروتھائیولین) کے متعلق فوری رہنمائی لیں۔",
-        "roman_ur": "Zaria extension officer se blast fungicide group (tricyclazole/isoprothiolane) ke mutaliq rehnumai lein.",
-        "sd": "زرعي عملدار سان بيماري کي روڪڻ واري فنجي سائيڊ بابت فوري صلاح ڪريو."
-      }
+      { "en": "Scout neighboring tillers immediately to assess severity.", "ur": "کھیت کے دیگر حصوں کا فوراً معائنہ کریں۔" },
+      { "en": "Halt any further Urea nitrogen fertilizer right away.", "ur": "یوریا کھاد کا مزید استعمال فوری بند کر دیں۔" },
+      { "en": "Maintain shallow water depth to keep plants unstressed.", "ur": "کھیت میں ہلکا پانی برقرار رکھیں تاکہ پودا خشک تناؤ کا شکار نہ ہو۔" },
+      { "en": "Consult your local extension officer for a blast fungicide class (tricyclazole / isoprothiolane / azoxystrobin).", "ur": "بلاسٹ کی روک تھام کے لیے زرعی افسر کے مشورے سے ٹرائی سائیکلازول یا آئسوپروتھائیولین گروپ کی دوا استعمال کریں۔" }
     ],
     "prevention": [
-      {
-        "en": "Use certified blast-resistant paddy varieties and treat seed with registered fungicide prior to nursery seeding.",
-        "ur": "قوتِ مدافعت رکھنے والی تصدیق شدہ اقسام کاشت کریں اور پنیری سے قبل بیج کو زہر آلود کریں۔",
-        "roman_ur": "Certified blast-resistant beej istemal karein aur paneeri se pehle beej ko zehar aalood karein.",
-        "sd": "تصديق ٿيل بيماري کان پاڪ ٻج پوکيو ۽ پوکڻ کان اڳ فنجي سائيڊ سان علاج ڪريو."
-      },
-      {
-        "en": "Avoid excessive plant density; maintain recommended nursery seedling hill spacing (9 inches) for adequate sunlight and airflow.",
-        "ur": "پودوں کا باہمی فاصلہ (تقریباً 9 انچ) مناسب رکھیں تاکہ ہوا اور دھوپ پتوں تک پہنچتی رہے۔",
-        "roman_ur": "Podon ka darmiyani fasla (9 inch) munasib rakhein takay dhoop aur hawa lagti rahe.",
-        "sd": "ٻوٽن جي وچ ۾ مناسب فاصلو رکو ته جيئن هوا ۽ سج جي روشني لڳندي رهي."
-      }
+      { "en": "Use certified resistant Basmati/coarse varieties and treat nursery seed before sowing.", "ur": "تصدیق شدہ قوتِ مدافعت والی اقسام لگائیں اور پنیری سے قبل بیج کو زہر آلود کریں۔" },
+      { "en": "Maintain recommended 9x9 inch hill spacing for airflow.", "ur": "پودوں کے درمیان مناسب 9 انچ فاصلہ رکھیں۔" }
     ],
     "see_expert": true,
     "expert_reason": {
-      "en": "Rice blast can spread rapidly to node and neck blast, threatening entire grain fill. Immediate extension officer inspection is recommended.",
-      "ur": "رائس بلاسٹ تیزی سے سٹے اور تنے تک پھیل سکتا ہے جس سے فصل کو شدید خطرہ ہوتا ہے۔ مقامی زرعی افسر کا معائنہ لازمی ہے۔",
-      "roman_ur": "Blast tezi se sitti tak phel sakta hai. Local zaria afsar ka muaina zaroori hai.",
-      "sd": "بلاسنٽ تمام تيزي سان ٻڙي تائين پکڙجي سگهي ٿو، مقامي زرعي عملدار جو معائنو ضروري آهي."
+      "en": "Blast can advance quickly into panicle neck blast and severely cut grain yield.",
+      "ur": "بلاسٹ تیزی سے سٹے کی گردن تک پھیل کر پیداوار کو شدید نقصان پہنچا سکتا ہے۔"
     }
   },
   "rice_bacterial_blight": {
     "crop": "rice",
-    "problem_name": {
-      "en": "Bacterial Leaf Blight (Xanthomonas oryzae)",
-      "ur": "بیکٹیریل پتوں کا جھلساؤ (BLB)",
-      "roman_ur": "Bacterial Leaf Blight (BLB)",
-      "sd": "چانورن جو بيڪٽيريا سڙھ"
-    },
+    "scientific_name": "Xanthomonas oryzae pv. oryzae",
+    "pathogen_type": "bacterial",
+    "problem_name": { "en": "Rice Bacterial Leaf Blight (BLB)", "ur": "دھان کے پتوں کا جراثیمی جھلساؤ (بی ایل بی)" },
     "severity": "high",
+    "symptoms": [
+      { "en": "Water-soaked yellow-orange wavy stripes starting at leaf tips/margins and moving downward", "ur": "پتوں کے سرے اور کناروں سے لہراتی پیلی نارنجی دھاریاں جو نیچے بڑھتی ہیں" },
+      { "en": "Milky turbid bacterial ooze droplets on young morning lesions, drying into straw-white rolled leaves", "ur": "صبح کے وقت دھبوں پر دودھیا قطرہ اور بعد میں پتے کا سوکھ کر لپٹ جانا" }
+    ],
+    "causes": [
+      { "en": "Strong winds causing leaf friction injuries, flooding water runoff from diseased plots, and excess Urea", "ur": "تیز آندھی سے پتوں کی رگڑ، متاثرہ کھیت کا پانی لگنا اور زیادہ یوریا کھاد" }
+    ],
     "summary": {
-      "en": "Water-soaked to yellowish-orange wavy lesions extending along leaf veins and edges, later turning dirty white or greyish.",
-      "ur": "پتوں کے کناروں سے لہراتی پیلی یا نارنجی پٹیاں بنتی ہیں جو بعد میں خشک ہو کر سفید یا سرمئی ہو جاتی ہیں۔",
-      "roman_ur": "Patton ke kinaray se lehrati peeli pattiyan banti hain jo baad mein gray ho jati hain.",
-      "sd": "پنن جي ڪنارن تان پيلا لڪير وارا نشان ٺهن ٿا جيڪي پوءِ اڇا ٿي وڃن ٿا."
+      "en": "Wavy yellow-orange water-soaked stripes progress down rice leaf margins until blades dry straw-white.",
+      "ur": "دھان کے پتوں کے کناروں سے پیلی نارنجی لہراتی دھاریاں پھیلتی ہیں جو بعد میں سفید سوکھے حصے میں بدل جاتی ہیں۔"
     },
     "steps": [
-      {
-        "en": "Drain excess stagnant standing water from infected plots; do not drain into clean nursery fields.",
-        "ur": "متاثرہ کھیت سے اضافی پانی نکالیں اور اسے دوسری صاف فصل میں نہ جانے دیں۔",
-        "roman_ur": "Mutasira khet se pani nikal kar doosri fasal mein na jane dein.",
-        "sd": "بيمار فصل مان پاڻي ٻي صاف فصل ڏانهن وڃڻ نه ڏيو."
-      },
-      {
-        "en": "Halt top-dressed nitrogen fertilizer applications immediately.",
-        "ur": "نائٹروجن والی کھاد کا استعمال فوری طور پر معطل کریں۔",
-        "roman_ur": "Nitrogen khad ka istemal foran rokein.",
-        "sd": "يوريا کاد جو استعمال فوري معطل ڪريو."
-      },
-      {
-        "en": "Consult local agricultural extension officer for bactericide / copper-based formulation advice.",
-        "ur": "کاپر بیسڈ توسیعی سفارشات کے لیے مقامی زرعی افسر سے مشورہ کریں۔",
-        "roman_ur": "Copper based safarishat ke liye muqami zaria afsar se rabta karein.",
-        "sd": "ڪاپر وارين دوائن لاءِ مقامي زرعي آفيسر سان رابطو ڪريو."
-      }
+      { "en": "Stop draining water from diseased plots into healthy clean paddy blocks.", "ur": "متاثرہ کھیت کا پانی صاف کھیتوں میں ہرگز نہ جانے دیں۔" },
+      { "en": "Stop nitrogen fertilizer immediately and inspect whole block.", "ur": "نائٹروجن کھاد فوری روک دیں۔" },
+      { "en": "Consult your local extension officer about copper bactericides and potash boost.", "ur": "کاپر بیسڈ جراثیم کش سفارشات اور پوٹاش کے لیے زرعی افسر سے مشورہ کریں۔" }
     ],
     "prevention": [
-      {
-        "en": "Use certified disease-free seeds and balanced potash to increase tissue resilience.",
-        "ur": "صاف تصدیق شدہ بیج اور پوٹاش کھاد کا متوازن استعمال کریں تاکہ پودا مضبوط بنے۔",
-        "roman_ur": "Saf beej aur potash ka istemal karein takay poda mazboot banay.",
-        "sd": "صاف ٻج ۽ پوٽاش استعمال ڪريو."
-      }
+      { "en": "Grow resistant paddy lines and apply basal Potash (SOP) to strengthen leaf cuticle.", "ur": "مضبوط اقسام لگائیں اور بوائی کے وقت پوٹاش کھاد لازمی ڈالیں۔" }
     ],
     "see_expert": true
   },
   "rice_sheath_blight": {
     "crop": "rice",
-    "problem_name": {
-      "en": "Rice Sheath Blight (Rhizoctonia solani)",
-      "ur": "دھان کے تنے اور غلاف کا جھلساؤ (Sheath Blight)",
-      "roman_ur": "Dhan ke Tanay ka Sheath Blight",
-      "sd": "چانورن جي تڙ جو سڙھ"
-    },
+    "scientific_name": "Rhizoctonia solani",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Rice Sheath Blight", "ur": "دھان کے تنے اور غلاف کا جھلساؤ (شیٹھ بلائٹ)" },
     "severity": "medium",
+    "symptoms": [
+      { "en": "Rattlesnake-skin greenish-grey oval lesions with distinct dark brown borders on lower leaf sheaths near water level", "ur": "پانی کی سطح کے قریب تنے کے غلاف پر سرمئی سبز بیضوی دھبے جن کا حاشیہ گہرا بھورا ہوتا ہے" }
+    ],
+    "causes": [
+      { "en": "Over-dense planting, excessive nitrogen canopy, high warmth & humidity, and sclerotia survival in soil", "ur": "پودوں کی زیادہ گنجانی، زیادہ نائٹروجن، حبس والا موسم اور زمین میں موجود پرانی پھپھوندی" }
+    ],
     "summary": {
-      "en": "Greenish-grey water-soaked oval to irregular lesions with dark reddish-brown borders on leaf sheaths near water line.",
-      "ur": "پانی کی سطح کے قریب تنے کے غلاف پر بیضوی سرمئی سبز دھبے جن کے گرد گہرا بھورا حاشیہ ہوتا ہے۔",
-      "roman_ur": "Pani ki satah ke qareeb tanay ke ghilaf par sabz gray dhabbe jinke ird gird brown border hota hai.",
-      "sd": "پاڻي جي مٿاڇري ويجهو تڙ تي بيضوي سرمائي داغ جنهن جا ڪنارا ناسي هوندا آهن."
+      "en": "Water-soaked oval grey-green lesions with dark borders climb up the leaf sheath near the waterline in dense humid rice.",
+      "ur": "گھنی فصل میں پانی کی سطح کے پاس تنے کے غلاف پر سرمئی سبز دھبے بنتے ہیں جو اوپر کی طرف چڑھتے ہیں۔"
     },
     "steps": [
-      {
-        "en": "Lower water depth to allow sunlight and aeration into the lower canopy.",
-        "ur": "کھیت میں کھڑے پانی کی سطح کم کریں تاکہ نچلے حصے کو ہوا اور دھوپ مل سکے۔",
-        "roman_ur": "Khet mein pani ki satah kam karein takay hawa lag sakay.",
-        "sd": "فيلڊ ۾ پاڻي گهٽ ڪريو ته جيئن ٻوٽي کي هوا لڳي."
-      },
-      {
-        "en": "Consult agriculture officer for azoxystrobin / validamycin class fungicide application at boot leaf stage.",
-        "ur": "گوبھ کی حالت پر زرعی افسر کے مشورے سے منظور شدہ پھپھوندی کش دوا کا سپرے کریں۔",
-        "roman_ur": "Gobh ki halat par zaria afsar ke mashwaray se spray karein.",
-        "sd": "زرعي عملدار جي مشوري سان فنجي سائيڊ اسپري ڪريو."
-      }
+      { "en": "Drain standing water slightly for 2-3 days to aerate lower stems.", "ur": "پانی کی گہرائی کم کریں تاکہ تنے کو ہوا لگے۔" },
+      { "en": "Consult extension officer about azoxystrobin/validamycin fungicide protection before booting.", "ur": "گوبھ کی حالت میں زرعی افسر کے مشورے سے مناسب پھپھوندی کش سپرے کریں۔" }
     ],
     "prevention": [
-      {
-        "en": "Clear stubble and weed residues from previous harvest.",
-        "ur": "پچھلی فصل کے مڈھ اور باقیات تلف کریں۔",
-        "roman_ur": "Pichli fasal ke mudd talaf karein.",
-        "sd": "پوئين فصل جا سڙيل حصا صاف ڪريو."
-      }
+      { "en": "Plow under infected stubble deeply and avoid excessive seeding density.", "ur": "مڈھوں کو گہرا ہل چلا کر دبا دیں اور پودوں کا فاصلہ مناسب رکھیں۔" }
     ],
     "see_expert": true
   },
   "rice_brown_spot": {
     "crop": "rice",
-    "problem_name": { "en": "Rice Brown Leaf Spot", "ur": "دھان کے بھورے دھبوں کی بیماری (براؤن سپاٹ)" },
+    "scientific_name": "Bipolaris oryzae",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Rice Brown Spot", "ur": "دھان کے بھورے دھبوں کی بیماری (براؤن سپاٹ)" },
     "severity": "medium",
+    "symptoms": [
+      { "en": "Small oval to sesame-shaped dark brown spots with grey center and distinct yellow halo across leaves", "ur": "پتوں پر تل کے دانے جیسے بیضوی بھورے دھبے جن کے گرد پیلا حلقہ ہوتا ہے" }
+    ],
+    "causes": [
+      { "en": "Often linked to Zinc/Potash soil deficiency, poorly drained salt-affected soil, and seed-borne fungus", "ur": "زنک اور پوٹاش کی کمی، کلراٹھی یا کمزور زمین اور متاثرہ بیج" }
+    ],
     "summary": {
-      "en": "Oval brown spots with a lighter gray center and yellow halo appear on rice leaves, often linked to potash or zinc deficiency.",
+      "en": "Sesame-shaped oval brown spots with yellow halos scatter across leaves, strongly aggravated by Potash or Zinc deficiency.",
       "ur": "دھان کے پتوں پر بیضوی بھورے دھبے بنتے ہیں جن کے گرد پیلا حلقہ ہوتا ہے، جو اکثر پوٹاش یا زنک کی کمی سے بڑھتے ہیں۔"
     },
     "steps": [
-      { "en": "Check if Zinc Sulfate and Potash (SOP) were applied; correcting nutrition helps plants recover.", "ur": "چیک کریں کہ زنک اور پوٹاش ڈالی گئی ہے یا نہیں؛ متوازن کھاد سے پودے سنبھل جاتے ہیں۔" },
-      { "en": "Maintain proper shallow irrigation without drying the field completely during tillering.", "ur": "شگوفے بنتے وقت کھیت کو مکمل خشک نہ ہونے دیں۔" },
-      { "en": "If spots spread toward the panicle, consult your local agriculture officer for a fungicide class recommendation.", "ur": "اگر دھبے مونجھ کی طرف بڑھ رہے ہوں تو مقامی زرعی افسر سے مشورہ کریں۔" }
+      { "en": "Check and supplement Zinc Sulfate and Potash (SOP) if missing.", "ur": "اگر زنک اور پوٹاش نہیں ڈالی گئی تو فوراً متوازن مقدار فراہم کریں۔" },
+      { "en": "Keep consistent shallow irrigation without deep soil cracking.", "ur": "کھیت کو مکمل خشک نہ ہونے دیں اور مناسب وتر برقرار رکھیں۔" }
     ],
     "prevention": [
-      { "en": "Use clean, treated seed from a verified source.", "ur": "ہمیشہ صاف اور زہر آلود کیا ہوا تصدیق شدہ بیج استعمال کریں۔" },
-      { "en": "Apply basal Potash and Zinc on schedule every paddy season.", "ur": "ہر سیزن میں بوائی کے وقت پوٹاش اور زنک لازمی استعمال کریں۔" }
+      { "en": "Use clean fungicide-treated paddy seed and apply Zinc at transplanting.", "ur": "صاف زہر آلود بیج استعمال کریں اور منتقلی کے وقت زنک ڈالیں۔" }
     ],
     "see_expert": false
   },
-  "rice_healthy": {
+  "rice_bakanae": {
     "crop": "rice",
-    "problem_name": {
-      "en": "Healthy Rice Leaf (No Symptoms Detected)",
-      "ur": "صحت مند دھان کا پتا (کوئی علامات نہیں)",
-      "roman_ur": "Sehatmand Dhan ka Patta",
-      "sd": "صحتمند چانورن جو پن"
-    },
-    "severity": "low",
+    "scientific_name": "Fusarium fujikuroi",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Rice Bakanae / Foot Rot (Bara Poda)", "ur": "دھان کی بکانا یا جڑ گلاؤ (لمبے پودوں کا مرض)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Scattered abnormally tall, lanky, pale-yellow rice hills towering above normal canopy", "ur": "کھیت میں چند پودے عام فصل سے غیر معمولی طور پر اونچے، پتلے اور پیلے نظر آتے ہیں" },
+      { "en": "Adventitious roots growing from lower stem nodes above waterline with pink-white fungus", "ur": "نچلی گانٹھوں سے ہوا میں جڑیں نکلنا اور تنے کا گلنا" }
+    ],
+    "causes": [
+      { "en": "Seed-borne Fusarium fungus surviving inside infected paddy seed or nursery beds", "ur": "بیج کے ذریعے پھیلنے والی فوزیریم پھپھوندی" }
+    ],
     "summary": {
-      "en": "Genuinely healthy rice leaf with intact green tissue, uniform coloration, and zero abnormal lesions, blast spindles, or necrotic spots.",
-      "ur": "دھان کا یہ پتا بالکل صحت مند اور سرسبز ہے؛ ٹشوز مکمل سلامت ہیں اور کسی قسم کے دھبے یا بلاسٹ نہیں ہیں۔",
-      "roman_ur": "Dhan ka patta bilkul sehatmand aur sar-sabz hai, koi dhabba ya blast mojood nahi.",
-      "sd": "چانورن جو پن بلڪل صحتمند ۽ سائي رنگ جو آهي، ڪوبه نشان يا بيماري ناهي."
+      "en": "Infected rice seedlings grow tall, pale, and weak (foot rot) before dying off prematurely without producing healthy panicles.",
+      "ur": "متاثرہ پودے باقی فصل سے زیادہ لمبے اور پیلے ہو کر کمزور پڑ جاتے ہیں اور سٹہ نکالنے سے پہلے سوکھ جاتے ہیں۔"
     },
     "steps": [
-      { "en": "Perform routine morning scouting to monitor for any new symptoms early.", "ur": "صبح کے وقت پودوں کا باقاعدگی سے معائنہ جاری رکھیں۔" },
-      { "en": "Maintain balanced field irrigation without prolonged dry cracking or excess water stagnation.", "ur": "کھیت میں مناسب وتر برقرار رکھیں اور زمین کو چٹخنے نہ دیں۔" }
+      { "en": "Pull out abnormally tall lanky plants cleanly before white spores shed and burn/bury outside field.", "ur": "غیر معمولی لمبے پیلے پودے فوراً جڑ سمیت اکھاڑ کر کھیت سے دور تلف کر دیں۔" }
     ],
     "prevention": [
-      { "en": "Follow balanced NPK and zinc nutrition; avoid late heavy nitrogen surges.", "ur": "پوٹاش اور متوازن کھاد دیں اور پچھیتی یوریا سے پرہیز کریں۔" },
-      { "en": "Keep water channels and field bunds clean of wild grass hosts.", "ur": "کھالوں اور وٹوں کو گھاس اور جڑی بوٹیوں سے صاف رکھیں۔" }
+      { "en": "Never reuse seed from Bakanae-affected fields; soak clean seed in registered systemic fungicide (carbendazim/thiophanate-methyl).", "ur": "بوائی سے قبل بیج کو لازمی زہر آلود محلول میں بھگو کر پنیری کاشت کریں۔" }
+    ],
+    "see_expert": true
+  },
+  "rice_healthy": {
+    "crop": "rice",
+    "scientific_name": "Oryza sativa (Healthy)",
+    "pathogen_type": "healthy",
+    "problem_name": { "en": "Healthy Rice Plant", "ur": "صحت مند دھان کا پودا" },
+    "severity": "low",
+    "symptoms": [
+      { "en": "Uniform erect green blades cleanly free of blast diamonds, brown spots, or bacterial leaf stripes", "ur": "صاف سرسبز پتے، بلاسٹ یا کسی دھبے کے بغیر" }
+    ],
+    "causes": [],
+    "summary": {
+      "en": "Genuinely healthy rice plant with intact green tissue, uniform coloration, and zero blast spindles or blight lesions.",
+      "ur": "دھان کا یہ پودا بالکل تندرست اور سرسبز ہے؛ کسی قسم کے بلاسٹ، دھبے یا بیماری کی علامت موجود نہیں۔"
+    },
+    "steps": [
+      { "en": "Continue routine morning scouting and maintain steady shallow moisture.", "ur": "معمول کا صبح معائنہ اور متوازن پانی جاری رکھیں۔" }
+    ],
+    "prevention": [
+      { "en": "Balance NPK and zinc nutrition and keep field bunds free of weeds.", "ur": "متوازن کھاد اور زنک دیں اور وٹوں سے جڑی بوٹیاں صاف رکھیں۔" }
+    ],
+    "see_expert": false
+  },
+  "cotton_leaf_curl_virus": {
+    "crop": "cotton",
+    "scientific_name": "Cotton Leaf Curl Begomovirus (CLCuV)",
+    "pathogen_type": "viral",
+    "problem_name": { "en": "Cotton Leaf Curl Virus (CLCuV / Maror)", "ur": "کپاس کا پتہ مروڑ وائرس (مروریا / لیف کرل)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Upward or downward cupping/curling of young leaves with darkened swollen thickened leaf veins underside", "ur": "نئے پتوں کا اوپر یا نیچے کو مڑنا اور نچلی سطح پر رگوں کا موٹا اور گہرا سبز ابھرنا" },
+      { "en": "Small leaf-like outgrowths (enations) growing on swollen underside veins and severely stunted plant internodes", "ur": "پتے کے نیچے رگوں پر چھوٹے پتوں جیسے ابھار اور پودے کا قد رک جانا" }
+    ],
+    "causes": [
+      { "en": "Transmitted exclusively by whitefly (Bemisia tabaci) vectors, aggravated by off-season weed hosts and late hot planting", "ur": "سفید مکھی کے ذریعے پھیلنے والا وائرس اور کھیت کے کنارے اگنے والی جڑی بوٹیاں" }
+    ],
+    "summary": {
+      "en": "Leaves thicken, cup, and show swollen underside veins or small leaf-like enations caused by CLCuV spread by whitefly.",
+      "ur": "کپاس کے پتے مڑ کر کٹوری نما ہو جاتے ہیں اور نیچے رگیں موٹی ہو جاتی ہیں۔ یہ وائرس سفید مکھی پھیلاتی ہے۔"
+    },
+    "steps": [
+      { "en": "Remove and bury heavily infected young seedlings (<30 days old) and eradicate host weeds (kanghi booti, itsit) around bunds.", "ur": "کم عمر شدید متاثرہ پودے نکال دیں اور کھیت کے گرد جڑی بوٹیاں (کنھی بوٹی، اٹ سٹ) تلف کریں۔" },
+      { "en": "Monitor whitefly adults/nymphs on lower leaf surfaces and consult extension officer for vector-specific threshold control.", "ur": "سفید مکھی کے تدارک کے لیے زرعی افسر کے مشورے سے مناسب انسدادی تدابیر کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Plant CLCuV-tolerant cotton hybrids/varieties within official Punjab/Sindh sowing windows.", "ur": "منظور شدہ وائرس مزاحم اقسام وقت پر کاشت کریں۔" }
+    ],
+    "see_expert": true,
+    "expert_reason": {
+      "en": "Virus cannot be cured once established; vector whitefly management and roguing early plants protects remaining crop.",
+      "ur": "وائرس کا علاج نہیں صرف روک تھام ممکن ہے؛ سفید مکھی کنٹرول کے لیے زرعی افسر سے مشورہ کریں۔"
+    }
+  },
+  "cotton_bacterial_blight": {
+    "crop": "cotton",
+    "scientific_name": "Xanthomonas citri pv. malvacearum",
+    "pathogen_type": "bacterial",
+    "problem_name": { "en": "Cotton Angular Leaf Spot / Bacterial Blight", "ur": "کپاس کے کونے دار دھبوں کی بیماری (بیکٹیریل بلائٹ)" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Angular dark green water-soaked spots bounded sharply by small leaf veins, later turning black (angular leaf spot)", "ur": "پتوں کی رگوں کے درمیان گیلے کونے دار دھبے جو بعد میں سیاہ ہو جاتے ہیں" },
+      { "en": "Black elongated lesions along stem/branches (black arm) and sunken water-soaked lesions on bolls", "ur": "ٹہنیوں پر سیاہ دھاریاں اور ٹینڈوں پر گہرے داغ" }
+    ],
+    "causes": [
+      { "en": "Wind-driven monsoon rain splashing bacteria from seed or leftover cotton stalks", "ur": "مون سون کی بارش اور آندھی کے جھونکے، اور بغیر تیزاب لگے بیج" }
+    ],
+    "summary": {
+      "en": "Sharp angular water-soaked spots restricted between leaf veins darken to black and may spread to stems (black arm) and bolls.",
+      "ur": "پتوں کی رگوں کے درمیان کونے دار گیلے دھبے بنتے ہیں جو سیاہ ہو کر شاخوں اور ٹینڈوں تک جا سکتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Avoid mechanical movement through wet fields and consult extension officer on copper-based protection if heavy monsoon rain persists.", "ur": "گیلی فصل میں نقل و حرکت روکیں اور مسلسل بارش کی صورت میں زرعی افسر سے کاپر سپرے پر مشورہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Always plant acid-delinted, certified disease-free cotton seed.", "ur": "ہمیشہ تیزاب سے صاف شدہ (بُر اترا) بیماری سے پاک بیج استعمال کریں۔" }
+    ],
+    "see_expert": false
+  },
+  "cotton_whitefly": {
+    "crop": "cotton",
+    "scientific_name": "Bemisia tabaci",
+    "pathogen_type": "pest",
+    "problem_name": { "en": "Cotton Whitefly & Black Sooty Mold", "ur": "کپاس کی سفید مکھی اور کالا تیلا" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Tiny white moth-like flies fluttering off leaf undersides alongside flat translucent oval nymphs", "ur": "پتوں کے نیچے باریک سفید مکھیاں اور چپٹے بچے" },
+      { "en": "Glistening sticky honeydew droplets turning foliage shiny black with sooty mold fungus", "ur": "پتوں پر چپچپا میٹھا مواد اور کالی پھپھوندی جم جانا" }
+    ],
+    "causes": [
+      { "en": "Hot humid conditions, excessive lush Urea growth, and broad-spectrum early pyrethroid sprays killing natural predators", "ur": "گرم حبس والا موسم، زیادہ یوریا کھاد اور دوست کیڑوں کو مارنے والے غلط سپرے" }
+    ],
+    "summary": {
+      "en": "Whiteflies suck phloem sap under leaves, secrete sticky honeydew causing black sooty mold, and spread leaf curl virus.",
+      "ur": "سفید مکھی پتوں کے نیچے سے رس چوستی ہے، کالا تیلا پیدا کرتی ہے اور پتہ مروڑ وائرس پھیلاتی ہے۔"
+    },
+    "steps": [
+      { "en": "Install yellow sticky traps and scout nymph counts under 20 random leaves (ETL: 5 adults or nymphs per leaf).", "ur": "پیلے چپکنے والے کارڈ لگائیں اور پتوں کے نیچے تعداد چیک کریں (نقصان کی حد: 5 بالغ یا بچے فی پتہ)۔" },
+      { "en": "Consult your agriculture officer for selective IGR/nymphicide classes (e.g., pyriproxyfen, buprofezin, spirotetramat) rather than harsh broad sprays.", "ur": "زرعی افسر کے مشورے سے سفید مکھی کے بچوں کو مارنے والی مخصوص محفوظ دوا استعمال کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Protect beneficial lacewings (Chrysoperla), keep field weeds cleared, and avoid over-fertilizing Urea.", "ur": "دوست کیڑوں کی حفاظت کریں، جڑی بوٹیاں صاف رکھیں اور زیادہ یوریا سے پرہیز کریں۔" }
+    ],
+    "see_expert": true
+  },
+  "cotton_jassid": {
+    "crop": "cotton",
+    "scientific_name": "Amrasca biguttula biguttula",
+    "pathogen_type": "pest",
+    "problem_name": { "en": "Cotton Jassid / Leafhopper (Sabz Tela)", "ur": "کپاس کا سبز تیلا (جیسڈ)" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Downward curling of leaf edges turning yellow, bronze, then reddish-brown (hopperburn)", "ur": "پتوں کے کناروں کا نیچے کی طرف مڑ کر پیلا، زنگ آلود اور سرخ بھورا ہو جانا" },
+      { "en": "Wedge-shaped green nymphs moving sideways rapidly on underside of leaves", "ur": "پتے کے نیچے ترچھا چلنے والے باریک سبز کیڑے" }
+    ],
+    "causes": [
+      { "en": "Early vegetative succulent foliage during warm pre-monsoon humidity", "ur": "گرم مرطوب موسم میں نرم کونپلوں پر تیزی سے افزائش" }
+    ],
+    "summary": {
+      "en": "Sideways-walking green leafhoppers inject toxin while sucking sap, causing downward leaf cupping and burnt red leaf margins.",
+      "ur": "سبز تیلا پتوں کے نیچے سے رس چوستا ہے جس سے پتے نیچے مڑ کر کناروں سے سرخ یا پیلے جھلسے ہوئے نظر آتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Check Economic Threshold Level (1 nymph/adult per leaf) across upper canopy.", "ur": "نقصان کی معاشی حد (1 تیلا فی پتہ) چیک کریں۔" },
+      { "en": "If above ETL, consult your agriculture officer for selective sucking-pest chemistry avoiding predator flares.", "ur": "اگر تعداد حد سے زیادہ ہو تو زرعی افسر کے مشورے سے مخصوص سپرے کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Choose hairy-leaf tolerant cotton varieties where jassid pressure is high.", "ur": "رواں دار پتوں والی قوتِ مدافعت رکھنے والی کپاس کی اقسام کاشت کریں۔" }
+    ],
+    "see_expert": false
+  },
+  "cotton_pink_bollworm": {
+    "crop": "cotton",
+    "scientific_name": "Pectinophora gossypiella",
+    "pathogen_type": "pest",
+    "problem_name": { "en": "Cotton Pink Bollworm", "ur": "کپاس کی گلابی سنڈی" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Twisted 'rosette flowers' failing to open cleanly; pink larvae inside unopened flowers or green bolls", "ur": "گلاب نما مڑے ہوئے بند پھول (روزیٹ فلاور) اور ٹینڈے کے اندر گلابی سنڈی" },
+      { "en": "Pinhead entry scars on green boll wall, stained brown lint, and cut seeds ('double seeds')", "ur": "سبز ٹینڈے پر باریک سوراخ، روئی کا داغدار ہونا اور دو بیجوں کا آپس میں جڑ جانا" }
+    ],
+    "causes": [
+      { "en": "Larvae overwintering in leftover cotton sticks and ginning waste, plus non-Bt refuge gaps", "ur": "پچھلی فصل کی چھڑیوں اور جننگ ویسٹ میں چھپے ہوئے پیوپا سے نکلنے والے پروانے" }
+    ],
+    "summary": {
+      "en": "Pink caterpillars bore inside cotton flowers (rosette blooms) and green bolls, ruining fiber quality and cutting seeds from within.",
+      "ur": "گلابی سنڈی پھولوں (روزیٹ) اور سبز ٹینڈوں کے اندر گھس کر روئی اور بنولے کو اندر سے تباہ کر دیتی ہے۔"
+    },
+    "steps": [
+      { "en": "Crack open 25 green bolls weekly; act immediately once live worms exceed 5% infested bolls.", "ur": "ہفتے میں 25 سبز ٹینڈے چیر کر چیک کریں؛ 5 فیصد حملے پر فوری کنٹرول کریں۔" },
+      { "en": "Install pheromone PBW traps and consult agriculture officer about mating-disruption ropes or recommended bollworm sprays.", "ur": "فیرامون پھندے لگائیں اور زرعی افسر سے کنٹرول کے لیے مشورہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Cut cotton sticks cleanly near soil line after last picking, sun-dry/burn debris, and ensure goats graze leftover bolls.", "ur": "آخری چنائی کے بعد چھڑیاں زمین کے برابر کاٹ کر خشک کریں تاکہ گلابی سنڈی کا سلسلہ ٹوٹ جائے۔" }
+    ],
+    "see_expert": true
+  },
+  "cotton_healthy": {
+    "crop": "cotton",
+    "scientific_name": "Gossypium hirsutum (Healthy)",
+    "pathogen_type": "healthy",
+    "problem_name": { "en": "Healthy Cotton Plant", "ur": "صحت مند کپاس کا پودا" },
+    "severity": "low",
+    "symptoms": [
+      { "en": "Flat open green leaves with smooth normal veins, zero cupping, angular spots, or honeydew glaze", "ur": "کھلے سرسبز پتے، رگوں کے ابھار، مڑاؤ یا تیلے کے بغیر" }
+    ],
+    "causes": [],
+    "summary": {
+      "en": "Healthy cotton foliage with flat expanded blades, clear undersides, and zero signs of leaf curl virus, blight, or sucking pests.",
+      "ur": "کپاس کا یہ پتا بالکل صحت مند اور تندرست ہے؛ لیف کرل وائرس، دھبوں یا سفید مکھی کے آثار نہیں ہیں۔"
+    },
+    "steps": [
+      { "en": "Scout twice weekly underneath top leaves for sucking pests and check blooms/bolls cleanly.", "ur": "ہفتے میں دو بار پتوں کے نیچے اور پھول ٹینڈوں کا معائنہ جاری رکھیں۔" }
+    ],
+    "prevention": [
+      { "en": "Maintain balanced potash & boron nutrition and keep field borders weed-free.", "ur": "پوٹاش، بوران اور وٹوں کی صفائی برقرار رکھیں۔" }
+    ],
+    "see_expert": false
+  },
+  "maize_northern_leaf_blight": {
+    "crop": "maize",
+    "scientific_name": "Exserohilum turcicum",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Maize Northern Corn Leaf Blight", "ur": "مکئی کے پتوں کا جھلساؤ (ناردرن لیف بلائٹ)" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Long elliptical cigar-shaped greyish-green to tan lesions (5–15 cm) starting on lower maize leaves", "ur": "نچلے پتوں پر سگار کی شکل کے لمبے سرمئی سبز تا بادامی دھبے" }
+    ],
+    "causes": [
+      { "en": "Overcast humid moderate temperatures (18–27°C) and surface maize stover residue", "ur": "معتدل نمی والا موسم اور پچھلی مکئی کی باقیات" }
+    ],
+    "summary": {
+      "en": "Long cigar-shaped greyish-tan lesions develop on lower maize leaves and climb toward the ear leaf under damp weather.",
+      "ur": "مکئی کے نچلے پتوں پر لمبے بادامی یا سلیٹی رنگ کے دھبے بنتے ہیں جو نمی والے موسم میں اوپر کے پتوں کی طرف بڑھتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Strip heavily diseased bottom leaves below the cob if practical and ensure proper furrow drainage.", "ur": "کھیلیوں میں پانی کھڑا نہ ہونے دیں اور نکاسی کا انتظام رکھیں۔" },
+      { "en": "If lesions threaten the ear leaf before silking, consult your agriculture officer on a triazole/strobilurin fungicide class.", "ur": "اگر دھبے چھلی والے پتے تک بڑھ رہے ہوں تو زرعی افسر سے مشورہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Deeply plow maize residue after harvest and choose blight-tolerant hybrids.", "ur": "کٹائی کے بعد باقیات زمین میں دبا دیں اور قوتِ مدافعت والا ہائبرڈ لگائیں۔" }
+    ],
+    "see_expert": false
+  },
+  "maize_common_rust": {
+    "crop": "maize",
+    "scientific_name": "Puccinia sorghi",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Maize Common Rust", "ur": "مکئی کی کنگی (کامَن رسٹ)" },
+    "severity": "low",
+    "symptoms": [
+      { "en": "Small elongated cinnamon-brown dusty pustules scattered on both upper and lower leaf surfaces", "ur": "پتوں کے دونوں رخ پر دارچینی جیسے بھورے چھوٹے ابھرے دانے" }
+    ],
+    "causes": [
+      { "en": "Mild humid spring/autumn mornings with overnight dew", "ur": "معتدل مرطوب موسم اور رات کی شبنم" }
+    ],
+    "summary": {
+      "en": "Cinnamon-brown powdery pustules appear on both leaf faces during mild, damp mornings; light lower infection rarely hurts yield.",
+      "ur": "معتدل اور نمی والے موسم میں مکئی کے پتوں کے دونوں طرف چھوٹے بھورے ابھرے ہوئے دھبے نظر آتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Monitor upper ear leaves; maintain steady watering and balanced potash.", "ur": "اوپری پتوں کا معائنہ کریں اور متوازن آبپاشی و پوٹاش برقرار رکھیں۔" }
+    ],
+    "prevention": [
+      { "en": "Plant certified rust-tolerant hybrids within regional planting dates.", "ur": "وقت پر بجائی کریں اور تصدیق شدہ ہائبرڈ بیج لگائیں۔" }
+    ],
+    "see_expert": false
+  },
+  "maize_fall_armyworm": {
+    "crop": "maize",
+    "scientific_name": "Spodoptera frugiperda",
+    "pathogen_type": "pest",
+    "problem_name": { "en": "Maize Fall Armyworm", "ur": "مکئی کا فال آرمی ورم (سنڈی)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Ragged shot-holes across unfurling whorl leaves and moist sawdust-like larval frass inside the central whorl", "ur": "کونپل کے پتوں میں بے ترتیب بڑے سوراخ اور درمیانی کونپل میں لکڑی کے برادے جیسا فضلہ" },
+      { "en": "Caterpillar showing an inverted Y-mark on its dark head and 4 dark dots in a square on the tail segment", "ur": "سنڈی کے سر پر الٹا Y نشان اور دم پر چوکور 4 سیاہ نقطے" }
+    ],
+    "causes": [
+      { "en": "Migratory moths laying egg batches on young whorls during warm weather", "ur": "گرم موسم میں نئی کونپلوں پر پروانوں کے انڈے دینے سے شدید حملہ" }
+    ],
+    "summary": {
+      "en": "Hungry larvae chew ragged holes inside the central maize whorl, leaving wet sawdust-like frass and threatening the growing point.",
+      "ur": "فال آرمی ورم مکئی کی درمیانی کونپل میں چھپ کر پتے چبا جاتا ہے اور کونپل میں برادے جیسا فضلہ چھوڑتا ہے۔"
+    },
+    "steps": [
+      { "en": "Scout whorls early morning; treat once 10–20% seedlings show fresh whorl feeding.", "ur": "صبح کونپلوں کا معائنہ کریں؛ 10 تا 20 فیصد پودوں پر تازہ حملہ دیکھتے ہی کارروائی کریں۔" },
+      { "en": "Consult your agriculture officer for whorl-targeted larvicide (e.g., emamectin benzoate, spinetoram, or chlorantraniliprole class) aimed directly into whorls.", "ur": "زرعی افسر کے مشورے سے کونپل کے اندر ٹارگٹڈ لاروی سائیڈ سپرے یا دانے دار دوا استعمال کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Sow uniformly across neighbors, hang pheromone traps, and conserve parasitic wasps.", "ur": "پورے علاقے میں ہم وقت کاشت کریں اور فیرامون ٹریپ لگائیں۔" }
+    ],
+    "see_expert": true
+  },
+  "maize_healthy": {
+    "crop": "maize",
+    "scientific_name": "Zea mays (Healthy)",
+    "pathogen_type": "healthy",
+    "problem_name": { "en": "Healthy Maize Plant", "ur": "صحت مند مکئی کا پودا" },
+    "severity": "low",
+    "symptoms": [
+      { "en": "Broad lush dark-green leaves with intact edges and clean whorl free of shot-holes or blight", "ur": "چوڑے گہرے سبز پتے، کونپل صاف اور کسی سوراخ یا جھلساؤ کے بغیر" }
+    ],
+    "causes": [],
+    "summary": {
+      "en": "Deep green, vigorous maize leaf with intact margins and zero leaf blight, rust pustules, or Fall Armyworm injury.",
+      "ur": "مکئی کا پتا گہرا سبز اور صحت مند ہے، اس پر جھلساؤ، کنگی یا فال آرمی ورم کا کوئی حملہ نہیں۔"
+    },
+    "steps": [
+      { "en": "Avoid drought stress during tasseling/silking and keep inspecting central whorls weekly.", "ur": "تاج اور بال نکلتے وقت پانی کی کمی نہ ہونے دیں اور ہفتہ وار معائنہ جاری رکھیں۔" }
+    ],
+    "prevention": [
+      { "en": "Apply split nitrogen on schedule and keep field edges weeded.", "ur": "کھاد قسطوں میں وقت پر دیں اور کناروں سے گھاس صاف رکھیں۔" }
+    ],
+    "see_expert": false
+  },
+  "sugarcane_red_rot": {
+    "crop": "sugarcane",
+    "scientific_name": "Colletotrichum falcatum",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Sugarcane Red Rot (Kansa)", "ur": "کماد (گنے) کی سرخ سڑن (ریڈ راٹ)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Third or fourth leaf yellowing and drying along margins, plus reddish necrotic lesions on midrib", "ur": "تیسرے چوتھے پتے کا کناروں سے سوکھنا اور درمیان والی رگ پر سرخی مائل دھبے" },
+      { "en": "Split cane stalk shows dull red internal pith interrupted by distinct transverse white bands and sour alcoholic odor", "ur": "گنا چیرنے پر اندر سے سرخ گودا جس میں سفید آڑی پٹیاں اور کھٹی شراب جیسی بو آتی ہے" }
+    ],
+    "causes": [
+      { "en": "Planting infected seed setts, waterlogged poorly drained soils, and keeping diseased ratoon fields", "ur": "متاثرہ بیج (پوری) کاشت کرنا، کھیت میں پانی کھڑا رہنا اور بیمار مونڈھی فصل رکھنا" }
+    ],
+    "summary": {
+      "en": "Cancer of sugarcane: drying spindle leaves and split stalks revealing reddened pith crossed by white bands and sour smell.",
+      "ur": "گنے کا سب سے خطرناک مرض: گنا اندر سے سرخ ہو جاتا ہے جس میں سفید پٹیاں اور کھٹی بو ہوتی ہے اور پورا پودا سوکھ جاتا ہے۔"
+    },
+    "steps": [
+      { "en": "Uproot and destroy whole affected clumps immediately; never keep ratoon crop from diseased fields.", "ur": "متاثرہ تھوڑ فوراً اکھاڑ کر تلف کریں اور بیمار کھیت سے اگلی مونڈھی ہرگز نہ رکھیں۔" },
+      { "en": "Drain excess stagnant irrigation water and do not route runoff to clean cane fields.", "ur": "بیمار کھیت کا پانی صاف کھیت میں نہ جانے دیں۔" }
+    ],
+    "prevention": [
+      { "en": "Plant certified healthy nurseries/setts treated with systemic fungicide and avoid susceptible old cane clones.", "ur": "صحت مند تصدیق شدہ بیج زہر آلود کر کے لگائیں اور نئی مزاحم اقسام کاشت کریں۔" }
+    ],
+    "see_expert": true,
+    "expert_reason": {
+      "en": "Red rot spreads invisibly through setts and floodwater; an extension visit prevents multi-acre losses.",
+      "ur": "سرخ سڑن بیج اور پانی سے تیزی سے پھیلتی ہے؛ زرعی افسر سے فوری معائنہ کروائیں۔"
+    }
+  },
+  "sugarcane_whip_smut": {
+    "crop": "sugarcane",
+    "scientific_name": "Sporisorium scitamineum",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Sugarcane Whip Smut (Chabuk Kangyari)", "ur": "کماد کی چابک کانگیاری (وہپ سمٹ)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Long curved black whip-like shoot emerging from top growing point covered in loose black dusty spores", "ur": "پودے کی چوٹی سے چابک جیسی لمبی کالی چھڑی نکلنا جو سیاہ پاؤڈر سے ڈھکی ہوتی ہے" }
+    ],
+    "causes": [
+      { "en": "Infected seed cane and multiple ratoon cycles without roguing diseased stools", "ur": "بیمار بیج اور پرانی مونڈھی فصل میں بروقت تلفی نہ ہونا" }
+    ],
+    "summary": {
+      "en": "Infected tillers shoot out a characteristic curved black dusty whip from the spindle instead of normal cane growth.",
+      "ur": "گنے کی چوٹی سے پتے نکلنے کے بجائے چابک نما سیاہ کوئلے والی شاخ نکل آتی ہے جس سے پیداوار ختم ہو جاتی ہے۔"
+    },
+    "steps": [
+      { "en": "Slip a moistened gunny/plastic bag carefully over the whip before pulling the whole clump, and burn away from fields.", "ur": "سیاہ چابک پر بوری یا پلاسٹک چڑھا کر پورا تھوڑ اکھاڑیں اور جلا دیں تاکہ سیاہ پاؤڈر ہوا میں نہ اڑے۔" }
+    ],
+    "prevention": [
+      { "en": "Plant disease-free hot-water/fungicide-treated setts and drop heavily smutted ratoons.", "ur": "بیماری سے پاک صاف بیج لگائیں اور زیادہ متاثرہ مونڈھی ختم کر دیں۔" }
+    ],
+    "see_expert": true
+  },
+  "sugarcane_pokkah_boeng": {
+    "crop": "sugarcane",
+    "scientific_name": "Fusarium verticillioides / proliferatum",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Sugarcane Pokkah Boeng (Top Twisting / Tangling)", "ur": "کماد کا پوکا بوئنگ (چوٹی کے پتوں کا الجھنا اور گلنا)" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Pale chlorotic yellowing at the base of young spindle leaves with wrinkling, twisting, and tangled crowns", "ur": "نئی کونپل کے پتوں کی بنیاد کا پیلا پڑنا، سلوٹیں آنا اور چوٹی کے پتوں کا آپس میں الجھ جانا" }
+    ],
+    "causes": [
+      { "en": "Sudden monsoon rains following hot dry spells favoring Fusarium buildup in whorls", "ur": "سخت گرمی کے بعد مون سون بارشیں شروع ہونے پر کونپل میں فوزیریم پھپھوندی کا حملہ" }
+    ],
+    "summary": {
+      "en": "Young top cane leaves twist, wrinkle, and turn chlorotic near the base after monsoon rains; mild cases often outgrow.",
+      "ur": "مون سون کے آغاز میں گنے کی کونپل کے پتے بنیاد سے پیلے ہو کر آپس میں مڑ اور الجھ جاتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Most mild tops recover once sunshine resumes; if top rot appears, consult your agriculture officer on copper oxychloride or carbendazim/thiophanate class spray.", "ur": "اگر کونپل گلنا شروع ہو تو زرعی افسر کے مشورے سے مناسب پھپھوندی کش سپرے کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Avoid excessive raw nitrogen before monsoon onset and ensure clean field drainage.", "ur": "برسات سے قبل اضافی نائٹروجن سے پرہیز کریں۔" }
+    ],
+    "see_expert": false
+  },
+  "sugarcane_healthy": {
+    "crop": "sugarcane",
+    "scientific_name": "Saccharum officinarum (Healthy)",
+    "pathogen_type": "healthy",
+    "problem_name": { "en": "Healthy Sugarcane Plant", "ur": "صحت مند کماد (گنے) کا پودا" },
+    "severity": "low",
+    "symptoms": [
+      { "en": "Long upright deep-green blades cleanly free of midrib reddening, top twisting, or smut whips", "ur": "لمبے سیدھے گہرے سبز پتے، سرخ رگوں، چابک کانگیاری یا الجھاؤ کے بغیر" }
+    ],
+    "causes": [],
+    "summary": {
+      "en": "Healthy vigorous sugarcane leaves and top crown with zero signs of red rot, whip smut, or Pokkah Boeng.",
+      "ur": "گنے کا پودا اور پتے بالکل تندرست اور سرسبز ہیں؛ سرخ سڑن یا کانگیاری کی کوئی علامت نہیں۔"
+    },
+    "steps": [
+      { "en": "Continue scheduled earthing-up, timely irrigations, and borer scouting.", "ur": "مٹی چڑھانے، بروقت آبپاشی اور گڑوؤں کے معائنے کا معمول جاری رکھیں۔" }
+    ],
+    "prevention": [
+      { "en": "Keep balanced potash and trash mulching between rows.", "ur": "پوٹاش اور کھیت کی صفائی کا خیال رکھیں۔" }
+    ],
+    "see_expert": false
+  },
+  "potato_late_blight": {
+    "crop": "potato",
+    "scientific_name": "Phytophthora infestans",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Potato Late Blight", "ur": "آلو کا پچھیتا جھلساؤ (لیٹ بلائٹ)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Large irregular dark water-soaked blotches on leaf tips/margins turning black rapidly", "ur": "پتوں کے کناروں پر بڑے گیلے سیاہ دھبے جو تیزی سے پورے پتے کو جلا دیتے ہیں" },
+      { "en": "Delicate white frosty mildew ring around lesion underside in morning fog", "ur": "صبح دھند میں پتے کے نچلے رخ پر دھبے کے گرد سفید روئیں جیسی جھلی" }
+    ],
+    "causes": [
+      { "en": "Dense winter fog, cold wet days (Dec–Jan in Punjab), and infected seed tubers", "ur": "دسمبر جنوری کی شدید دھند، سرد مرطوب موسم اور بیمار بیج" }
+    ],
+    "summary": {
+      "en": "Aggressive oomycete blight spreading through winter fog, rapidly blackening leaves, stems, and threatening tubers underneath.",
+      "ur": "سردیوں اور دھند میں آلو کی سب سے تباہ کن بیماری جو چند دنوں میں پتوں کو کالا کر کے جلا دیتی ہے۔"
+    },
+    "steps": [
+      { "en": "Stop irrigation temporarily if fog persists and harvest/hill ridges tightly to shield tubers from washing spores.", "ur": "مسلسل دھند میں پانی عارضی طور پر روکیں اور کھیلیوں پر مٹی مضبوط رکھیں۔" },
+      { "en": "Consult extension officer immediately for systemic + contact blight fungicide rotation.", "ur": "فوری طور پر زرعی افسر سے سسٹمک اور کنٹیکٹ پھپھوندی کش سپرے شیڈول کی تصدیق کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Use certified blight-free seed tubers and apply preventative sprays ahead of winter fog warnings.", "ur": "تصدیق شدہ صحت مند بیج لگائیں اور دھند کی پیش گوئی سے قبل حفاظتی اقدامات کریں۔" }
+    ],
+    "see_expert": true
+  },
+  "potato_early_blight": {
+    "crop": "potato",
+    "scientific_name": "Alternaria solani",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Potato Early Blight", "ur": "آلو کا ابتدائی جھلساؤ (ارلی بلائٹ)" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Small dry dark-brown circular spots showing concentric target rings on older lower potato leaves", "ur": "نچلے پرانے پتوں پر خشک بھورے گول دھبے جن میں چوڑیاں (رِنگز) نظر آتی ہیں" }
+    ],
+    "causes": [
+      { "en": "Nutrient stress, dry-wet weather cycles, and previous season Alternaria debris", "ur": "کھاد کی کمی، موسمی اتار چڑھاؤ اور پچھلی فصل کے جراثیم" }
+    ],
+    "summary": {
+      "en": "Dry dark-brown bullseye spots appear on aging lower potato leaves and spread upward when nutrition or moisture dips.",
+      "ur": "آلو کے نچلے پرانے پتوں پر خشک بھورے گول چوڑی دار دھبے بنتے ہیں جو پتے خشک کر دیتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Support plant vigor with balanced NPK/Potash and avoid prolonged drought.", "ur": "متوازن کھاد اور بروقت آبپاشی سے پودے کو مضبوط رکھیں۔" },
+      { "en": "Ask your extension officer about protective mancozeb/azoxystrobin class sprays if advancing.", "ur": "بیماری بڑھنے پر زرعی افسر سے مناسب پھپھوندی کش سپرے پر مشورہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Rotate potatoes on a 3-year cycle away from tomato and chili.", "ur": "آلو، ٹماٹر اور مرچ کے بعد دیگر غیر متعلق فصلیں کاشت کریں۔" }
+    ],
+    "see_expert": false
+  },
+  "potato_healthy": {
+    "crop": "potato",
+    "scientific_name": "Solanum tuberosum (Healthy)",
+    "pathogen_type": "healthy",
+    "problem_name": { "en": "Healthy Potato Foliage", "ur": "صحت مند آلو کا پودا" },
+    "severity": "low",
+    "symptoms": [
+      { "en": "Rich green compound potato leaves free of water-soaked blotches, target rings, or yellowing curl", "ur": "تروتازہ گہرے سبز پتے، کسی سیاہ یا بھورے جھلساؤ کے بغیر" }
+    ],
+    "causes": [],
+    "summary": {
+      "en": "Healthy potato canopy showing firm green leaves with zero signs of early blight, late blight, or virus.",
+      "ur": "آلو کے پتے بالکل سرسبز اور صحت مند ہیں؛ کسی جھلساؤ یا وائرس کی علامت نہیں۔"
+    },
+    "steps": [
+      { "en": "Monitor winter fog forecasts closely and inspect lower shaded leaves regularly.", "ur": "سردیوں کی دھند کی صورت میں نچلے پتوں کا باقاعدگی سے معائنہ جاری رکھیں۔" }
+    ],
+    "prevention": [
+      { "en": "Maintain well-shaped high ridges and balanced potash nutrition.", "ur": "کھیلیاں اونچی اور مضبوط رکھیں اور پوٹاش متوازن دیں۔" }
+    ],
+    "see_expert": false
+  },
+  "chili_anthracnose": {
+    "crop": "chili",
+    "scientific_name": "Colletotrichum capsici / gloeosporioides",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Chili Anthracnose / Dieback & Fruit Rot", "ur": "مرچ کا ان تھراکنوز / پھل گلنا اور ٹہنیوں کا خشک ہونا" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Sunken circular dark necrotic lesions on ripening red/green chili pods containing pink/orange concentric spore rings", "ur": "مرچ کے پھل پر گول دھنسے ہوئے سیاہ یا بھورے داغ جن میں گلابی/نارنجی حلقے بنتے ہیں" },
+      { "en": "Top branches dying backward (dieback) turning grey-white with black pinhead dots", "ur": "شاخوں کا اوپر سے نیچے کی طرف سوکھنا" }
+    ],
+    "causes": [
+      { "en": "High summer humidity, monsoon rain splash, and infected seed saved from diseased pods", "ur": "گرمی اور برسات کی نمی اور متاثرہ مرچوں سے رکھا گیا بیج" }
+    ],
+    "summary": {
+      "en": "Sunken rotten spots mar chili fruits and shoot tips die back downward under warm humid rainy weather.",
+      "ur": "مرچ کے پھل پر دھنسے ہوئے سڑے داغ بن جاتے ہیں اور اوپر والی شاخیں پیچھے کی طرف سوکھنے لگتی ہیں۔"
+    },
+    "steps": [
+      { "en": "Pick and destroy rotten fruits cleanly before drying them alongside healthy pods.", "ur": "داغدار اور گلی ہوئی مرچیں توڑ کر الگ تلف کریں، اچھی مرچوں کے ساتھ نہ سکھائیں۔" },
+      { "en": "Consult your agriculture officer for copper, azoxystrobin, or difenoconazole fungicide guidance.", "ur": "زرعی افسر کے مشورے سے مناسب پھپھوندی کش سپرے کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Use clean treated seed from Kunri/certified nurseries and avoid flood irrigation standing water.", "ur": "صاف زہر آلود بیج استعمال کریں اور کھیت میں پانی کھڑا نہ ہونے دیں۔" }
+    ],
+    "see_expert": true
+  },
+  "chili_leaf_curl": {
+    "crop": "chili",
+    "scientific_name": "Chili Leaf Curl Virus + Thrips/Mite Complex",
+    "pathogen_type": "viral",
+    "problem_name": { "en": "Chili Leaf Curl Syndrome (Murda Rog)", "ur": "مرچ کا مرڑا روگ / پتہ مروڑ" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Upward boat-shaped curling (thrips), downward edge rolling with bronzing underneath (mites), or severe stunted crinkled leaves (Begomovirus/whitefly)", "ur": "پتوں کا کشتی کی طرح اوپر مڑنا، یا کناروں کا نیچے مڑ کر تانبے جیسا ہونا اور پتے چھوٹے رہ جانا" }
+    ],
+    "causes": [
+      { "en": "Driven by sucking pests—chilli thrips (upward curl), broad mites (downward curl), and whiteflies transmitting Leaf Curl Virus", "ur": "تھرپس، باریک جوئیں (مائٹس) اور سفید مکھی کے ذریعے پھیلنے والا وائرس" }
+    ],
+    "summary": {
+      "en": "Chili top leaves shrink, curl, and crinkle severely due to thrips, yellow mites, and Begomovirus transmitted by whiteflies.",
+      "ur": "مرچ کی چوٹی کے پتے سکڑ کر مڑ جاتے ہیں؛ اس کی بڑی وجوہات تھرپس، باریک جوئیں اور سفید مکھی کا وائرس ہیں۔"
+    },
+    "steps": [
+      { "en": "Use a hand lens to separate mites (downward curl) from thrips/virus (upward curl + vein swelling).", "ur": "غور سے چیک کریں کہ پتا اوپر مڑا ہے (تھرپس/وائرس) یا نیچے مڑا ہے (مائٹس)۔" },
+      { "en": "Consult extension officer to target the exact vector cleanly (miticide vs thrips/whitefly control) and rogue badly stunted virus plants.", "ur": "زرعی افسر کے مشورے سے درست کیڑے یا مائٹس کے خلاف سپرے کریں اور پرانے وائرس زدہ پودے نکال دیں۔" }
+    ],
+    "prevention": [
+      { "en": "Shield chili nursery under 40-mesh insect net and grow barrier rows of maize/sorghum.", "ur": "پنیری باریک جالی کے نیچے اگائیں اور کھیت کے گرد باڑ فصل لگائیں۔" }
+    ],
+    "see_expert": true
+  },
+  "chili_phytophthora_blight": {
+    "crop": "chili",
+    "scientific_name": "Phytophthora capsici",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Chili Root Rot / Collar Blight (Sudden Wilt)", "ur": "مرچ کا جڑ گلنا اور تنے کا کالا جھلساؤ" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Dark water-soaked girdle around collar base at soil line followed by sudden green wilting of entire plant", "ur": "زمین کے پاس تنے کے نچلے حصے کا سیاہ ہو کر گلنا اور پورے سرسبز پودے کا اچانک مرجھا جانا" }
+    ],
+    "causes": [
+      { "en": "Heavy flood irrigation wetting stem collars and poorly drained low spots", "ur": "پانی کا تنے کے ساتھ کھڑا رہنا اور زمین میں نکاسی نہ ہونا" }
+    ],
+    "summary": {
+      "en": "Collar rot strangles stems right at the wet soil line, causing healthy-looking chili bushes to wilt rapidly and die.",
+      "ur": "پانی تنے کے ساتھ لگنے سے زمین کے قریب تنا گل جاتا ہے اور پورا سرسبز مرچ کا پودا اچانک مرجھا کر سوکھ جاتا ہے۔"
+    },
+    "steps": [
+      { "en": "Stop flood irrigation touching plant stems immediately; irrigate strictly along deep furrows between beds.", "ur": "پانی کو تنے تک ہرگز نہ آنے دیں، صرف کھیلیوں کے اندر ہلکا پانی لگائیں۔" },
+      { "en": "Consult extension officer for oomycete root drench guidance on neighboring healthy rows.", "ur": "ساتھ والے صحت مند پودوں کو بچانے کے لیے زرعی افسر سے فوری مشورہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Plant chilies exclusively on high raised beds with gentle drainage gradients.", "ur": "مرچ ہمیشہ اونچی کھیلیوں پر کاشت کریں۔" }
+    ],
+    "see_expert": true
+  },
+  "chili_healthy": {
+    "crop": "chili",
+    "scientific_name": "Capsicum annuum (Healthy)",
+    "pathogen_type": "healthy",
+    "problem_name": { "en": "Healthy Chili Plant", "ur": "صحت مند مرچ کا پودا" },
+    "severity": "low",
+    "symptoms": [
+      { "en": "Smooth glossy green chili foliage cleanly uncurled, with bright blooms/fruits free of sunken anthracnose lesions", "ur": "صاف چمکدار سبز پتے، کسی مڑاؤ، جوئیں یا داغدار پھل کے بغیر" }
+    ],
+    "causes": [],
+    "summary": {
+      "en": "Healthy green chili leaves and firm stems showing zero signs of leaf curl syndrome, mites, thrips, or anthracnose rot.",
+      "ur": "مرچ کا پودا بالکل تندرست اور سرسبز ہے؛ مرڑا روگ، مائٹس یا پھل سڑنے کے آثار نہیں ہیں۔"
+    },
+    "steps": [
+      { "en": "Irrigate carefully inside furrows without wetting collars and inspect apical shoots weekly for thrips/mites.", "ur": "کھیلیوں کے اندر متوازن پانی دیں اور ہفتہ وار کونپل کا معائنہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Maintain raised beds and weed-free borders.", "ur": "اونچی کھیلیاں اور صاف وٹیں برقرار رکھیں۔" }
+    ],
+    "see_expert": false
+  },
+  "mango_powdery_mildew": {
+    "crop": "mango",
+    "scientific_name": "Oidium mangiferae",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Mango Powdery Mildew (Safaid Boora)", "ur": "آم کے بور کا سفید سفوف / پاوڈری ملڈیو" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "White powdery flour-like fungal coating covering mango flower panicles (boor), young pea-sized fruits, and tender flush leaves", "ur": "آم کے بور (پھولوں)، چھوٹے دانوں اور نئی کونپلوں پر سفید آٹے جیسا پاؤڈر چھا جانا" },
+      { "en": "Infected florets brown, dry up, and drop heavily without setting fruit", "ur": "بور کا سیاہ ہو کر جھڑ جانا اور پھل نہ بننا" }
+    ],
+    "causes": [
+      { "en": "Cool nights followed by warm humid cloudy Feb–March mornings during flowering", "ur": "فروری مارچ میں پھول آنے کے دوران ٹھنڈی راتیں اور دن کی نمی" }
+    ],
+    "summary": {
+      "en": "White chalky fungal dust coats mango blossoms and tiny fruitlets during flowering, threatening fruit set within days.",
+      "ur": "آم کے بور پر سفید پاؤڈر جیسی پھپھوندی چھا جاتی ہے جو بروقت کنٹرول نہ ہو تو سارا بور جھڑ جاتا ہے۔"
+    },
+    "steps": [
+      { "en": "Consult horticulture officer promptly at flower bud/panicle stage for safe wettable sulfur or systemic powdery-mildew fungicide sprays.", "ur": "بور نکلتے ہی سفید پاؤڈر دیکھتے ہی ماہر باغبانی سے محفوظ پھپھوندی کش سپرے کا مشورہ لیں۔" }
+    ],
+    "prevention": [
+      { "en": "Prune dense interlocking branches post-harvest to open orchard canopy to sunlight and breeze.", "ur": "چنائی کے بعد اضافی شاخوں کی کانٹ چھانٹ کریں تاکہ دھوپ اور ہوا اندر جائے۔" }
+    ],
+    "see_expert": true
+  },
+  "mango_anthracnose": {
+    "crop": "mango",
+    "scientific_name": "Colletotrichum gloeosporioides",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Mango Anthracnose / Black Spot", "ur": "آم کے پتوں اور پھل کے سیاہ دھبے (انتھراکنوز)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Irregular dark brown to black sunken spots on young leaves, panicles, and mango peel with tear-stain streaks", "ur": "نئے پتوں، شاخوں اور پھل پر سیاہ دھنسے ہوئے دھبے یا آنسو جیسی کالی لکیریں" }
+    ],
+    "causes": [
+      { "en": "High humidity, rain splashes, and unpruned dead twigs carrying dormant spores", "ur": "بارشیں، زیادہ نمی اور درخت پر سوکھی ٹہنیوں کی موجودگی" }
+    ],
+    "summary": {
+      "en": "Sunken black spots blight mango flushes, flower stalks, and ripening mangoes, ruining market appearance and shelf life.",
+      "ur": "آم کے نئے پتوں، بور اور پھل پر سیاہ دھنسے ہوئے دھبے پڑ جاتے ہیں جس سے پھل خراب ہو جاتا ہے۔"
+    },
+    "steps": [
+      { "en": "Prune out dead blackened twigs cleanly and consult orchard extension officer for copper or azoxystrobin/prochloraz guidance.", "ur": "سوکھی کالی ٹہنیاں کاٹ کر ہٹا دیں اور ماہر باغبانی سے مناسب سپرے پر مشورہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Open orchard tree centers after harvest and apply protective copper flush treatments before monsoon.", "ur": "کانٹ چھانٹ کے بعد کاپر بیسڈ حفاظتی سپرے وقت پر کریں۔" }
+    ],
+    "see_expert": true
+  },
+  "mango_malformation": {
+    "crop": "mango",
+    "scientific_name": "Fusarium mangiferae",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Mango Malformation (Guchha Disease)", "ur": "آم کا گچھا روگ (مالفارمیشن)" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Bunchy compact green/floral cauliflower-like 'guchha' clusters instead of loose elongated flower panicles", "ur": "آم کے بور یا کونپلوں کا لمبا کھلنے کے بجائے گوبھی جیسا گھنا گچھا بن جانا" }
+    ],
+    "causes": [
+      { "en": "Fusarium fungus vectored alongside mango bud mites and unhygienic nursery grafting", "ur": "فوزیریم پھپھوندی اور بڈ مائٹس کا حملہ یا متاثرہ قلم سے پھیلاؤ" }
+    ],
+    "summary": {
+      "en": "Flower panicles or vegetative shoots turn into tight sterile cauliflower-like bunches (guchha) that bear no mangoes.",
+      "ur": "آم کی شاخوں پر پھول اور پتے کھلنے کے بجائے سخت گھنے گچھوں کی شکل اختیار کر لیتے ہیں جن پر پھل نہیں لگتا۔"
+    },
+    "steps": [
+      { "en": "Prune malformed guchha bunches cleanly along with 15 cm of healthy shoot below, then burn removed clippings far away.", "ur": "گچھوں کو صحت مند 6 انچ ٹہنی سمیت کاٹ کر باغ سے دور جلا دیں۔" }
+    ],
+    "prevention": [
+      { "en": "Use scion wood strictly from guchha-free mother trees and control bud mites during flush.", "ur": "صرف صحت مند درختوں سے پیوند کاری کریں۔" }
+    ],
+    "see_expert": false
+  },
+  "mango_healthy": {
+    "crop": "mango",
+    "scientific_name": "Mangifera indica (Healthy)",
+    "pathogen_type": "healthy",
+    "problem_name": { "en": "Healthy Mango Foliage", "ur": "صحت مند آم کا درخت" },
+    "severity": "low",
+    "symptoms": [
+      { "en": "Glossy leathery green leaves cleanly free of powdery white dust, sunken anthracnose, or sooty hopper mold", "ur": "چمکدار سرسبز پتے، سفید پاؤڈر، سیاہ دھبوں یا تیلے سے پاک" }
+    ],
+    "causes": [],
+    "summary": {
+      "en": "Healthy green mango leaves with clean surfaces and zero powdery mildew, anthracnose black spots, or hopper honeydew.",
+      "ur": "آم کے پتے اور کونپلیں بالکل تندرست اور سرسبز ہیں؛ کسی بیماری یا سفید پاؤڈر کی علامت نہیں۔"
+    },
+    "steps": [
+      { "en": "Continue routine orchard canopy hygiene and monitor blossom panicles in February for hoppers and mildew.", "ur": "باغ کی صفائی جاری رکھیں اور فروری میں بور نکلنے پر تیلے اور سفید پاؤڈر پر نظر رکھیں۔" }
+    ],
+    "prevention": [
+      { "en": "Balanced NPK, zinc, and post-harvest pruning maintain strong fruit trees.", "ur": "متوازن کھاد، زنک اور پھل اتارنے کے بعد شاخ تراشی جاری رکھیں۔" }
+    ],
+    "see_expert": false
+  },
+  "citrus_canker": {
+    "crop": "citrus",
+    "scientific_name": "Xanthomonas citri subsp. citri",
+    "pathogen_type": "bacterial",
+    "problem_name": { "en": "Citrus Canker (Kodu / Korh)", "ur": "کینو / مالٹے کا کوڑھ (سِٹرس کینکر)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Raised corky rough brown crater-like lesions visible on BOTH sides of citrus leaves, twigs, and fruits", "ur": "پتوں کے دونوں رخ، ٹہنیوں اور پھل پر کھردرے ابھرے ہوئے زخم جیسے بھورے چھالے" },
+      { "en": "Bright yellow chlorotic halo ringing every corky spot", "ur": "ہر کھردرے ابھار کے گرد واضح پیلا حلقہ" }
+    ],
+    "causes": [
+      { "en": "Bacteria entering through citrus leaf miner feeding tunnels during warm rainy summer flushes", "ur": "بارشوں کے موسم میں لیف مائنر کیڑے کی سرنگوں سے داخل ہونے والے جراثیم" }
+    ],
+    "summary": {
+      "en": "Raised corky crater scabs circled by yellow halos appear on both sides of leaves and ruin fruit skin appearance.",
+      "ur": "مالٹے یا لیموں کے پتوں اور پھل پر پیلے حلقے والے کھردرے ابھرے داغ بنتے ہیں جو پھل کی کوالٹی گرا دیتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Prune heavily cankered twigs cleanly during dry weather and dispose safely.", "ur": "خشک موسم میں شدید متاثرہ ٹہنیاں کاٹ کر تلف کریں۔" },
+      { "en": "Control citrus leaf miner on new flush leaves and consult orchard officer on copper bactericide timing.", "ur": "نئی کونپلوں پر سرنگ بنانے والے کیڑے کو کنٹرول کریں اور ماہر باغبانی سے کاپر سپرے کا مشورہ لیں۔" }
+    ],
+    "prevention": [
+      { "en": "Plant windbreaks around Sargodha/orchard blocks and sanitize pruning shears.", "ur": "باغ کے گرد ہوا روک درخت لگائیں اور قینچی کو صاف رکھیں۔" }
+    ],
+    "see_expert": true
+  },
+  "citrus_greening_hlb": {
+    "crop": "citrus",
+    "scientific_name": "Candidatus Liberibacter asiaticus (HLB)",
+    "pathogen_type": "bacterial",
+    "problem_name": { "en": "Citrus Greening (Huanglongbing / HLB)", "ur": "مالٹے / کینو کا سبز رہ جانے کا مرض (سِٹرس گریننگ)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Asymmetrical blotchy yellow mottling across the leaf blade (different on left vs right side of midrib)", "ur": "پتے پر غیر متوازن پیلے اور سبز دھبے (پتے کا آدھا حصہ پیلا اور آدھا مختلف نمونے کا)" },
+      { "en": "Small lopsided bitter fruits staying green at the bottom blossom end alongside twig dieback", "ur": "چھوٹا ٹیڑھا پھل جو نیچے سے سبز رہ جائے اور کڑوا ذائقہ ہو" }
+    ],
+    "causes": [
+      { "en": "Phloem bacteria spread by the Asian citrus psyllid (Diaphorina citri) and infected grafted saplings", "ur": "ایشیائی سِٹرس سِلا کیڑے اور متاثرہ نرسری کے پودوں سے پھیلاؤ" }
+    ],
+    "summary": {
+      "en": "Blotchy asymmetrical yellowing on leaves coupled with small lopsided fruits that fail to color properly at the base; spread by citrus psyllid.",
+      "ur": "پتوں پر غیر متوازن پیلے دھبے پڑتے ہیں اور پھل چھوٹا، ٹیڑھا اور نیچے سے کچا سبز رہ جاتا ہے۔"
+    },
+    "steps": [
+      { "en": "Control Asian citrus psyllid strictly during new flush cycles and remove unproductive declining HLB trees.", "ur": "نئی کونپلوں پر سِٹرس سِلا کیڑے کو سختی سے کنٹرول کریں اور سوکھتے ناکارہ پودے نکال دیں۔" }
+    ],
+    "prevention": [
+      { "en": "Purchase ONLY certified HLB-free screened nursery plants.", "ur": "نرسری سے ہمیشہ بیماری سے پاک تصدیق شدہ پودے خریدیں۔" }
+    ],
+    "see_expert": true
+  },
+  "citrus_leaf_miner": {
+    "crop": "citrus",
+    "scientific_name": "Phyllocnistis citrella",
+    "pathogen_type": "pest",
+    "problem_name": { "en": "Citrus Leaf Miner (Patte ki Surang)", "ur": "مالٹے / لیموں کے پتے کی سرنگ والا کیڑا (لیف مائنر)" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Silvery winding serpentine tunnels etched inside young tender flush leaves, causing leaves to curl and pucker", "ur": "نئی نرم کونپلوں میں چاندی جیسی چمکدار بلدار لکیریں (سرنگیں) اور پتوں کا مڑ جانا" }
+    ],
+    "causes": [
+      { "en": "Tiny moths laying eggs exclusively on tender succulent new leaf flushes", "ur": "نئی کونپلیں نکلتے وقت چھوٹے پروانوں کا انڈے دینا (جو کینکر کو بھی دعوت دیتا ہے)" }
+    ],
+    "summary": {
+      "en": "Tiny larvae tunnel silvery winding trails just under the cuticle of tender citrus flushes, inviting secondary citrus canker infection.",
+      "ur": "نئے نرم پتوں میں چاندی جیسی بلدار سرنگیں بنتی ہیں جن سے پتے مڑ جاتے ہیں اور سِٹرس کینکر لگنے کا خطرہ بڑھ جاتا ہے۔"
+    },
+    "steps": [
+      { "en": "Consult horticulture officer when tender shoots reach 2-3 cm to protect flush with neem/horticultural oil or selective flush spray.", "ur": "نئی کونپلیں نکلتے ہی ماہر باغبانی کے مشورے سے نیم آئل یا مخصوص محفوظ سپرے کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Avoid excessive summer nitrogen that triggers staggered tender flushes.", "ur": "بے موسم زیادہ یوریا سے گریز کریں تاکہ ایک ساتھ نئی کونپلیں نکلیں۔" }
+    ],
+    "see_expert": false
+  },
+  "citrus_healthy": {
+    "crop": "citrus",
+    "scientific_name": "Citrus reticulata (Healthy)",
+    "pathogen_type": "healthy",
+    "problem_name": { "en": "Healthy Citrus Tree", "ur": "صحت مند کینو / مالٹے کا پودا" },
+    "severity": "low",
+    "symptoms": [
+      { "en": "Uniform glossy green leaves smoothly intact without corky canker craters, blotchy greening mottling, or silvery leaf-miner trails", "ur": "ہموار چمکدار سبز پتے، کھردرے چھالوں، غیر متوازن پیلے پن یا سرنگوں کے بغیر" }
+    ],
+    "causes": [],
+    "summary": {
+      "en": "Healthy glossy green citrus leaves cleanly free of citrus canker lesions, HLB blotchy yellowing, or leaf miner tunnels.",
+      "ur": "مالٹے یا لیموں کا پودا بالکل صحت مند اور تندرست ہے؛ کوڑھ، گریننگ یا سرنگ والے کیڑے کے آثار نہیں ہیں۔"
+    },
+    "steps": [
+      { "en": "Maintain micronutrient zinc sprays on schedule and inspect tender spring/monsoon flushes.", "ur": "زنک اور ضروری خردنی اجزاء وقت پر دیں اور نئی کونپلوں کا معائنہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Keep orchard floor clean, prune dead wood, and apply balanced fertilizers.", "ur": "باغ کی صفائی اور سوکھی لکڑی کی کٹائی جاری رکھیں۔" }
+    ],
+    "see_expert": false
+  },
+  "onion_purple_blotch": {
+    "crop": "onion",
+    "scientific_name": "Alternaria porri",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Onion Purple Blotch", "ur": "پیاز کے جامنی دھبوں کی بیماری (پرپل بلاچ)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Sunken oval whitish spots expanding into large purplish-brown lesions with yellow zones on tubular onion leaves", "ur": "پیاز کے پتوں پر سفید دھنسے نشان جو پھیل کر گہرے جامنی بھورے دھبوں میں بدل جاتے ہیں" },
+      { "en": "Leaf tops die back and collapse cleanly from girdled lesions", "ur": "دھبوں والی جگہ سے اوپر والا پتا مرجھا کر گر جانا" }
+    ],
+    "causes": [
+      { "en": "High air humidity, morning dew, and onion thrips feeding wounds creating fungal entry ports", "ur": "زیادہ نمی، شبنم اور تھرپس کے زخموں سے پھپھوندی کا حملہ" }
+    ],
+    "summary": {
+      "en": "Purple-centered sunken lesions ring hollow onion blades, rapidly intensified whenever thrips feed on leaves.",
+      "ur": "پیاز کے پتوں پر جامنی بھورے دھبے بنتے ہیں جو تھرپس کے حملے اور نمی کے ساتھ تیزی سے پورے پتے کو خشک کر دیتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Control onion thrips simultaneously and improve field air circulation.", "ur": "تھرپس کی روک تھام ساتھ ساتھ کریں اور آبپاشی میں وقفہ مناسب رکھیں۔" },
+      { "en": "Consult your local agriculture officer for mancozeb, chlorothalonil, or azoxystrobin/tebuconazole class guidance with a sticker-spreader (waxy leaves!).", "ur": "پیاز کے چکنے پتوں کی وجہ سے زرعی افسر کے مشورے سے سٹیکر ملا کر مناسب پھپھوندی کش سپرے کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Rotate away from onion/garlic crops and remove leftover culled bulbs cleanly.", "ur": "پیاز و لہسن کی جگہ دوسری فصلیں بدلیں اور گلے بلب کھیت سے صاف کریں۔" }
+    ],
+    "see_expert": true
+  },
+  "onion_downy_mildew": {
+    "crop": "onion",
+    "scientific_name": "Peronospora destructor",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Onion Downy Mildew", "ur": "پیاز کا روئیں دار پھپھوندی مرض (ڈاؤنی ملڈیو)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Pale green elongated patches developing grey-violet velvety mold coat during cool morning dew before blades fold over", "ur": "پتوں پر ہلکے پیلے حصے جن پر صبح کے وقت سرمئی جامنی مخملی تہہ نظر آتی ہے اور پتے جھک جاتے ہیں" }
+    ],
+    "causes": [
+      { "en": "Cool nights, dense onion beds, fog/dew, and overcast winter/spring weather", "ur": "ٹھنڈی راتیں، گھنی فصل، دھند اور ابر آلود موسم" }
+    ],
+    "summary": {
+      "en": "Grey-violet downy mold covers pale patches on onion leaves in cool dewy mornings, collapsing tops quickly.",
+      "ur": "ٹھنڈے نمی والے موسم میں پیاز کے پتوں پر سرمئی جامنی روئیں دار پھپھوندی چھا جاتی ہے اور پودا گر جاتا ہے۔"
+    },
+    "steps": [
+      { "en": "Irrigate strictly in early sunny morning rather than evening and consult extension officer on systemic downy-mildew fungicide class.", "ur": "شام کے بجائے صبح دھوپ میں پانی دیں اور زرعی افسر سے فوری سپرے مشورہ لیں۔" }
+    ],
+    "prevention": [
+      { "en": "Maintain good spacing on raised beds and clear nearby volunteer onions.", "ur": "اونچی پٹڑیوں پر مناسب فاصلہ رکھیں۔" }
+    ],
+    "see_expert": true
+  },
+  "onion_thrips": {
+    "crop": "onion",
+    "scientific_name": "Thrips tabaci",
+    "pathogen_type": "pest",
+    "problem_name": { "en": "Onion Thrips (Silvery Streaks)", "ur": "پیاز کا تھرپس (چاندی جیسی دھاریاں)" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Silvery white stippled scars running along inner leaf faces with curled distorted tips", "ur": "پیاز کے پتوں کے اندرونی حصے پر چاندی جیسی سفید کھرچن اور سروں کا مڑ جانا" }
+    ],
+    "causes": [
+      { "en": "Warm dry weather causing rapid buildup deep inside tight leaf sheaths", "ur": "گرم خشک موسم میں پتوں کے جوڑ میں چھپ کر تیزی سے بڑھنا" }
+    ],
+    "summary": {
+      "en": "Microscopic thrips rasp onion surfaces leaving silvery streaks and opening wounds for Purple Blotch fungus.",
+      "ur": "باریک تھرپس پیاز کے پتوں کو کھرچ کر سفید چاندی جیسا کر دیتے ہیں جس سے جامنی دھبے کی بیماری کو راستہ ملتا ہے۔"
+    },
+    "steps": [
+      { "en": "Part leaf sheaths gently to check nymph numbers; consult agriculture officer once silvery streaks exceed threshold across tops.", "ur": "پتوں کے جوڑ کھول کر تھرپس چیک کریں اور بڑھنے پر زرعی افسر سے مشورہ کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Conserve soil moisture smoothly and clear nearby weeds before transplanting.", "ur": "پودے لگانے سے قبل جڑی بوٹیاں صاف رکھیں اور مناسب وتر رکھیں۔" }
+    ],
+    "see_expert": false
+  },
+  "onion_healthy": {
+    "crop": "onion",
+    "scientific_name": "Allium cepa (Healthy)",
+    "pathogen_type": "healthy",
+    "problem_name": { "en": "Healthy Onion Crop", "ur": "صحت مند پیاز کا پودا" },
+    "severity": "low",
+    "symptoms": [
+      { "en": "Firm upright tubular blue-green leaves free of purple blotches, grey downy mold, or silvery thrips scars", "ur": "سیدھے مضبوط سبز پتے، جامنی دھبوں یا سفید تھرپس کی کھرچن کے بغیر" }
+    ],
+    "causes": [],
+    "summary": {
+      "en": "Healthy upright onion blades showing clean waxy coloration and zero fungal blotches or thrips damage.",
+      "ur": "پیاز کے پتے بالکل سیدھے، تندرست اور سرسبز ہیں؛ جامنی دھبے یا تھرپس کی کوئی علامت نہیں۔"
+    },
+    "steps": [
+      { "en": "Inspect inner leaf whorls weekly for thrips and continue balanced irrigation.", "ur": "ہفتہ وار پتوں کے اندر تھرپس چیک کرتے رہیں اور متوازن پانی دیں۔" }
+    ],
+    "prevention": [
+      { "en": "Keep raised beds cleanly weeded and maintain potash at bulbing.", "ur": "پٹڑیوں کو صاف رکھیں اور گانٹھ بننے کے وقت پوٹاش کا خیال رکھیں۔" }
     ],
     "see_expert": false
   },
   "not_a_plant": {
     "crop": "unknown",
-    "problem_name": { "en": "Not a clear crop leaf / Unclear photo", "ur": "پتے کی تصویر واضح نہیں ہے" },
+    "scientific_name": "",
+    "pathogen_type": "unknown",
+    "problem_name": { "en": "Not a clear crop leaf / Unclear photo", "ur": "پودے یا پتے کی تصویر واضح نہیں ہے" },
     "severity": "low",
+    "symptoms": [],
+    "causes": [],
     "summary": {
-      "en": "We could not clearly detect a single crop leaf in this photo. Please take another close-up photo in good daylight.",
-      "ur": "اس تصویر میں فصل کا پتا واضح طور پر نظر نہیں آ رہا۔ براہِ کرم دن کی روشنی میں ایک پتے کی قریب سے صاف تصویر لیں۔"
+      "en": "We could not clearly detect a crop plant or leaf in this photo. Please take another close-up photo in natural daylight.",
+      "ur": "اس تصویر میں فصل کا پودا یا پتا واضح طور پر نظر نہیں آ رہا۔ براہِ کرم دن کی روشنی میں قریب سے صاف تصویر لیں۔"
     },
     "steps": [
-      { "en": "Hold the phone 15 to 25 cm away from a single affected leaf.", "ur": "فون کو ایک متاثرہ پتے سے 15 سے 25 سینٹی میٹر کے فاصلے پر رکھیں۔" },
-      { "en": "Take the photo in natural daylight without strong shadows or blur.", "ur": "دن کی قدرتی روشنی میں بغیر سائے کے صاف تصویر کھینچیں۔" },
-      { "en": "Make sure the leaf fills most of the guide frame.", "ur": "کوشش کریں کہ پتا سکرین کے فریم کے درمیان میں پورا نظر آئے۔" }
+      { "en": "Hold the phone 15 to 25 cm away from a single affected leaf or stem.", "ur": "فون کو متاثرہ پتے یا حصے سے 15 سے 25 سینٹی میٹر کے فاصلے پر رکھیں۔" },
+      { "en": "Take the photo in natural daylight without strong shadows or blur.", "ur": "دن کی قدرتی روشنی میں بغیر سائے اور دھندلے پن کے صاف تصویر کھینچیں۔" }
     ],
     "prevention": [
-      { "en": "Wipe your phone camera lens before taking a field photo.", "ur": "تصویر لینے سے پہلے اپنے فون کے کیمرے کا شیشہ صاف کر لیں۔" },
-      { "en": "If the symptom is on roots or stems, show the plant directly to your local agriculture officer.", "ur": "اگر مسئلہ جڑ یا تنے میں ہے تو پودا مقامی زرعی افسر کو دکھائیں۔" }
+      { "en": "Wipe your phone camera lens clean before scanning.", "ur": "تصویر لینے سے پہلے اپنے فون کے کیمرے کا شیشہ صاف کر لیں۔" }
     ],
     "see_expert": true,
     "expert_reason": {
-      "en": "Image is unclear or not a supported leaf; take a clearer photo or show the crop to your local agriculture officer.",
+      "en": "Image is unclear or not a crop photo; take a clearer photo or show the crop to your local agriculture officer.",
       "ur": "تصویر واضح نہیں ہے؛ دوبارہ صاف تصویر لیں یا مقامی زرعی افسر کو معائنہ کروائیں۔"
     }
   }

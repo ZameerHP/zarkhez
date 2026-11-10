@@ -31,8 +31,6 @@ const GEMINI_LOCALIZED_SCHEMA = {
   properties: {
     en: { type: 'STRING' },
     ur: { type: 'STRING' },
-    roman_ur: { type: 'STRING' },
-    sd: { type: 'STRING' },
   },
   required: ['en', 'ur'],
 };
@@ -47,18 +45,12 @@ export const GEMINI_DIAGNOSIS_RESPONSE_SCHEMA: Record<string, unknown> = {
     image_valid: { type: 'BOOLEAN' },
     detected_crop: { type: 'STRING' },
     detected_crop_ur: { type: 'STRING' },
-    detected_crop_roman_ur: { type: 'STRING' },
-    detected_crop_sd: { type: 'STRING' },
     selected_crop: { type: 'STRING' },
     crop_match: { type: 'BOOLEAN' },
     detected_plant_part: { type: 'STRING' },
     detected_plant_part_ur: { type: 'STRING' },
-    detected_plant_part_roman_ur: { type: 'STRING' },
-    detected_plant_part_sd: { type: 'STRING' },
     growth_stage: { type: 'STRING' },
     growth_stage_ur: { type: 'STRING' },
-    growth_stage_roman_ur: { type: 'STRING' },
-    growth_stage_sd: { type: 'STRING' },
     identification_confidence: { type: 'NUMBER' },
     scientific_name: { type: 'STRING' },
     pathogen_type: {
@@ -126,8 +118,6 @@ export const GEMINI_DIAGNOSIS_RESPONSE_SCHEMA: Record<string, unknown> = {
     },
     plant_condition: { type: 'STRING' },
     plant_condition_ur: { type: 'STRING' },
-    plant_condition_roman_ur: { type: 'STRING' },
-    plant_condition_sd: { type: 'STRING' },
     problem_name: GEMINI_LOCALIZED_SCHEMA,
     possible_disease: {
       type: 'ARRAY',
@@ -136,8 +126,6 @@ export const GEMINI_DIAGNOSIS_RESPONSE_SCHEMA: Record<string, unknown> = {
         properties: {
           name: { type: 'STRING' },
           name_ur: { type: 'STRING' },
-          name_roman_ur: { type: 'STRING' },
-          name_sd: { type: 'STRING' },
           confidence: { type: 'NUMBER' },
           is_primary: { type: 'BOOLEAN' },
         },

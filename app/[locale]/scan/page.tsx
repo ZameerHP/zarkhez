@@ -41,7 +41,6 @@ import {
   PublicScanError,
   PublicScanErrorSchema,
   Advice,
-  AppLang,
   getLocalizedText,
 } from '@/lib/schemas';
 import {
@@ -99,7 +98,7 @@ export default function ScanPage() {
   const [scanStage, setScanStage] = useState<ScanStage>('idle');
   const [analysing, setAnalysing] = useState(false);
   const [diagnosis, setDiagnosis] = useState<CropDiagnosis | null>(null);
-  const [reportLang, setReportLang] = useState<AppLang>(locale === 'en' ? 'en' : 'ur');
+  const [reportLang, setReportLang] = useState<'en' | 'ur'>(locale === 'en' ? 'en' : 'ur');
   const [savedToDiary, setSavedToDiary] = useState(false);
   const [savingToDiary, setSavingToDiary] = useState(false);
   const [diarySaveNote, setDiarySaveNote] = useState<string | null>(null);
@@ -320,7 +319,9 @@ export default function ScanPage() {
       const recs = diagData.recommendations || [];
       const stepsIntro =
         recs.length > 0
-          ? `سفارشات: ${recs.map((r, i) => `${i + 1}۔ ${getLocalizedText(r, reportLang)}`).join(' ')}`
+          ? reportLang === 'en'
+            ? `Recommended steps: ${recs.map((r, i) => `${i + 1}. ${getLocalizedText(r, reportLang)}`).join(' ')}`
+            : `سفارشات: ${recs.map((r, i) => `${i + 1}۔ ${getLocalizedText(r, reportLang)}`).join(' ')}`
           : '';
       speechText = `${prob}۔ ${why}۔ ${stepsIntro}`;
     }
@@ -329,7 +330,7 @@ export default function ScanPage() {
     setTimeout(() => {
       speakText(
         speechText,
-        reportLang === 'sd' ? 'sd' : reportLang === 'en' ? 'en' : 'ur',
+        reportLang === 'en' ? 'en' : 'ur',
         {
           onError: () => {
           setVoiceErrorMsg(
@@ -1398,23 +1399,15 @@ export default function ScanPage() {
                 </div>
               )}
 
-              {/* Language Selector Bar (Urdu, Roman Urdu, Sindhi, English) */}
+              {/* Language Selector Bar (Urdu & English only) */}
               <div className="bg-white rounded-2xl p-2 shadow-soft border border-olive/15 flex items-center justify-between gap-1">
                 <span className="text-[11px] font-black text-ink/60 px-2">
-                  {reportLang === 'ur'
-                    ? 'زبان منتخب کریں:'
-                    : reportLang === 'sd'
-                    ? 'ٻولي چونڊيو:'
-                    : reportLang === 'roman_ur'
-                    ? 'Zuban Chunein:'
-                    : 'Report Language:'}
+                  {reportLang === 'ur' ? 'زبان منتخب کریں:' : 'Report Language:'}
                 </span>
                 <div className="flex items-center gap-1 overflow-x-auto">
                   {(
                     [
                       { key: 'ur', label: 'اردو' },
-                      { key: 'roman_ur', label: 'Roman' },
-                      { key: 'sd', label: 'سنڌي' },
                       { key: 'en', label: 'English' },
                     ] as const
                   ).map((langItem) => {
@@ -1427,7 +1420,7 @@ export default function ScanPage() {
                           unlockAudio();
                           setReportLang(langItem.key);
                         }}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-black transition-all ${
+                        className={`px-3 py-1 rounded-xl text-xs font-black transition-all ${
                           active
                             ? 'bg-[#062409] text-white shadow-sm'
                             : 'bg-canvas text-ink/70 hover:bg-olive/15'
@@ -1450,10 +1443,6 @@ export default function ScanPage() {
                     <h4 className="font-black text-sm text-ink">
                       {reportLang === 'ur'
                         ? 'فیلڈ تصدیق کی سفارش'
-                        : reportLang === 'sd'
-                        ? 'ميداني تصديق جي سفارش'
-                        : reportLang === 'roman_ur'
-                        ? 'Field Tasdeeq ki Safarish'
                         : 'Field Expert Inspection Recommended'}
                     </h4>
                     <p className="text-xs text-ink/85 leading-relaxed">
@@ -1540,10 +1529,6 @@ export default function ScanPage() {
                       <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300/60">
                         {reportLang === 'en'
                           ? diagnosis.detected_crop
-                          : reportLang === 'sd'
-                          ? diagnosis.detected_crop_sd || diagnosis.detected_crop_ur
-                          : reportLang === 'roman_ur'
-                          ? diagnosis.detected_crop_roman_ur || diagnosis.detected_crop
                           : diagnosis.detected_crop_ur}
                       </span>
 
@@ -1551,10 +1536,6 @@ export default function ScanPage() {
                       <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-olive/15 text-olive-dark">
                         {reportLang === 'en'
                           ? diagnosis.detected_plant_part
-                          : reportLang === 'sd'
-                          ? diagnosis.detected_plant_part_sd || diagnosis.detected_plant_part_ur
-                          : reportLang === 'roman_ur'
-                          ? diagnosis.detected_plant_part_roman_ur || diagnosis.detected_plant_part
                           : diagnosis.detected_plant_part_ur}
                       </span>
 
@@ -1563,27 +1544,25 @@ export default function ScanPage() {
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-canvas text-ink/75 border border-olive/15">
                           {reportLang === 'en'
                             ? diagnosis.growth_stage
-                            : reportLang === 'sd'
-                            ? diagnosis.growth_stage_sd || diagnosis.growth_stage_ur
-                            : reportLang === 'roman_ur'
-                            ? diagnosis.growth_stage_roman_ur || diagnosis.growth_stage
                             : diagnosis.growth_stage_ur}
                         </span>
                       )}
 
-                      {/* Pathogen Type Badge */}
+                      {/* Pathogen / Infection Type Badge */}
                       {diagnosis.pathogen_type && diagnosis.pathogen_type !== 'unknown' && (
                         <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 border border-purple-300/60 uppercase">
                           {diagnosis.pathogen_type === 'fungal'
-                            ? reportLang === 'en' ? 'Fungal' : 'پھپھوندی'
+                            ? reportLang === 'en' ? 'Fungal Infection' : 'پھپھوندی کا حملہ'
                             : diagnosis.pathogen_type === 'bacterial'
-                            ? reportLang === 'en' ? 'Bacterial' : 'بیکٹیریا'
+                            ? reportLang === 'en' ? 'Bacterial Infection' : 'بیکٹیریل انفیکشن'
                             : diagnosis.pathogen_type === 'viral'
-                            ? reportLang === 'en' ? 'Viral' : 'وائرس'
+                            ? reportLang === 'en' ? 'Viral Infection' : 'وائرل بیماری'
                             : diagnosis.pathogen_type === 'pest'
-                            ? reportLang === 'en' ? 'Pest' : 'کیڑا'
+                            ? reportLang === 'en' ? 'Pest / Insect Damage' : 'کیڑے کا حملہ'
                             : diagnosis.pathogen_type === 'nutrient_deficiency'
-                            ? reportLang === 'en' ? 'Nutrient' : 'کھاد کی کمی'
+                            ? reportLang === 'en' ? 'Nutrient Deficiency' : 'غذائی کمی'
+                            : diagnosis.pathogen_type === 'environmental_stress'
+                            ? reportLang === 'en' ? 'Environmental Stress' : 'موسمی یا ماحولیاتی تناؤ'
                             : diagnosis.pathogen_type === 'healthy'
                             ? reportLang === 'en' ? 'Healthy' : 'تندرست'
                             : diagnosis.pathogen_type}
@@ -1603,25 +1582,13 @@ export default function ScanPage() {
                         {diagnosis.severity === 'high'
                           ? reportLang === 'en'
                             ? 'High Severity'
-                            : reportLang === 'sd'
-                            ? 'تيز شدت'
-                            : reportLang === 'roman_ur'
-                            ? 'Zyada Shiddat'
                             : 'شدید شدت'
                           : diagnosis.severity === 'medium'
                           ? reportLang === 'en'
                             ? 'Medium Severity'
-                            : reportLang === 'sd'
-                            ? 'درمياني شدت'
-                            : reportLang === 'roman_ur'
-                            ? 'Darmiyani Shiddat'
                             : 'درمیانی شدت'
                           : reportLang === 'en'
                           ? 'Low / Normal'
-                          : reportLang === 'sd'
-                          ? 'گهٽ / معمول'
-                          : reportLang === 'roman_ur'
-                          ? 'Kam / Mamool'
                           : 'معمولی / تندرست'}
                       </span>
                     </div>
@@ -1636,6 +1603,27 @@ export default function ScanPage() {
                           {diagnosis.scientific_name}
                         </p>
                       )}
+                      {diagnosis.diagnosis_status !== 'healthy_no_symptoms' &&
+                        diagnosis.possible_disease &&
+                        diagnosis.possible_disease.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {diagnosis.possible_disease.map((item, idx) => (
+                              <span
+                                key={idx}
+                                className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                                  item.is_primary || idx === 0
+                                    ? 'bg-amber-50 text-amber-900 border-amber-300'
+                                    : 'bg-canvas text-ink/75 border-olive/15'
+                                }`}
+                              >
+                                {reportLang === 'en'
+                                  ? item.name
+                                  : item.name_ur || item.name}{' '}
+                                ({Math.round((item.confidence || 0) * 100)}%)
+                              </span>
+                            ))}
+                          </div>
+                        )}
                     </div>
 
                     {/* Calibrated Confidence & Source Pill */}
@@ -1648,13 +1636,7 @@ export default function ScanPage() {
                               ? 'Unconfirmed (Offline Pre-Check)'
                               : 'غیر تصدیق شدہ (آف لائن)'
                             : `${Math.round((diagnosis.identification_confidence || 0) * 100)}% ${
-                                reportLang === 'en'
-                                  ? 'Confidence'
-                                  : reportLang === 'sd'
-                                  ? 'يقين'
-                                  : reportLang === 'roman_ur'
-                                  ? 'Yaqeen'
-                                  : 'اعتماد'
+                                reportLang === 'en' ? 'Confidence' : 'اعتماد'
                               }${diagnosis.confidence_category ? ` (${diagnosis.confidence_category})` : ''}`}
                         </span>
                       </div>
@@ -1676,10 +1658,6 @@ export default function ScanPage() {
                       <span>
                         {reportLang === 'en'
                           ? 'Single Leaf vs. Whole Field Assessment'
-                          : reportLang === 'sd'
-                          ? 'ھڪ پن بمقابله سڄي فيلڊ'
-                          : reportLang === 'roman_ur'
-                          ? 'Sirf Ek Patta vs Pura Khet'
                           : 'انفرادی پتا بمقابلہ پورا کھیت'}
                       </span>
                     </div>
@@ -1700,19 +1678,11 @@ export default function ScanPage() {
                         <span className="text-xs font-black text-ink block">
                           {reportLang === 'en'
                             ? 'Voice Audio Summary:'
-                            : reportLang === 'sd'
-                            ? 'آواز ۾ ٻڌو:'
-                            : reportLang === 'roman_ur'
-                            ? 'Awaz mein sunein:'
                             : 'آواز میں خلاصہ سنیں:'}
                         </span>
                         <p className="text-[11px] text-ink/75 leading-tight">
                           {reportLang === 'en'
                             ? 'Listen to diagnosis and next steps'
-                            : reportLang === 'sd'
-                            ? 'تشخيص ۽ هدايتون ٻڌو'
-                            : reportLang === 'roman_ur'
-                            ? 'Tashkhees aur hidayat sunein'
                             : 'مکمل معائنہ اور زرعی مشورہ سنیں'}
                         </p>
                       </div>
@@ -1720,13 +1690,7 @@ export default function ScanPage() {
 
                     <ReadAloudButton
                       text={spokenDiagnosisText}
-                      lang={
-                        reportLang === 'sd'
-                          ? 'sd'
-                          : reportLang === 'en'
-                          ? 'en'
-                          : 'ur'
-                      }
+                      lang={reportLang === 'en' ? 'en' : 'ur'}
                     />
                   </div>
                   {voiceErrorMsg && (
@@ -1817,10 +1781,6 @@ export default function ScanPage() {
                         <span>
                           {reportLang === 'en'
                             ? 'Visual Lesion Inspection:'
-                            : reportLang === 'sd'
-                            ? 'پن جي نشانن جي چڪاس:'
-                            : reportLang === 'roman_ur'
-                            ? 'Dhabbun ka Basri Muaina:'
                             : 'دھبوں کا تفصیلی بصری معائنہ:'}
                         </span>
                       </span>
@@ -1834,17 +1794,9 @@ export default function ScanPage() {
                         {diagnosis.visual_inspection.lesion_detected
                           ? reportLang === 'en'
                             ? 'Lesions Visible'
-                            : reportLang === 'sd'
-                            ? 'نشان موجود آهن'
-                            : reportLang === 'roman_ur'
-                            ? 'Dhabbe Mojood Hain'
                             : 'مشتبہ دھبے موجود ہیں'
                           : reportLang === 'en'
                           ? 'Zero Lesions'
-                          : reportLang === 'sd'
-                          ? 'ڪوبه نشان ناهي'
-                          : reportLang === 'roman_ur'
-                          ? 'Koi Dhabba Nahi'
                           : 'کوئی دھبے نہیں'}
                       </span>
                     </div>
@@ -1852,13 +1804,7 @@ export default function ScanPage() {
                     <div className="grid grid-cols-2 gap-2 text-[11px] text-ink/85 pt-1">
                       <div className="p-2 rounded-xl bg-white border border-olive/10">
                         <span className="text-[10px] text-ink/50 font-bold block">
-                          {reportLang === 'en'
-                            ? 'Lesion Count / Density:'
-                            : reportLang === 'sd'
-                            ? 'نشانن جو تعداد:'
-                            : reportLang === 'roman_ur'
-                            ? 'Dhabbun ki Taadad:'
-                            : 'دھبوں کی تعداد:'}
+                          {reportLang === 'en' ? 'Lesion Count / Density:' : 'دھبوں کی تعداد:'}
                         </span>
                         <span className="font-extrabold text-ink mt-0.5 block">
                           {diagnosis.visual_inspection.lesion_count}
@@ -1866,13 +1812,7 @@ export default function ScanPage() {
                       </div>
                       <div className="p-2 rounded-xl bg-white border border-olive/10">
                         <span className="text-[10px] text-ink/50 font-bold block">
-                          {reportLang === 'en'
-                            ? 'Lesion Shape:'
-                            : reportLang === 'sd'
-                            ? 'نشانن جي شڪل:'
-                            : reportLang === 'roman_ur'
-                            ? 'Dhabbay ki Shakal:'
-                            : 'دھبوں کی ساخت:'}
+                          {reportLang === 'en' ? 'Lesion Shape:' : 'دھبوں کی ساخت:'}
                         </span>
                         <span className="font-extrabold text-ink mt-0.5 block">
                           {diagnosis.visual_inspection.lesion_shape}
@@ -1884,13 +1824,7 @@ export default function ScanPage() {
                       diagnosis.visual_inspection.lesion_colors.length > 0 && (
                         <div className="text-[11px] text-ink/75 bg-white p-2 rounded-xl border border-olive/10">
                           <span className="text-[10px] text-ink/50 font-bold block">
-                            {reportLang === 'en'
-                              ? 'Observed Colors & Margins:'
-                              : reportLang === 'sd'
-                              ? 'رنگ ۽ ڪنارا:'
-                              : reportLang === 'roman_ur'
-                              ? 'Rung aur Kinare:'
-                              : 'رنگت و حاشیہ:'}
+                            {reportLang === 'en' ? 'Observed Colors & Margins:' : 'رنگت و حاشیہ:'}
                           </span>
                           <span className="font-bold text-ink mt-0.5 block">
                             {diagnosis.visual_inspection.lesion_colors.join(', ')}
@@ -1929,10 +1863,6 @@ export default function ScanPage() {
                       <span className="text-[11px] font-black text-ink/60 uppercase block">
                         {reportLang === 'en'
                           ? 'Observed Symptoms in Image:'
-                          : reportLang === 'sd'
-                          ? 'تصوير ۾ ڏٺل علامتون:'
-                          : reportLang === 'roman_ur'
-                          ? 'Tasveer mein dekhi gayi alamaat:'
                           : 'تصویر میں دیکھی گئی علامات:'}
                       </span>
                       <ul className="space-y-1 text-xs text-ink/85 font-medium">
@@ -1946,6 +1876,26 @@ export default function ScanPage() {
                     </div>
                   )}
 
+                {/* 4b. Possible Causes & Infection Drivers */}
+                {diagnosis.possible_causes &&
+                  diagnosis.possible_causes.length > 0 && (
+                    <div className="space-y-1.5 bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200/70">
+                      <span className="text-[11px] font-black text-amber-900/80 uppercase block">
+                        {reportLang === 'en'
+                          ? 'Possible Causes & Infection Drivers:'
+                          : 'اس بیماری یا علامات کی ممکنہ وجوہات:'}
+                      </span>
+                      <ul className="space-y-1 text-xs text-ink/85 font-medium">
+                        {diagnosis.possible_causes.map((cause, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="text-amber-600 font-black">•</span>
+                            <span>{getLocalizedText(cause, reportLang)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                 {/* 5. Why AI Suspects It (Visual Diagnostic Evidence) */}
                 {diagnosis.why_suspected && (
                   <div className="bg-emerald-500/10 p-3.5 rounded-2xl border border-emerald-500/25 space-y-1">
@@ -1953,12 +1903,8 @@ export default function ScanPage() {
                       <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
                       <span>
                         {reportLang === 'en'
-                          ? 'Why AI Suspects This Condition:'
-                          : reportLang === 'sd'
-                          ? 'اي آءِ ڇو هيءَ تشخيص ڪئي:'
-                          : reportLang === 'roman_ur'
-                          ? 'AI ne yeh tashkhees kyun ki:'
-                          : 'اے آئی کو اس بیماری کا شبہ کیوں ہے:'}
+                          ? 'Diagnostic Basis & Visual Evidence:'
+                          : 'تشخیص کی بنیاد اور بصری شواہد:'}
                       </span>
                     </span>
                     <p className="text-xs sm:text-sm text-emerald-950 font-medium leading-relaxed">
@@ -1976,10 +1922,6 @@ export default function ScanPage() {
                         <span>
                           {reportLang === 'en'
                             ? 'Differential Diagnosis (Similar Diseases):'
-                            : reportLang === 'sd'
-                            ? 'تشخيصي تقابل (ٻيون هڪجهڙيون بيماريون):'
-                            : reportLang === 'roman_ur'
-                            ? 'Tashkheesi Taqabal (Milti Julti Beemariyan):'
                             : 'تشخیصی تقابل (ملتی جلتی دیگر بیماریوں سے موازنہ):'}
                         </span>
                       </h3>
@@ -2064,10 +2006,6 @@ export default function ScanPage() {
                       <span className="text-[10px] font-black text-ink/60 uppercase block">
                         {reportLang === 'en'
                           ? 'Alternative Possibilities Checked:'
-                          : reportLang === 'sd'
-                          ? 'ٻيون امڪاني بيماريون:'
-                          : reportLang === 'roman_ur'
-                          ? 'Doosri imkani beemariyan:'
                           : 'دیگر امکانی بیماریوں کا تقابل:'}
                       </span>
                       {diagnosis.alternative_diagnoses.map((alt, i) => (
@@ -2103,10 +2041,6 @@ export default function ScanPage() {
                         <span>
                           {reportLang === 'en'
                             ? 'Comprehensive 4-Pillar Treatment Plan:'
-                            : reportLang === 'sd'
-                            ? 'چار رخي مڪمل علاج جو منصوبو:'
-                            : reportLang === 'roman_ur'
-                            ? '4-Pillar Mukammal Ilaj Plan:'
                             : 'چار ستونی جامع زرعی علاج و تدابیر:'}
                         </span>
                       </h3>
@@ -2232,10 +2166,6 @@ export default function ScanPage() {
                         <span>
                           {reportLang === 'en'
                             ? 'What To Do Now (Recommended Steps):'
-                            : reportLang === 'sd'
-                            ? 'هاڻي ڇا ڪجي (عملي قدم):'
-                            : reportLang === 'roman_ur'
-                            ? 'Ab Kya Karein (Amli Iqdamaat):'
                             : 'ابھی کیا کریں (فوری عملی اقدامات):'}
                         </span>
                       </h3>
@@ -2265,10 +2195,6 @@ export default function ScanPage() {
                       <span>
                         {reportLang === 'en'
                           ? 'Prevention Advice (Next Season):'
-                          : reportLang === 'sd'
-                          ? 'ايندڙ سيزن لاءِ بچاءُ جا طريقا:'
-                          : reportLang === 'roman_ur'
-                          ? 'Agli Fasal Bachane ki Tadabeer:'
                           : 'اگلی فصل کے لیے احتیاطی تدابیر:'}
                       </span>
                     </h3>
@@ -2294,10 +2220,6 @@ export default function ScanPage() {
                       <span>
                         {reportLang === 'en'
                           ? 'When To Consult An Expert:'
-                          : reportLang === 'sd'
-                          ? 'زرعي ماهر سان ڪڏهن رابطو ڪجي:'
-                          : reportLang === 'roman_ur'
-                          ? 'Zaria Afsar se kab rabta karein:'
                           : 'زرعی ماہر سے کب مشورہ کریں:'}
                       </span>
                     </span>
@@ -2341,10 +2263,6 @@ export default function ScanPage() {
                       <span>
                         {reportLang === 'en'
                           ? 'Scan Another Plant'
-                          : reportLang === 'sd'
-                          ? 'ٻيو ٻوٽو اسڪين ڪريو'
-                          : reportLang === 'roman_ur'
-                          ? 'Naya poda scan karein'
                           : 'نیا پودا اسکین کریں'}
                       </span>
                     </button>
