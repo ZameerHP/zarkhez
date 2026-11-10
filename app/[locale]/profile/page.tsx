@@ -469,48 +469,11 @@ export default function ProfilePage() {
           </form>
         )}
 
-        {/* Voice Preferences (Always accessible & auto-synced cleanly) */}
+        {/* Voice Preferences (Locked to single best female voice; speed & auto-speak synced cleanly) */}
         <section className="bg-white rounded-2xl p-4 shadow-soft border border-olive/15 space-y-2.5">
           <span className="block text-xs font-extrabold text-ink">
-            {locale === 'ur' ? 'اردو آواز کی ترتیبات' : 'Urdu Voice Settings'}
+            {locale === 'ur' ? 'آواز کی ترتیبات' : 'Voice Settings'}
           </span>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                handleSaveVoiceSettings(
-                  'ur-PK-UzmaNeural',
-                  voiceSpeed,
-                  autoSpeakVoice
-                )
-              }
-              className={`min-h-[42px] p-2 rounded-xl text-xs font-bold transition-all border ${
-                preferredVoice === 'ur-PK-UzmaNeural'
-                  ? 'bg-olive text-white border-olive shadow-sm'
-                  : 'bg-canvas text-ink border-olive/20'
-              }`}
-            >
-              {t('femaleVoice')}
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                handleSaveVoiceSettings(
-                  'ur-PK-AsadNeural',
-                  voiceSpeed,
-                  autoSpeakVoice
-                )
-              }
-              className={`min-h-[42px] p-2 rounded-xl text-xs font-bold transition-all border ${
-                preferredVoice === 'ur-PK-AsadNeural'
-                  ? 'bg-olive text-white border-olive shadow-sm'
-                  : 'bg-canvas text-ink border-olive/20'
-              }`}
-            >
-              {t('maleVoice')}
-            </button>
-          </div>
 
           <div className="flex items-center justify-between gap-2 pt-1">
             <span className="text-[11px] font-bold text-ink/70">

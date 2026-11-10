@@ -9,7 +9,6 @@
  */
 
 import { toSpokenText } from './voice/spoken-normalizer';
-import { getLexiconHintsForLang } from './voice/lexicon-loader';
 import type {
   VoiceGender,
   VoiceLang,
@@ -131,31 +130,12 @@ export function normalizeVoiceLang(lang: string | undefined | null): VoiceLang {
   return 'ur';
 }
 
-export function getSavedVoiceGender(lang: VoiceLang): VoiceGender {
-  if (typeof window === 'undefined') return 'female';
-  try {
-    const perLang = localStorage.getItem(`zarkhez_voice_gender_${lang}`);
-    if (perLang === 'male' || perLang === 'female') return perLang;
-    const rawProfile = localStorage.getItem('zarkhez_profile');
-    if (rawProfile) {
-      const p = JSON.parse(rawProfile) as { preferredVoice?: string };
-      if (p.preferredVoice && p.preferredVoice.toLowerCase().includes('asad')) {
-        return 'male';
-      }
-    }
-  } catch {
-    // ignore storage errors
-  }
+export function getSavedVoiceGender(_lang: VoiceLang): VoiceGender {
   return 'female';
 }
 
-export function setSavedVoiceGender(lang: VoiceLang, gender: VoiceGender): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(`zarkhez_voice_gender_${lang}`, gender);
-  } catch {
-    // ignore
-  }
+export function setSavedVoiceGender(_lang: VoiceLang, _gender: VoiceGender): void {
+  // Locked to one uniform mature Female voice across the app
 }
 
 export function getSavedVoiceSpeed(): VoiceSpeedMode {
@@ -455,7 +435,7 @@ export async function speakText(
   stopSpeaking();
   const sessionId = currentVoiceSession;
   const lang = normalizeVoiceLang(rawLang);
-  const gender = callbacks?.gender || getSavedVoiceGender(lang);
+  const gender: VoiceGender = 'female';
   const speedMode = callbacks?.speedMode || getSavedVoiceSpeed();
   const targetRate = speedMode === 'slow' ? 0.75 : 0.9;
 
@@ -819,10 +799,14 @@ export function startFieldSpeechCapture(
         if (ev.data && ev.data.size > 0) chunks.push(ev.data);
       };
 
+      let hasDetectedSpeech = false;
+      let speechFrameCount = 0;
+
       mediaRecorder.onstop = async () => {
         cleanupMedia();
         const blob = new Blob(chunks, { type: mimeType });
-        if (blob.size < 400) {
+        // Ignore silent clicks / faint ambient noise so phantom fake transcripts are never produced
+        if (blob.size < 2500 || (audioCtx && !hasDetectedSpeech)) {
           callbacks.onPhaseChange?.('idle');
           callbacks.onEnd();
           return;
@@ -833,15 +817,13 @@ export function startFieldSpeechCapture(
           const form = new FormData();
           form.append('audio', blob, 'speech.webm');
           form.append('lang', lang);
-          const hints = callbacks.hints || getLexiconHintsForLang(lang);
-          if (hints.length > 0) {
-            form.append('hints', hints.slice(0, 45).join(','));
+          if (callbacks.hints && callbacks.hints.length > 0) {
+            form.append('hints', callbacks.hints.slice(0, 20).join(','));
           }
 
           const res = await fetch('/api/stt', { method: 'POST', body: form });
           if (!res.ok) {
-            callbacks.onError('stt_failed');
-            callbacks.onPhaseChange?.('error');
+            callbacks.onPhaseChange?.('idle');
             callbacks.onEnd();
             return;
           }
@@ -861,7 +843,7 @@ export function startFieldSpeechCapture(
         }
       };
 
-      // VAD end-of-speech delay (~900ms silence after user spoke)
+      // Strict VAD noise gate + ~900ms end-of-speech pause (rejects ambient noise bursts)
       try {
         const AudioCtx =
           window.AudioContext ||
@@ -873,7 +855,6 @@ export function startFieldSpeechCapture(
           analyser.fftSize = 512;
           source.connect(analyser);
           const buf = new Uint8Array(analyser.frequencyBinCount);
-          let hasDetectedSpeech = false;
           let silentSince = Date.now();
           const startedAt = Date.now();
 
@@ -885,8 +866,11 @@ export function startFieldSpeechCapture(
             const avgEnergy = sum / buf.length;
             const now = Date.now();
 
-            if (avgEnergy > 14) {
-              hasDetectedSpeech = true;
+            if (avgEnergy > 28) {
+              speechFrameCount += 1;
+              if (speechFrameCount >= 4) {
+                hasDetectedSpeech = true;
+              }
               silentSince = now;
             } else if (hasDetectedSpeech && now - silentSince >= 900) {
               stopCapture();

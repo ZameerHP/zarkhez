@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
-import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
@@ -55,7 +54,6 @@ export default function AssistantPage() {
   const t = useTranslations('assistant');
   const tApp = useTranslations('app');
   const locale = useLocale() as 'ur' | 'en';
-  const searchParams = useSearchParams();
 
   const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [inputText, setInputText] = useState('');
@@ -136,13 +134,6 @@ export default function AssistantPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streaming]);
-
-  useEffect(() => {
-    if (searchParams.get('mic') === '1' && isSpeechRecognitionSupported()) {
-      handleToggleMic();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
   const toggleAutoSpeak = async () => {
     unlockAudio();
@@ -292,9 +283,6 @@ export default function AssistantPage() {
       sessionRef.current?.stop();
       setListening(false);
       setVoicePhase('idle');
-      if (inputText.trim().length > 1) {
-        sendQuestion(inputText);
-      }
       return;
     }
 
@@ -304,30 +292,19 @@ export default function AssistantPage() {
       onResult: (transcript, isFinal) => {
         if (!transcript) return;
         setInputText(transcript);
-
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-        }
-
-        if (isFinal && transcript.trim().length > 1) {
+        // Never auto-send phantom messages on background silence; let farmer confirm and press Send
+        if (isFinal) {
           setListening(false);
-          setVoicePhase('thinking');
-          sendQuestion(transcript);
-        } else if (transcript.trim().length > 2) {
-          // Field VAD end-of-speech pause fallback (~900ms)
-          silenceTimerRef.current = setTimeout(() => {
-            sessionRef.current?.stop();
-            setListening(false);
-            sendQuestion(transcript);
-          }, 950);
+          setVoicePhase('idle');
         }
       },
       onError: () => {
         setListening(false);
-        setVoicePhase('error');
+        setVoicePhase('idle');
       },
       onEnd: () => {
         setListening(false);
+        setVoicePhase('idle');
       },
     });
   };

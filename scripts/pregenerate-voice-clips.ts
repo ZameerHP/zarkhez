@@ -22,7 +22,7 @@ async function run() {
   const gendersArg = args.find((a) => a.startsWith('--genders='));
   const genders: VoiceGender[] = gendersArg
     ? (gendersArg.split('=')[1].split(',') as VoiceGender[])
-    : ['female', 'male'];
+    : ['female'];
 
   const lexicon = loadHotPronunciationLexicon();
   const urStrings = JSON.parse(

@@ -187,8 +187,8 @@ async function runTests() {
 
   await testCase('8. Voice-mode assistant prompt & fallback produce 2-4 clean Urdu/Sindhi sentences (dual screen vs spoken)', () => {
     const promptSd = buildVoiceAdvisorPrompt('sd', { crop: 'rice', district: 'Badin' });
-    assert.ok(promptSd.includes('spoken_text') && promptSd.includes('screen_text'));
-    assert.ok(promptSd.includes('2 to 4 short'));
+    assert.ok(promptSd.includes('Answer ONLY'));
+    assert.ok(promptSd.includes('2 to 4 short sentences'));
 
     const fallbackSd = generateSpokenFallbackChatReply('گندم کو پہلا پانی کب دیں؟', 'sd');
     assert.equal(fallbackSd.language, 'sd');
@@ -199,20 +199,21 @@ async function runTests() {
     assert.ok(/[\u0600-\u06FF]/.test(fallbackUr.spokenText), 'Spoken output responds in proper Urdu script even when input is Roman Urdu');
   });
 
-  await testCase('9. /api/tts never calls unofficial Google Translate TTS and passes explicit locale headers', async () => {
+  await testCase('9. /api/tts sends strictly spoken text (zero prompt rules read aloud), locks female voice, and avoids Google Translate', async () => {
     const origFetch = globalThis.fetch;
     const origGeminiKey = process.env.GEMINI_API_KEY;
-    const calledUrls: string[] = [];
+    const sentPayloads: string[] = [];
 
     process.env.GEMINI_API_KEY = 'AIzaSyVoicePipelineMockTestKey123456';
-    // Fake WAV response from Gemini Neural TTS
     const fakeWav = Buffer.alloc(256);
     fakeWav.write('RIFF', 0);
 
-    globalThis.fetch = (async (input: RequestInfo | URL) => {
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.toString();
-      calledUrls.push(url);
       assert.equal(url.includes('translate.google.com/translate_tts'), false, 'Forbidden Google Translate TTS called');
+      if (init?.body && typeof init.body === 'string') {
+        sentPayloads.push(init.body);
+      }
       return new Response(
         JSON.stringify({
           candidates: [
@@ -244,6 +245,19 @@ async function runTests() {
       assert.equal(res.headers.get('X-Voice-Locale'), 'sd-PK');
       assert.equal(res.headers.get('X-Voice-Provider'), 'gemini-tts');
       assert.ok(decodeURIComponent(res.headers.get('X-Spoken-Text') || '').includes('ستاويهه'));
+
+      assert.ok(sentPayloads.length === 1);
+      const sentJson = JSON.parse(sentPayloads[0]) as {
+        contents: Array<{ parts: Array<{ text: string }> }>;
+        generationConfig: { speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: string } } } };
+      };
+      const ttsText = sentJson.contents[0].parts[0].text;
+      assert.equal(/Speak strictly|Read strictly|tone|rules/i.test(ttsText), false, 'TTS payload must NEVER include English prompt instructions');
+      assert.equal(
+        sentJson.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName,
+        'Aoede',
+        'Voice must remain locked to single best female voice'
+      );
 
       const reqEmpty = new NextRequest('http://localhost/api/tts?lang=ur&text=');
       const resEmpty = await ttsRouteGet(reqEmpty);

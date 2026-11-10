@@ -4,19 +4,16 @@ import React, { useState, useEffect } from 'react';
 import { Volume2, Square, Pause, Play, Turtle, Flag } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
-  getSavedVoiceGender,
   getSavedVoiceSpeed,
   normalizeVoiceLang,
   pauseSpeaking,
   resumeSpeaking,
-  setSavedVoiceGender,
   setSavedVoiceSpeed,
   speakText,
   stopSpeaking,
   submitPronunciationReport,
   unlockAudio,
   VoiceAudioMeta,
-  VoiceGender,
   VoiceLang,
   VoicePhase,
   VoiceSpeedMode,
@@ -44,7 +41,6 @@ export function ReadAloudButton({
   const [speaking, setSpeaking] = useState(false);
   const [paused, setPaused] = useState(false);
   const [phase, setPhase] = useState<VoicePhase>('idle');
-  const [gender, setGender] = useState<VoiceGender>('female');
   const [speedMode, setSpeedMode] = useState<VoiceSpeedMode>('normal');
   const [voiceFailed, setVoiceFailed] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
@@ -55,14 +51,13 @@ export function ReadAloudButton({
   const [reportSent, setReportSent] = useState(false);
 
   useEffect(() => {
-    setGender(getSavedVoiceGender(targetLang));
     setSpeedMode(getSavedVoiceSpeed());
     return () => {
       stopSpeaking();
     };
   }, [targetLang]);
 
-  const startPlayback = (nextGender = gender, nextSpeed = speedMode) => {
+  const startPlayback = (nextSpeed = speedMode) => {
     unlockAudio();
     setVoiceFailed(false);
     setPaused(false);
@@ -78,7 +73,7 @@ export function ReadAloudButton({
     setPhase('thinking');
 
     speakText(text, targetLang, {
-      gender: nextGender,
+      gender: 'female',
       speedMode: nextSpeed,
       clipId,
       onPhaseChange: (p) => setPhase(p),
@@ -129,16 +124,7 @@ export function ReadAloudButton({
   const handleRepeatSlowly = () => {
     setSavedVoiceSpeed('slow');
     setSpeedMode('slow');
-    startPlayback(gender, 'slow');
-  };
-
-  const handleToggleGender = () => {
-    const next: VoiceGender = gender === 'female' ? 'male' : 'female';
-    setGender(next);
-    setSavedVoiceGender(targetLang, next);
-    if (speaking) {
-      startPlayback(next, speedMode);
-    }
+    startPlayback('slow');
   };
 
   const handleSendPronunciationFlag = async (e: React.FormEvent) => {
@@ -230,25 +216,6 @@ export function ReadAloudButton({
                   ? 'آہستہ سنیں'
                   : 'Repeat Slowly'}
               </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleToggleGender}
-              className="min-h-[38px] px-3 rounded-full bg-white border border-olive/25 text-ink/85 text-xs font-bold hover:bg-olive/10"
-              title="Switch male/female voice"
-            >
-              {gender === 'female'
-                ? targetLang === 'sd'
-                  ? 'آواز: عورت'
-                  : targetLang === 'ur'
-                  ? 'آواز: خاتون'
-                  : 'Female'
-                : targetLang === 'sd'
-                ? 'آواز: مرد'
-                : targetLang === 'ur'
-                ? 'آواز: مرد'
-                : 'Male'}
             </button>
           </>
         )}

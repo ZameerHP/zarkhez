@@ -31,7 +31,7 @@ async function transcribeWithGeminiStt(
       ? 'Pakistani Urdu Perso-Arabic script'
       : 'English';
 
-  const prompt = `Transcribe this farmer's spoken audio verbatim in ${scriptLabel}. Locale hint: ${localeCode}. Common domain terms (boost accuracy for these if spoken): ${boostTerms.join(', ')}. Output ONLY the exact transcribed words without quotes, prefixes, or commentary.`;
+  const prompt = `Listen strictly to this audio clip. If the audio is silent, faint background noise, clicks, or contains NO clear human speech, output EXACTLY [NO_SPEECH]. Otherwise transcribe verbatim ONLY the words the speaker actually said in ${scriptLabel} (${localeCode}) without guessing or adding extra words.`;
 
   const modelsToTry = [
     'gemini-3-flash-preview',
@@ -80,9 +80,18 @@ async function transcribeWithGeminiStt(
         .map((p) => p.text!.trim())
         .join(' ')
         .trim();
-      if (transcript) {
+      const cleanedTx = transcript
+        .replace(/^["'«»“”`]+|["'«»“”`]+$/g, '')
+        .trim();
+      if (
+        !cleanedTx ||
+        /\[?\s*NO[_\s-]*SPEECH\s*\]?|^\s*silence\s*$/i.test(cleanedTx)
+      ) {
+        return null;
+      }
+      if (cleanedTx) {
         return {
-          transcript,
+          transcript: cleanedTx,
           localeCode,
           provider: 'gemini-audio-stt',
           latencyMs: Date.now() - startedAt,

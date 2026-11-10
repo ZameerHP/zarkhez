@@ -135,6 +135,7 @@ export function buildAudioCacheKey(params: {
   preferProvider?: VoiceProviderId;
 }): string {
   const payload = [
+    'v2',
     params.lang,
     params.gender,
     params.speedRate.toFixed(2),
@@ -234,14 +235,9 @@ async function synthesizeWithGeminiTts(params: {
   const apiKey = readServerEnv(['GEMINI_API_KEY', 'GOOGLE_API_KEY']);
   if (!apiKey) return null;
 
-  const paceNote =
-    params.speedRate <= 0.8
-      ? 'Speak slowly and deliberately (~0.75x speed) with extra clear pauses after each number and unit.'
-      : 'Speak at a calm, unhurried, clear conversational speed (~0.90x).';
-
-  const promptText = `${params.profile.toneInstruction} ${paceNote} Read strictly the following ${resolveExplicitLocale(
-    params.lang
-  )} text aloud exactly as written without translating or adding extra words:\n${params.spokenText}`;
+  // Send ONLY the clean normalized text to TTS models; never include instructions
+  // in contents or the TTS engine will speak the prompt rules aloud.
+  const ttsInputText = params.spokenText;
 
   const modelsToTry =
     params.lang === 'sd'
@@ -261,7 +257,7 @@ async function synthesizeWithGeminiTts(params: {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: promptText }] }],
+            contents: [{ parts: [{ text: ttsInputText }] }],
             generationConfig: {
               responseModalities: ['AUDIO'],
               speechConfig: {
@@ -464,7 +460,8 @@ async function synthesizeWithMmsSindhi(params: {
 export async function synthesizeVoiceSpeech(req: TTSRequest): Promise<TTSResult> {
   const startedAt = Date.now();
   const lang: VoiceLang = req.lang === 'sd' || req.lang === 'en' ? req.lang : 'ur';
-  const gender: VoiceGender = req.gender === 'male' ? 'male' : 'female';
+  // Enforce ONE consistent mature Female voice across the entire app
+  const gender: VoiceGender = 'female';
   const speedRate = resolveSpeakingRate(req.speedMode, req.speedRate);
   const localeCode = resolveExplicitLocale(lang);
   const profile = VOICE_PROFILES[lang][gender];

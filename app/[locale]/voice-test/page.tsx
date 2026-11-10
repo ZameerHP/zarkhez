@@ -56,12 +56,12 @@ export default function VoiceListeningTestPage() {
     [activePhrase.text, selectedLang]
   );
 
-  // Blinded A = female voice (normal), B = male voice (normal) — or swaps A/B cleanly per phrase index
+  // Single fixed Female voice everywhere; blind A vs B evaluates Normal (0.9x) vs Slow clear (0.75x) cadence
   const sideMap = useMemo(() => {
     const even = phraseIdx % 2 === 0;
     return {
-      A: { gender: (even ? 'female' : 'male') as VoiceGender },
-      B: { gender: (even ? 'male' : 'female') as VoiceGender },
+      A: { gender: 'female' as VoiceGender, speedMode: even ? 'normal' : 'slow' },
+      B: { gender: 'female' as VoiceGender, speedMode: even ? 'slow' : 'normal' },
     };
   }, [phraseIdx]);
 
@@ -83,8 +83,8 @@ export default function VoiceListeningTestPage() {
         body: JSON.stringify({
           text: activePhrase.text,
           lang: selectedLang,
-          gender: sideMap[side].gender,
-          speedMode: 'normal',
+          gender: 'female',
+          speedMode: sideMap[side].speedMode,
         }),
       });
       if (!res.ok) {
