@@ -1056,8 +1056,8 @@ export default function ScanPage() {
                       ? 'تصویر کا معیار اور روشنی چیک ہو رہی ہے...'
                       : 'Checking clarity & optimizing photo...'
                     : locale === 'ur'
-                    ? 'جیمنائی کلاؤڈ وژن معائنہ جاری ہے...'
-                    : 'Gemini Cloud Vision analyzing plant...'}
+                    ? 'زرخیز کلاؤڈ وژن معائنہ جاری ہے...'
+                    : 'Zarkhez Cloud Vision analyzing plant...'}
                 </h2>
                 <p className="text-xs text-ink/70">
                   {locale === 'ur'
@@ -1214,7 +1214,7 @@ export default function ScanPage() {
                     <span>
                       {locale === 'ur'
                         ? 'ابتدائی آف لائن تصویر چیک دیکھیں (غیر حتمی)'
-                        : 'View Offline Preliminary Check (Non-Gemini)'}
+                        : 'View Offline Preliminary Check (Non-Cloud)'}
                     </span>
                   </button>
                 )}
@@ -1421,7 +1421,7 @@ export default function ScanPage() {
               transition={{ duration: 0.4 }}
               className="space-y-4 text-start"
             >
-              {/* Offline Assessment Clarity Banner (Never falsely presents offline check as Gemini) */}
+              {/* Offline Assessment Clarity Banner (Never falsely presents offline check as Cloud AI) */}
               {diagnosis.inspection_source === 'offline_assessment' && (
                 <div className="bg-amber-50 border-2 border-amber-500 rounded-2xl p-4 shadow-soft space-y-2">
                   <div className="flex items-start gap-2.5">
@@ -1429,7 +1429,7 @@ export default function ScanPage() {
                     <div className="text-xs space-y-1">
                       <span className="font-black text-amber-900 uppercase tracking-wide block">
                         {reportLang === 'en'
-                          ? 'OFFLINE PRELIMINARY SCREENING (NOT GEMINI AI)'
+                          ? 'OFFLINE PRELIMINARY SCREENING (NOT CLOUD AI)'
                           : 'آف لائن ابتدائی جائزہ (یہ کلاؤڈ اے آئی تشخیص نہیں)'}
                       </span>
                       <p className="text-amber-950 font-medium leading-relaxed">
@@ -1446,8 +1446,8 @@ export default function ScanPage() {
                       <RotateCcw className="w-3.5 h-3.5" />
                       <span>
                         {reportLang === 'en'
-                          ? 'Retry Online Gemini Vision Analysis'
-                          : 'دوبارہ آن لائن جیمنائی معائنہ کریں'}
+                          ? 'Retry Online Cloud Vision Analysis'
+                          : 'دوبارہ آن لائن کلاؤڈ معائنہ کریں'}
                       </span>
                     </button>
                   )}
@@ -1743,7 +1743,7 @@ export default function ScanPage() {
 
                       {diagnosis.inspection_source !== 'offline_assessment' && (
                         <span className="text-[10px] font-bold text-olive-dark bg-olive/10 px-2 py-0.5 rounded-md border border-olive/20">
-                          {reportLang === 'en' ? 'Gemini Cloud Vision' : 'جیمنائی کلاؤڈ وژن'}
+                          {reportLang === 'en' ? 'Zarkhez Cloud Vision' : 'زرخیز کلاؤڈ وژن'}
                         </span>
                       )}
                     </div>

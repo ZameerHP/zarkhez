@@ -3,8 +3,8 @@ import type { ImageQualityReport } from './image-quality';
 
 /**
  * Browser-safe Offline Preliminary Plant Screening (lib/offline-assessment.ts)
- * Runs strictly on-device optical quality & pigment metrics when cloud Gemini Vision is unreachable.
- * - NEVER claims Gemini inspected the image (`inspection_source: 'offline_assessment'`, `gemini_inspection_status: 'not_run'`).
+ * Runs strictly on-device optical quality & pigment metrics when Zarkhez Cloud Vision is unreachable.
+ * - NEVER claims Cloud Vision inspected the image (`inspection_source: 'offline_assessment'`, `gemini_inspection_status: 'not_run'`).
  * - NEVER fabricates a specific disease diagnosis or confidence score.
  * - Preserves uncertainty honestly and guides the farmer to retry online or consult an extension officer.
  */
@@ -53,7 +53,7 @@ export function buildOfflinePreliminaryAssessment(
     pathogen_type: 'unknown',
     confidence_category: 'uncertain',
     confidence_limitations: {
-      en: 'Offline optical screening ONLY. Gemini Cloud Vision did not inspect this photo, so disease identity and field severity remain unconfirmed.',
+      en: 'Offline optical screening ONLY. Zarkhez Cloud Vision did not inspect this photo, so disease identity and field severity remain unconfirmed.',
       ur: 'یہ صرف فون کا ابتدائی آف لائن جائزہ ہے۔ کلاؤڈ اے آئی معائنہ نہیں ہو سکا، اس لیے بیماری کی حتمی تصدیق ابھی باقی ہے۔',
       roman_ur: 'Yeh sirf offline jaiza hai. Cloud AI scan abhi nahi hua is liye hatmi tashkhees baqi hai.',
       sd: 'هي صرف آف لائن ابتدائي چڪاس آهي. ڪلائوڊ اي آءِ تجزيو نه ٿي سگهيو آهي.',
@@ -78,7 +78,7 @@ export function buildOfflinePreliminaryAssessment(
     diagnosis_status: 'uncertain',
     plant_condition: hasVisibleLesions
       ? 'Abnormal dark or discolored spots detected in offline optical scan, but cloud AI could not confirm the disease.'
-      : 'Plant health could not be verified because cloud Gemini Vision was unreachable.',
+      : 'Plant health could not be verified because Zarkhez Cloud Vision was unreachable.',
     plant_condition_ur: hasVisibleLesions
       ? 'آف لائن کیمرہ چیک میں پتے پر غیر معمولی دھبے یا رنگ کی تبدیلی ملی ہے، لیکن کلاؤڈ سرور کے بغیر بیماری کا نام طے نہیں ہو سکا۔'
       : 'انٹرنیٹ یا کلاؤڈ وژن سرور دستیاب نہ ہونے کی وجہ سے پودے کی صحت کی تصدیق نہیں ہو سکی۔',
@@ -87,7 +87,7 @@ export function buildOfflinePreliminaryAssessment(
         ? 'Offline Check Inconclusive — Photo Quality Retake Needed'
         : hasVisibleLesions
         ? 'Offline Check: Spots Detected (Unconfirmed — Retry Online Scan)'
-        : 'Offline Preliminary Check Inconclusive (Non-Gemini)',
+        : 'Offline Preliminary Check Inconclusive (Offline Only)',
       ur: isQualityPoor
         ? 'آف لائن جائزہ غیر حتمی — صاف تصویر دوبارہ لیں'
         : hasVisibleLesions
@@ -108,8 +108,8 @@ export function buildOfflinePreliminaryAssessment(
     observed_symptoms: symptomsList,
     possible_causes: [
       {
-        en: 'Cloud Gemini Vision service could not be reached during this attempt.',
-        ur: 'اس کوشش کے دوران جیمنائی کلاؤڈ وژن سرور سے رابطہ نہیں ہو سکا۔',
+        en: 'Zarkhez Cloud Vision service could not be reached during this attempt.',
+        ur: 'اس کوشش کے دوران زرخیز کلاؤڈ وژن سرور سے رابطہ نہیں ہو سکا۔',
       },
     ],
     severity: 'not_assessed',
@@ -133,7 +133,7 @@ export function buildOfflinePreliminaryAssessment(
           ur: 'صرف اس غیر حتمی آف لائن جائزے کی بنیاد پر کوئی بھی کیمیائی دوا یا زہر سپرے ہرگز نہ کریں۔',
         },
         {
-          en: 'Retry Cloud Gemini Vision analysis when internet is stable, or take a clearer close-up in daylight.',
+          en: 'Retry Zarkhez Cloud Vision analysis when internet is stable, or take a clearer close-up in daylight.',
           ur: 'انٹرنیٹ مستحکم ہونے پر دوبارہ کلاؤڈ اسکین کریں یا دن کی روشنی میں قریب سے صاف تصویر لیں۔',
         },
       ],
@@ -158,7 +158,7 @@ export function buildOfflinePreliminaryAssessment(
     },
     explanations: {
       farmer_friendly: {
-        en: 'Gemini Cloud Vision did not examine this photo yet. We checked basic light and spots on your phone, which shows whether the photo is clear—please retry Cloud Analysis or consult a local agriculture officer before spraying.',
+        en: 'Zarkhez Cloud Vision did not examine this photo yet. We checked basic light and spots on your phone, which shows whether the photo is clear—please retry Cloud Analysis or consult a local agriculture officer before spraying.',
         ur: 'کلاؤڈ اے آئی سرور ابھی یہ تصویر نہیں دیکھ سکا۔ آپ کے فون نے صرف تصویر کی صفائی اور بنیادی نشانات دیکھے ہیں—براہِ کرم دوبارہ کلاؤڈ معائنہ کریں یا سپرے سے قبل مقامی زرعی افسر کو پودا دکھائیں۔',
       },
       scientific: {
@@ -190,8 +190,8 @@ export function buildOfflinePreliminaryAssessment(
     gemini_inspection_status: 'not_run',
     scan_timestamp: new Date().toISOString(),
     message: {
-      en: 'Offline preliminary assessment is inconclusive (not a Gemini diagnosis). Please retry cloud analysis when connected.',
-      ur: 'آف لائن ابتدائی جائزہ غیر حتمی ہے (یہ جیمنائی تشخیص نہیں)۔ براہِ کرم دوبارہ کلاؤڈ معائنہ کریں۔',
+      en: 'Offline preliminary assessment is inconclusive (not a Cloud AI diagnosis). Please retry cloud analysis when connected.',
+      ur: 'آف لائن ابتدائی جائزہ غیر حتمی ہے (یہ کلاؤڈ اے آئی تشخیص نہیں)۔ براہِ کرم دوبارہ کلاؤڈ معائنہ کریں۔',
     },
   });
 }

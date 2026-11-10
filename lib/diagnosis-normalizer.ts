@@ -221,7 +221,7 @@ export function normalizeAndValidateDiagnosis(
     return {
       ok: false,
       code: 'INVALID_PAYLOAD',
-      message: 'Received empty JSON object from Gemini Vision.',
+      message: 'Received empty JSON object from Cloud Vision AI.',
       fieldErrors: [{ path: '(root)', code: 'empty_object', message: 'Diagnosis object cannot be empty' }],
     };
   }

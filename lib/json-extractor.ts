@@ -338,7 +338,7 @@ export function extractAndParseJson(rawText: unknown): JsonExtractionResult {
       return {
         ok: false,
         code: 'INVALID_JSON',
-        message: `Failed to parse Gemini JSON payload: ${msg}`,
+        message: `Failed to parse Cloud AI JSON payload: ${msg}`,
         rawSnippet: sliced.slice(0, 260),
       };
     }

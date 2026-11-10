@@ -673,6 +673,51 @@ async function run() {
         (globalThis as Record<string, unknown>).window = origWindow;
       }
     });
+
+    // 27. Strict zero-Gemini UI branding guard
+    await testCase('27. Strictly hides Gemini text across UI, offline checks, fallbacks, and structured errors', () => {
+      const scanUiSource = fs.readFileSync(
+        path.resolve('app/[locale]/scan/page.tsx'),
+        'utf8'
+      );
+      const offlineSource = fs.readFileSync(
+        path.resolve('lib/offline-assessment.ts'),
+        'utf8'
+      );
+      assert.equal(
+        /جیمنائی|جیمنی|جيمنائي/i.test(scanUiSource),
+        false,
+        'Urdu/Sindhi Gemini brand text must never appear in scan UI'
+      );
+      assert.equal(
+        /['"`][^'"`\n]*gemini[^'"`\n]*['"`]/i.test(
+          scanUiSource.replace(/gemini_vision|gemini_inspection_status/g, '')
+        ),
+        false,
+        'English Gemini string literals must never appear in scan UI'
+      );
+      assert.equal(
+        /gemini|جیمنائی|جيمنائي/i.test(offlineSource.replace(/gemini_inspection_status/g, '')),
+        false,
+        'Offline assessment text must never expose Gemini branding'
+      );
+
+      const offlineObj = buildOfflinePreliminaryAssessment('potato');
+      const fallbackObj = getFallbackCropDiagnosis('wheat', false);
+      const errObj = new GeminiVisionError('Upstream Gemini error key=secret123', 503).toStructuredError();
+      const brandLeakRegex = /gemini|جیمنائی|جیمنی|جيمنائي/i;
+      assert.equal(
+        brandLeakRegex.test(JSON.stringify(offlineObj).replace(/gemini_inspection_status|gemini_vision/g, '')),
+        false,
+        'Offline assessment JSON must not expose Gemini branding'
+      );
+      assert.equal(
+        brandLeakRegex.test(JSON.stringify(fallbackObj).replace(/gemini_inspection_status|gemini_vision/g, '')),
+        false,
+        'Fallback diagnosis JSON must not expose Gemini branding'
+      );
+      assert.equal(brandLeakRegex.test(JSON.stringify(errObj)), false, 'Structured error output must scrub Gemini branding');
+    });
   } finally {
     globalThis.fetch = originalFetch;
     if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
