@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Fraunces,
   Plus_Jakarta_Sans,
   Noto_Nastaliq_Urdu,
   Noto_Naskh_Arabic,
@@ -10,6 +11,13 @@ import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import { ServiceWorkerRegistrar } from '@/components/layout/ServiceWorkerRegistrar';
 import { AuthGuard } from '@/components/auth/AuthGuard';
+
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600'],
+  variable: '--font-fraunces',
+  display: 'swap',
+});
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -52,7 +60,7 @@ export default async function LocaleLayout({
     <html
       lang={locale}
       dir={dir}
-      className={`${plusJakarta.variable} ${notoNastaliq.variable} ${notoNaskh.variable}`}
+      className={`${fraunces.variable} ${plusJakarta.variable} ${notoNastaliq.variable} ${notoNaskh.variable}`}
       suppressHydrationWarning
     >
       <body className="min-h-[100dvh] bg-canvas text-ink antialiased selection:bg-olive selection:text-white">
