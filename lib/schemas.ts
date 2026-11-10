@@ -338,6 +338,8 @@ export const ChatRequestSchema = z.object({
     })
     .optional(),
   lang: z.enum(['en', 'ur']).default('ur'),
+  voiceLang: z.enum(['ur', 'sd', 'en']).optional(),
+  voiceMode: z.boolean().optional().default(false),
 });
 
 export const VerifyImageRequestSchema = z.object({

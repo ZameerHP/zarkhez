@@ -3,6 +3,7 @@ import { ChatRequestSchema } from '@/lib/schemas';
 import { checkRateLimit } from '@/lib/ratelimit';
 import {
   generateFallbackChatReply,
+  generateVoiceDualReply,
   getGeminiApiKey,
   streamGeminiChatResponse,
 } from '@/lib/gemini';
@@ -80,9 +81,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { messages, context, lang } = parsed.data;
+  const { messages, context, lang, voiceLang, voiceMode } = parsed.data;
   const lastUserMsg =
     [...messages].reverse().find((m) => m.role === 'user')?.content || '';
+
+  if (voiceMode) {
+    const resolvedVoiceLang = voiceLang || (lang === 'en' ? 'en' : 'ur');
+    const dual = await generateVoiceDualReply(
+      messages,
+      context
+        ? {
+            name: context.farmerName,
+            farmerId: context.farmerId,
+            district: context.region,
+            crop: context.crop,
+            weatherSummary: context.weatherSummary,
+          }
+        : undefined,
+      resolvedVoiceLang
+    );
+    recordDiagnosticSuccess('chat');
+    return NextResponse.json(dual, {
+      status: 200,
+      headers: { 'Cache-Control': 'no-store, private' },
+    });
+  }
 
   const apiKey = getGeminiApiKey();
   const encoder = new TextEncoder();

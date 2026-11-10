@@ -327,8 +327,11 @@ export default function ScanPage() {
 
     if (!speechText.trim()) return;
     setTimeout(() => {
-      speakText(speechText, reportLang === 'en' ? 'en' : 'ur', {
-        onError: () => {
+      speakText(
+        speechText,
+        reportLang === 'sd' ? 'sd' : reportLang === 'en' ? 'en' : 'ur',
+        {
+          onError: () => {
           setVoiceErrorMsg(
             locale === 'ur'
               ? 'آواز سنانے میں عارضی مسئلہ آیا، لیکن مکمل تحریری رپورٹ نیچے موجود ہے۔'
@@ -1717,7 +1720,13 @@ export default function ScanPage() {
 
                     <ReadAloudButton
                       text={spokenDiagnosisText}
-                      lang={reportLang === 'en' ? 'en' : 'ur'}
+                      lang={
+                        reportLang === 'sd'
+                          ? 'sd'
+                          : reportLang === 'en'
+                          ? 'en'
+                          : 'ur'
+                      }
                     />
                   </div>
                   {voiceErrorMsg && (

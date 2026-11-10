@@ -292,6 +292,183 @@ export function generateFallbackChatReply(
     : `I am Zarkhez, your personal agricultural advisor.\n1. If you notice signs of disease on your crops, use "Scan Leaf" to inspect a clear daylight photograph.\n2. Use the "Crop Calendar" and "Fertilizer Calculator" to plan your inputs.\n3. Which crop can I assist you with today (wheat, rice, cotton, sugarcane, maize, or tomato)?`;
 }
 
+export function buildVoiceAdvisorPrompt(
+  voiceLang: 'ur' | 'sd' | 'en',
+  farmerProfile?: {
+    name?: string;
+    district?: string;
+    crop?: string;
+    acres?: number;
+    weatherSummary?: string;
+  }
+): string {
+  const ctx = farmerProfile
+    ? `Region: ${farmerProfile.district || 'Sindh / Pakistan'}, Crop: ${farmerProfile.crop || 'wheat'}, Land: ${farmerProfile.acres ? `${farmerProfile.acres} acres` : 'smallholder'}, Weather: ${farmerProfile.weatherSummary || 'Clear'}.`
+    : 'Region: Sindh / Pakistan.';
+
+  const targetDirective =
+    voiceLang === 'sd'
+      ? `TARGET SPOKEN LANGUAGE: Pakistani Sindhi (sd-PK, Perso-Arabic script using ڀ ٻ ڄ ڃ ڇ ڏ ڊ ڌ ڍ ڙ ڦ ڪ ڳ ڱ ڻ ٿ ٺ ٽ ي ه). NEVER substitute Urdu or Hindi phrasing in Sindhi output. Draft carefully in natural spoken rural Sindhi.`
+      : voiceLang === 'ur'
+      ? `TARGET SPOKEN LANGUAGE: Natural conversational Pakistani Urdu (ur-PK, Nastaliq / Perso-Arabic script). Understand Roman Urdu and English code-switching fluently, and output spoken_text strictly in proper Urdu script (NOT Roman Urdu). Never use Sanskritized Hindi.`
+      : `TARGET SPOKEN LANGUAGE: Clear warm Pakistani English.`;
+
+  return `You are Zarkhez Voice Advisor — a calm, warm, mature agricultural companion speaking directly with a farmer in Sindh/Pakistan.
+${ctx}
+${targetDirective}
+
+Return STRICT JSON ONLY with this shape:
+{
+  "screen_text": "Compact readable answer for the farmer's phone screen",
+  "spoken_text": "Natural spoken version ready for text-to-speech audio",
+  "language": "${voiceLang}"
+}
+
+MANDATORY VOICE RULES FOR "spoken_text":
+1. Reply in the target language (${voiceLang}) using 2 to 4 short, calm conversational sentences ONLY.
+2. Zero markdown, zero asterisks, zero bullet points, zero numbered lists, zero URLs, and zero emojis.
+3. Lead FIRST with what the farmer should DO today, followed briefly by WHY.
+4. Spell out ALL numbers, times, temperatures, percentages, and units in natural words of the target language.
+5. Never repeat farmer IDs or repeat the farmer's name unnecessarily.
+6. End with AT MOST ONE short helpful follow-up question.`;
+}
+
+export function generateSpokenFallbackChatReply(
+  question: string,
+  voiceLang: 'ur' | 'sd' | 'en',
+  context?: { crop?: string; region?: string; weatherSummary?: string }
+): { screenText: string; spokenText: string; language: 'ur' | 'sd' | 'en' } {
+  const q = question.toLowerCase();
+
+  if (voiceLang === 'sd') {
+    if (/پاڻي|water|pani|irrigat|آبپاشي/.test(q)) {
+      const s =
+        'ڪڻڪ کي پهريون پاڻي پوک کان ويهن کان پنجويهن ڏينهن کان پوءِ ڏيو، ڇو ته ان وقت پاڙون مضبوط ٿينديون آهن. گڏوگڏ يوريا ڀاڻ جو پهريون حصو به ڏيو. ڇا اوهان جي زمين وارياسي آهي يا پڪي؟';
+      return { screenText: s, spokenText: s, language: 'sd' };
+    }
+    if (/اسپري|spray|موسم|weather|هوا|برسات|rain/.test(q)) {
+      const s =
+        'اسپري تڏهن ڪريو جڏهن هوا هلڪي هجي ۽ برسات جو خطرو نه هجي. تيز اس ۾ اسپري نه ڪريو ته جيئن دوا ضايع نه ٿئي. ڇا اڄ اوهان جي علائقي ۾ هوا تيز آهي؟';
+      return { screenText: s, spokenText: s, language: 'sd' };
+    }
+    if (/ڀاڻ|يوريا|ڊي اي پي|fertilizer|urea|dap|khad/.test(q)) {
+      const s =
+        'پوک وقت ڊي اي پي ۽ پوٽاش زمين ۾ ملايو، ۽ يوريا ڀاڻ ٻن يا ٽن حصن ۾ پاڻيءَ سان گڏ ڏيو. ان سان ڀاڻ ضايع نه ٿيندو. اوهان ڪهڙي فصل لاءِ پڇي رهيا آهيو؟';
+      return { screenText: s, spokenText: s, language: 'sd' };
+    }
+    if (/بيمار|پن|داغ|پيل|جيت|leaf|curl|blast|rust/.test(q)) {
+      const s =
+        'پنن جي صحيح سڃاڻپ لاءِ ڏينهن جي روشنيءَ ۾ هڪ متاثر پن جي صاف تصوير ڪڍي اسڪين ڪريو. ڪنهن به دوا کان اڳ علائقي جي زرعي آفيسر کان صلاح وٺو. ڇا هيءَ علامت پوري ٻنيءَ ۾ آهي يا ڪجهه ٻوٽن تي؟';
+      return { screenText: s, spokenText: s, language: 'sd' };
+    }
+    const defaultSd =
+      'اسلام عليڪم هاري ڀاءُ. اوهان پنهنجي فصل، پاڻي، ڀاڻ يا بيماري بابت سڌو سنڌيءَ ۾ پڇي سگهو ٿا. اڄ مان اوهان جي ڪهڙي مدد ڪري سگهان ٿو؟';
+    return { screenText: defaultSd, spokenText: defaultSd, language: 'sd' };
+  }
+
+  if (voiceLang === 'en') {
+    const fallbackText = generateFallbackChatReply(question, 'en', context);
+    const spokenEn =
+      'Start by checking soil moisture before taking field action today. Open Scan Leaf for clear daylight inspection or share your crop stage so I can give exact steps. Which crop are you working on right now?';
+    if (/water|irrigat|pani/.test(q)) {
+      const s =
+        'Give wheat its first irrigation twenty to twenty-five days after sowing when crown roots develop, along with your first split of urea. Avoid watering if strong wind is blowing so plants stay upright. What is your soil type?';
+      return { screenText: fallbackText, spokenText: s, language: 'en' };
+    }
+    return { screenText: fallbackText, spokenText: spokenEn, language: 'en' };
+  }
+
+  // Natural Pakistani Urdu script (never Roman Urdu in spoken_text)
+  if (/پانی|آبپاشی|water|pani|irrigat/.test(q)) {
+    const s =
+      'گندم کو پہلا پانی بجائی کے بیس سے پچیس دن بعد لگائیں کیونکہ اس وقت پودے کی جڑیں مضبوط ہو رہی ہوتی ہیں۔ ساتھ ہی یوریا کھاد کی پہلی قسط دے دیں، مگر تیز ہوا چل رہی ہو تو پانی روک لیں۔ کیا آپ کی زمین ریتلی ہے یا چکنی؟';
+    return { screenText: s, spokenText: s, language: 'ur' };
+  }
+  if (/سپرے|موسم|بارش|spray|weather|rain|hawa|wind/.test(q)) {
+    const s =
+      'آج سپرے تب کریں جب ہوا ہلکی ہو اور بارش کا خطرہ نہ ہو۔ صبح شبنم خشک ہونے کے بعد یا شام کے وقت سپرے کرنا سب سے بہتر رہتا ہے تاکہ دوا پتوں پر ٹک سکے۔ آپ کس بیماری یا کیڑے کے لیے سپرے کرنا چاہتے ہیں؟';
+    return { screenText: s, spokenText: s, language: 'ur' };
+  }
+  if (/کھاد|یوریا|ڈی اے پی|fertilizer|urea|dap|khad|potash/.test(q)) {
+    const s =
+      'بوائی کے وقت ڈی اے پی اور پوٹاش زمین میں ڈالیں، اور یوریا کھاد ایک ساتھ ڈالنے کے بجائے دو یا تین حصوں میں پانی کے ساتھ دیں۔ اس سے کھاد ضائع نہیں ہوتی اور فصل کی پیداوار بڑھتی ہے۔ آپ یہ کھاد کس فصل کے لیے پوچھ رہے ہیں؟';
+    return { screenText: s, spokenText: s, language: 'ur' };
+  }
+  if (/پت|بیمار|مڑ|کنگی|دھب|تیل|leaf|curl|blast|rust|peela|sukr|keera/.test(q)) {
+    const s =
+      'صحیح تشخیص کے لیے دن کی روشنی میں متاثرہ پتے کی ایک صاف تصویر لے کر اسکین کریں۔ زیادہ خراب پتے کھیت سے نکال دیں اور کسی بھی زہر کے سپرے سے پہلے علاقے کے زرعی افسر سے مشورہ کریں۔ کیا یہ مسئلہ چند پودوں پر ہے یا پورے کھیت میں؟';
+    return { screenText: s, spokenText: s, language: 'ur' };
+  }
+
+  const defaultUr =
+    'السلام علیکم کسان بھائی۔ آپ اپنی فصل، پانی، کھاد یا بیماری کے بارے میں مجھ سے سیدھا بول کر پوچھ سکتے ہیں۔ بتائیے آج کس فصل میں مدد چاہیے؟';
+  return { screenText: defaultUr, spokenText: defaultUr, language: 'ur' };
+}
+
+export async function generateVoiceDualReply(
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  farmerProfile?: {
+    name?: string;
+    farmerId?: string;
+    district?: string;
+    crop?: string;
+    acres?: number;
+    weatherSummary?: string;
+  },
+  voiceLang: 'ur' | 'sd' | 'en' = 'ur'
+): Promise<{ screenText: string; spokenText: string; language: 'ur' | 'sd' | 'en' }> {
+  const lastUserMsg =
+    [...messages].reverse().find((m) => m.role === 'user')?.content || '';
+
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    return generateSpokenFallbackChatReply(lastUserMsg, voiceLang, farmerProfile);
+  }
+
+  const model =
+    readEnvLocalValue(['GEMINI_MODEL_FAST', 'GEMINI_MODEL_DETAIL']) ||
+    'gemini-flash-lite-latest';
+
+  const systemInstruction = buildVoiceAdvisorPrompt(voiceLang, farmerProfile);
+  const geminiContents = messages.map((m) => ({
+    role: m.role === 'assistant' ? ('model' as const) : ('user' as const),
+    parts: [{ text: m.content }],
+  }));
+
+  try {
+    const { text } = await callGeminiApi({
+      model,
+      systemInstruction,
+      contents: geminiContents,
+      temperature: 0.25,
+      maxOutputTokens: 700,
+    });
+
+    const parsed = extractAndParseJson(text);
+    if (parsed.ok && parsed.data && typeof parsed.data === 'object') {
+      const obj = parsed.data as Record<string, unknown>;
+      const screenText = String(obj.screen_text || obj.reply || obj.answer || '').trim();
+      const spokenText = String(obj.spoken_text || obj.speech || screenText).trim();
+      if (spokenText) {
+        return {
+          screenText: screenText || spokenText,
+          spokenText,
+          language: voiceLang,
+        };
+      }
+    }
+
+    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    if (cleaned) {
+      return { screenText: cleaned, spokenText: cleaned, language: voiceLang };
+    }
+  } catch (err) {
+    console.warn('[Voice Dual Reply] Using spoken fallback:', err instanceof Error ? redactSecrets(err.message) : '');
+  }
+
+  return generateSpokenFallbackChatReply(lastUserMsg, voiceLang, farmerProfile);
+}
+
 function readEnvLocalValue(keys: string[]): string | undefined {
   for (const key of keys) {
     const val = process.env[key];

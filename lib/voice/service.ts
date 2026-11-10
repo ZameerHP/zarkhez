@@ -1,0 +1,612 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import type {
+  TTSRequest,
+  TTSResult,
+  VoiceGender,
+  VoiceLang,
+  VoiceProviderId,
+} from './types';
+import {
+  isProviderAllowedForLanguage,
+  resolveExplicitLocale,
+} from './script-guard';
+import { toSpokenText } from './spoken-normalizer';
+import { buildVoiceSsml, resolveSpeakingRate } from './ssml-builder';
+import { loadHotPronunciationLexicon, readServerEnv } from './server-lexicon';
+import { redactSecrets } from '../error-sanitizer';
+import { recordDiagnosticEvent, recordDiagnosticSuccess } from '../server/diagnostics-store';
+
+interface MemoryAudioCacheEntry {
+  buffer: Uint8Array;
+  contentType: 'audio/wav' | 'audio/mpeg';
+  provider: VoiceProviderId;
+  voiceLabel: string;
+  audioId: string;
+  createdAt: number;
+}
+
+const MAX_MEMORY_CACHE_ENTRIES = 350;
+const MEMORY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const ttsMemoryCache = new Map<string, MemoryAudioCacheEntry>();
+
+export interface VoiceProfileSpec {
+  id: string;
+  label: string;
+  gender: VoiceGender;
+  geminiVoice: string;
+  azureVoice?: string;
+  elevenLabsDefaultVoice: string;
+  toneInstruction: string;
+}
+
+export const VOICE_PROFILES: Record<VoiceLang, Record<VoiceGender, VoiceProfileSpec>> = {
+  ur: {
+    female: {
+      id: 'ur-pk-female-calm',
+      label: 'عظمیٰ — وقار اور اپنائیت بھرا لہجہ',
+      gender: 'female',
+      geminiVoice: 'Aoede',
+      azureVoice: 'ur-PK-UzmaNeural',
+      elevenLabsDefaultVoice: 'EXAVITQu4vr4xnSDxMaL',
+      toneInstruction:
+        'Speak in warm, calm, mature Pakistani Urdu (ur-PK) like a trusted senior rural agricultural advisor. Clear pronunciation, unhurried pace, no news-anchor stiffness.',
+    },
+    male: {
+      id: 'ur-pk-male-calm',
+      label: 'اسد — پُرسکون دیہی مشیر لہجہ',
+      gender: 'male',
+      geminiVoice: 'Orus',
+      azureVoice: 'ur-PK-AsadNeural',
+      elevenLabsDefaultVoice: 'pNInz6obpgDQGcFmaJgB',
+      toneInstruction:
+        'Speak in warm, calm, mature Pakistani Urdu (ur-PK) male voice like an experienced local field officer speaking to a farmer brother. Natural stress and pauses.',
+    },
+  },
+  sd: {
+    female: {
+      id: 'sd-pk-female-calm',
+      label: 'سسئي — مٺو ۽ واضح سنڌي لهجو',
+      gender: 'female',
+      geminiVoice: 'Aoede',
+      // Azure Neural does NOT support Sindhi (sd-PK); explicitly omitted
+      elevenLabsDefaultVoice: 'EXAVITQu4vr4xnSDxMaL',
+      toneInstruction:
+        'Speak strictly in authentic Pakistani Sindhi (sd-PK, Sindh province accent). Preserve Sindhi implosive and aspirated sounds (ڀ ٻ ڄ ڃ ڇ ڏ ڊ ڌ ڍ ڙ ڦ ڪ ڳ ڱ ڻ ٿ ٺ ٽ) faithfully. Warm, mature, calm rural advisor tone.',
+    },
+    male: {
+      id: 'sd-pk-male-calm',
+      label: 'سچل — پُرسڪون سنڌي زرعي لهجو',
+      gender: 'male',
+      geminiVoice: 'Charon',
+      elevenLabsDefaultVoice: 'pNInz6obpgDQGcFmaJgB',
+      toneInstruction:
+        'Speak strictly in authentic Pakistani Sindhi (sd-PK, Sindh province accent) in a calm, mature male farmer-advisor tone. Articulate all Sindhi consonants clearly without Urdu or Hindi shift.',
+    },
+  },
+  en: {
+    female: {
+      id: 'en-pk-female-calm',
+      label: 'Ayesha (Clear English)',
+      gender: 'female',
+      geminiVoice: 'Kore',
+      azureVoice: 'en-US-JennyNeural',
+      elevenLabsDefaultVoice: 'EXAVITQu4vr4xnSDxMaL',
+      toneInstruction:
+        'Speak in clear, warm, calm Pakistani English suitable for agricultural guidance. Unhurried pacing.',
+    },
+    male: {
+      id: 'en-pk-male-calm',
+      label: 'Bilal (Clear English)',
+      gender: 'male',
+      geminiVoice: 'Orus',
+      azureVoice: 'en-US-GuyNeural',
+      elevenLabsDefaultVoice: 'pNInz6obpgDQGcFmaJgB',
+      toneInstruction:
+        'Speak in calm, reassuring, clear English male voice for rural farmers.',
+    },
+  },
+};
+
+export function getProviderPriorityChain(
+  lang: VoiceLang,
+  preferProvider?: VoiceProviderId
+): VoiceProviderId[] {
+  const baseChain: VoiceProviderId[] =
+    lang === 'sd'
+      ? ['elevenlabs-v3', 'gemini-tts', 'mms-sindhi', 'google-cloud-tts']
+      : lang === 'ur'
+      ? ['elevenlabs-v3', 'gemini-tts', 'azure-neural', 'google-cloud-tts']
+      : ['gemini-tts', 'elevenlabs-v3', 'azure-neural', 'google-cloud-tts'];
+
+  const filtered = baseChain.filter((p) => isProviderAllowedForLanguage(p, lang));
+  if (preferProvider && isProviderAllowedForLanguage(preferProvider, lang)) {
+    return Array.from(new Set([preferProvider, ...filtered]));
+  }
+  return filtered;
+}
+
+export function buildAudioCacheKey(params: {
+  spokenText: string;
+  lang: VoiceLang;
+  gender: VoiceGender;
+  speedRate: number;
+  preferProvider?: VoiceProviderId;
+}): string {
+  const payload = [
+    params.lang,
+    params.gender,
+    params.speedRate.toFixed(2),
+    params.preferProvider || 'auto',
+    params.spokenText,
+  ].join('|');
+  return crypto.createHash('sha256').update(payload, 'utf8').digest('hex').slice(0, 24);
+}
+
+function wrapPcmAsWav(pcmBytes: Uint8Array, sampleRate = 24000, channels = 1): Uint8Array {
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + pcmBytes.byteLength, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * channels * 2, 28);
+  header.writeUInt16LE(channels * 2, 32);
+  header.writeUInt16LE(16, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(pcmBytes.byteLength, 40);
+  return new Uint8Array(Buffer.concat([header, Buffer.from(pcmBytes)]));
+}
+
+function lookupNativeRecording(
+  lang: VoiceLang,
+  gender: VoiceGender,
+  clipId?: string
+): { buffer: Uint8Array; contentType: 'audio/wav' | 'audio/mpeg' } | null {
+  if (!clipId || !/^[a-z0-9_-]{2,64}$/i.test(clipId)) return null;
+  const nativeDir = path.resolve(process.cwd(), 'public', 'audio', 'native', lang, gender);
+  for (const [ext, mime] of [
+    ['mp3', 'audio/mpeg'],
+    ['wav', 'audio/wav'],
+  ] as const) {
+    const filePath = path.join(nativeDir, `${clipId}.${ext}`);
+    if (fs.existsSync(filePath)) {
+      const buf = fs.readFileSync(filePath);
+      if (buf.byteLength > 128) {
+        return { buffer: new Uint8Array(buf), contentType: mime };
+      }
+    }
+  }
+  return null;
+}
+
+function readDiskCache(
+  cacheHash: string
+): { buffer: Uint8Array; contentType: 'audio/wav' | 'audio/mpeg' } | null {
+  try {
+    const cacheDir = path.resolve(process.cwd(), 'public', 'audio', 'cache');
+    for (const [ext, mime] of [
+      ['wav', 'audio/wav'],
+      ['mp3', 'audio/mpeg'],
+    ] as const) {
+      const filePath = path.join(cacheDir, `${cacheHash}.${ext}`);
+      if (fs.existsSync(filePath)) {
+        const buf = fs.readFileSync(filePath);
+        if (buf.byteLength > 128) {
+          return { buffer: new Uint8Array(buf), contentType: mime };
+        }
+      }
+    }
+  } catch {
+    // ignore read failure cleanly
+  }
+  return null;
+}
+
+function writeDiskCache(
+  cacheHash: string,
+  buffer: Uint8Array,
+  contentType: 'audio/wav' | 'audio/mpeg'
+): void {
+  try {
+    const cacheDir = path.resolve(process.cwd(), 'public', 'audio', 'cache');
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir, { recursive: true });
+    }
+    const ext = contentType === 'audio/mpeg' ? 'mp3' : 'wav';
+    const targetPath = path.join(cacheDir, `${cacheHash}.${ext}`);
+    fs.writeFileSync(targetPath, Buffer.from(buffer));
+  } catch {
+    // Read-only production filesystems (e.g. serverless runtime) rely on in-memory + HTTP cache cleanly
+  }
+}
+
+async function synthesizeWithGeminiTts(params: {
+  spokenText: string;
+  lang: VoiceLang;
+  profile: VoiceProfileSpec;
+  speedRate: number;
+}): Promise<{ buffer: Uint8Array; contentType: 'audio/wav' } | null> {
+  const apiKey = readServerEnv(['GEMINI_API_KEY', 'GOOGLE_API_KEY']);
+  if (!apiKey) return null;
+
+  const paceNote =
+    params.speedRate <= 0.8
+      ? 'Speak slowly and deliberately (~0.75x speed) with extra clear pauses after each number and unit.'
+      : 'Speak at a calm, unhurried, clear conversational speed (~0.90x).';
+
+  const promptText = `${params.profile.toneInstruction} ${paceNote} Read strictly the following ${resolveExplicitLocale(
+    params.lang
+  )} text aloud exactly as written without translating or adding extra words:\n${params.spokenText}`;
+
+  const modelsToTry =
+    params.lang === 'sd'
+      ? ['gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts', 'gemini-3.1-flash-tts-preview']
+      : [
+          'gemini-3.8-flash-lite-tts',
+          'gemini-3.8-flash-tts',
+          'gemini-3.1-flash-tts-preview',
+          'gemini-2.5-flash-preview-tts',
+        ];
+
+  for (const model of modelsToTry) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: promptText }] }],
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: { voiceName: params.profile.geminiVoice },
+                },
+              },
+            },
+          }),
+          signal: AbortSignal.timeout(12000),
+        }
+      );
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) break;
+        continue;
+      }
+
+      const data = await res.json();
+      const parts = (data?.candidates?.[0]?.content?.parts || []) as Array<{
+        inlineData?: { mimeType?: string; data?: string };
+      }>;
+      const audioPart = parts.find((p) => Boolean(p.inlineData?.data))?.inlineData;
+      if (!audioPart?.data) continue;
+
+      const rawBytes = new Uint8Array(Buffer.from(audioPart.data, 'base64'));
+      const mime = (audioPart.mimeType || '').toLowerCase();
+      if (mime.includes('wav') || (rawBytes[0] === 0x52 && rawBytes[1] === 0x49)) {
+        return { buffer: rawBytes, contentType: 'audio/wav' };
+      }
+      // PCM audio/L16;rate=24000 -> wrap as standard playable WAV
+      const rateMatch = mime.match(/rate=(\d+)/);
+      const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000;
+      return { buffer: wrapPcmAsWav(rawBytes, sampleRate, 1), contentType: 'audio/wav' };
+    } catch {
+      // try next Gemini TTS candidate
+    }
+  }
+  return null;
+}
+
+async function synthesizeWithElevenLabs(params: {
+  spokenText: string;
+  lang: VoiceLang;
+  profile: VoiceProfileSpec;
+  speedRate: number;
+}): Promise<{ buffer: Uint8Array; contentType: 'audio/mpeg' } | null> {
+  const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
+  if (!apiKey) return null;
+
+  const envVoiceKey = `ELEVENLABS_VOICE_${params.lang.toUpperCase()}_${params.profile.gender.toUpperCase()}`;
+  const voiceId = process.env[envVoiceKey]?.trim() || params.profile.elevenLabsDefaultVoice;
+
+  try {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json',
+        Accept: 'audio/mpeg',
+      },
+      body: JSON.stringify({
+        text: params.spokenText,
+        model_id: 'eleven_v3',
+        language_code: params.lang,
+        voice_settings: {
+          stability: 0.62,
+          similarity_boost: 0.78,
+          speed: params.speedRate,
+        },
+      }),
+      signal: AbortSignal.timeout(12000),
+    });
+
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength < 128) return null;
+    return { buffer: new Uint8Array(buf), contentType: 'audio/mpeg' };
+  } catch {
+    return null;
+  }
+}
+
+async function synthesizeWithAzureNeural(params: {
+  spokenText: string;
+  lang: VoiceLang;
+  profile: VoiceProfileSpec;
+  speedRate: number;
+}): Promise<{ buffer: Uint8Array; contentType: 'audio/mpeg' } | null> {
+  // Explicitly disallow Azure for Sindhi (sd-PK) as Azure has zero Sindhi TTS voices
+  if (params.lang === 'sd' || !params.profile.azureVoice) return null;
+
+  const azureKey = process.env.AZURE_SPEECH_KEY?.trim();
+  if (!azureKey) return null;
+  const azureRegion = process.env.AZURE_SPEECH_REGION?.trim() || 'eastus';
+
+  const lexiconEntries = loadHotPronunciationLexicon();
+  const ssml = buildVoiceSsml({
+    text: params.spokenText,
+    lang: params.lang,
+    voiceName: params.profile.azureVoice,
+    speedRate: params.speedRate,
+    lexiconEntries,
+  });
+
+  try {
+    const res = await fetch(
+      `https://${azureRegion}.tts.speech.microsoft.com/cognitiveservices/v1`,
+      {
+        method: 'POST',
+        headers: {
+          'Ocp-Apim-Subscription-Key': azureKey,
+          'Content-Type': 'application/ssml+xml',
+          'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+          'User-Agent': 'Zarkhez-VoiceService',
+        },
+        body: ssml,
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength < 128) return null;
+    return { buffer: new Uint8Array(buf), contentType: 'audio/mpeg' };
+  } catch {
+    return null;
+  }
+}
+
+async function synthesizeWithGoogleCloudTts(params: {
+  spokenText: string;
+  lang: VoiceLang;
+  profile: VoiceProfileSpec;
+  speedRate: number;
+}): Promise<{ buffer: Uint8Array; contentType: 'audio/mpeg' } | null> {
+  const apiKey = process.env.GOOGLE_TTS_API_KEY?.trim();
+  if (!apiKey) return null;
+
+  const languageCode =
+    params.lang === 'sd' ? 'sd-IN' : params.lang === 'ur' ? 'ur-PK' : 'en-US';
+  const ssmlGender = params.profile.gender === 'male' ? 'MALE' : 'FEMALE';
+
+  try {
+    const res = await fetch(
+      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          input: { text: params.spokenText },
+          voice: { languageCode, ssmlGender },
+          audioConfig: {
+            audioEncoding: 'MP3',
+            speakingRate: params.speedRate,
+          },
+        }),
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { audioContent?: string };
+    if (!data.audioContent) return null;
+    return {
+      buffer: new Uint8Array(Buffer.from(data.audioContent, 'base64')),
+      contentType: 'audio/mpeg',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function synthesizeWithMmsSindhi(params: {
+  spokenText: string;
+  lang: VoiceLang;
+}): Promise<{ buffer: Uint8Array; contentType: 'audio/wav' } | null> {
+  if (params.lang !== 'sd') return null;
+  const endpoint = process.env.MMS_SINDHI_TTS_URL?.trim();
+  if (!endpoint) return null;
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = process.env.HF_TOKEN?.trim();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ inputs: params.spokenText }),
+      signal: AbortSignal.timeout(14000),
+    });
+    if (!res.ok) return null;
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength < 128) return null;
+    return { buffer: new Uint8Array(buf), contentType: 'audio/wav' };
+  } catch {
+    return null;
+  }
+}
+
+export async function synthesizeVoiceSpeech(req: TTSRequest): Promise<TTSResult> {
+  const startedAt = Date.now();
+  const lang: VoiceLang = req.lang === 'sd' || req.lang === 'en' ? req.lang : 'ur';
+  const gender: VoiceGender = req.gender === 'male' ? 'male' : 'female';
+  const speedRate = resolveSpeakingRate(req.speedMode, req.speedRate);
+  const localeCode = resolveExplicitLocale(lang);
+  const profile = VOICE_PROFILES[lang][gender];
+
+  // Hot-reloadable lexicon + full spoken-form normalization (digits, times, units, symbols)
+  const lexiconEntries = loadHotPronunciationLexicon();
+  const normalized = toSpokenText(req.text, lang, { lexiconEntries });
+  const spokenText = normalized.spokenText;
+
+  if (!spokenText) {
+    throw new Error('EMPTY_SPOKEN_TEXT');
+  }
+
+  const cacheHash = buildAudioCacheKey({
+    spokenText,
+    lang,
+    gender,
+    speedRate,
+    preferProvider: req.preferProvider,
+  });
+
+  // 1. Check drop-in native human recording override first
+  const nativeHit = lookupNativeRecording(lang, gender, req.clipId);
+  if (nativeHit) {
+    recordDiagnosticSuccess('tts');
+    return {
+      audioBuffer: nativeHit.buffer,
+      contentType: nativeHit.contentType,
+      provider: 'native-recording',
+      voiceLabel: profile.label,
+      localeCode,
+      audioId: `nat-${req.clipId}-${cacheHash.slice(0, 8)}`,
+      cacheStatus: 'native',
+      spokenText,
+      latencyMs: Date.now() - startedAt,
+    };
+  }
+
+  // 2. Check in-memory & disk cache (hash of text + voice + speed + lang)
+  if (!req.skipCache) {
+    const memHit = ttsMemoryCache.get(cacheHash);
+    if (memHit && Date.now() - memHit.createdAt < MEMORY_CACHE_TTL_MS) {
+      recordDiagnosticSuccess('tts');
+      return {
+        audioBuffer: memHit.buffer,
+        contentType: memHit.contentType,
+        provider: memHit.provider,
+        voiceLabel: memHit.voiceLabel,
+        localeCode,
+        audioId: memHit.audioId,
+        cacheStatus: 'hit',
+        spokenText,
+        latencyMs: Date.now() - startedAt,
+      };
+    }
+
+    const diskHit = readDiskCache(cacheHash);
+    if (diskHit) {
+      const audioId = `dsk-${cacheHash.slice(0, 10)}`;
+      ttsMemoryCache.set(cacheHash, {
+        buffer: diskHit.buffer,
+        contentType: diskHit.contentType,
+        provider: 'disk-cache',
+        voiceLabel: profile.label,
+        audioId,
+        createdAt: Date.now(),
+      });
+      recordDiagnosticSuccess('tts');
+      return {
+        audioBuffer: diskHit.buffer,
+        contentType: diskHit.contentType,
+        provider: 'disk-cache',
+        voiceLabel: profile.label,
+        localeCode,
+        audioId,
+        cacheStatus: 'hit',
+        spokenText,
+        latencyMs: Date.now() - startedAt,
+      };
+    }
+  }
+
+  // 3. Execute verified neural provider chain (never Google Translate GTX)
+  const providers = getProviderPriorityChain(lang, req.preferProvider);
+
+  for (const provider of providers) {
+    let generated:
+      | { buffer: Uint8Array; contentType: 'audio/wav' | 'audio/mpeg' }
+      | null = null;
+
+    if (provider === 'elevenlabs-v3') {
+      generated = await synthesizeWithElevenLabs({ spokenText, lang, profile, speedRate });
+    } else if (provider === 'gemini-tts') {
+      generated = await synthesizeWithGeminiTts({ spokenText, lang, profile, speedRate });
+    } else if (provider === 'azure-neural') {
+      generated = await synthesizeWithAzureNeural({ spokenText, lang, profile, speedRate });
+    } else if (provider === 'google-cloud-tts') {
+      generated = await synthesizeWithGoogleCloudTts({ spokenText, lang, profile, speedRate });
+    } else if (provider === 'mms-sindhi') {
+      generated = await synthesizeWithMmsSindhi({ spokenText, lang });
+    }
+
+    if (generated) {
+      const audioId = `${provider.slice(0, 3)}-${cacheHash.slice(0, 10)}`;
+      if (ttsMemoryCache.size >= MAX_MEMORY_CACHE_ENTRIES) {
+        const oldestKey = ttsMemoryCache.keys().next().value;
+        if (oldestKey) ttsMemoryCache.delete(oldestKey);
+      }
+      ttsMemoryCache.set(cacheHash, {
+        buffer: generated.buffer,
+        contentType: generated.contentType,
+        provider,
+        voiceLabel: profile.label,
+        audioId,
+        createdAt: Date.now(),
+      });
+      writeDiskCache(cacheHash, generated.buffer, generated.contentType);
+      recordDiagnosticSuccess('tts');
+
+      return {
+        audioBuffer: generated.buffer,
+        contentType: generated.contentType,
+        provider,
+        voiceLabel: profile.label,
+        localeCode,
+        audioId,
+        cacheStatus: 'miss',
+        spokenText,
+        latencyMs: Date.now() - startedAt,
+      };
+    }
+  }
+
+  recordDiagnosticEvent({
+    service: 'tts',
+    category: 'temporary_service_failure',
+    code: 'ALL_NEURAL_TTS_UNAVAILABLE',
+    statusCode: 503,
+    severity: 'error',
+    summary: redactSecrets(
+      `All neural TTS providers unavailable for ${localeCode}; advising client offline fallback.`
+    ),
+  });
+  throw new Error('NEURAL_TTS_UNAVAILABLE');
+}

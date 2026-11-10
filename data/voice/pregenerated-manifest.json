@@ -1,0 +1,77 @@
+{
+  "generatedAt": "2026-11-10T17:23:51.539Z",
+  "totalPlannedCatalog": 136,
+  "generatedCount": 7,
+  "clips": [
+    {
+      "id": "hyd_clear",
+      "lang": "ur",
+      "gender": "female",
+      "cacheKey": "210be192f11c9b446b2ac637",
+      "provider": "gemini-tts",
+      "cacheStatus": "miss",
+      "bytes": 336044,
+      "latencyMs": 18171
+    },
+    {
+      "id": "hyd_clear",
+      "lang": "ur",
+      "gender": "male",
+      "cacheKey": "34960ea1710b1b2f93a85775",
+      "provider": "gemini-tts",
+      "cacheStatus": "miss",
+      "bytes": 341804,
+      "latencyMs": 6671
+    },
+    {
+      "id": "hyd_hot",
+      "lang": "ur",
+      "gender": "female",
+      "cacheKey": "5f18a8e455b64e36ce5d9b3e",
+      "provider": "gemini-tts",
+      "cacheStatus": "miss",
+      "bytes": 370604,
+      "latencyMs": 6450
+    },
+    {
+      "id": "hyd_hot",
+      "lang": "ur",
+      "gender": "male",
+      "cacheKey": "d3551a2551d5d015e9feceab",
+      "provider": "gemini-tts",
+      "cacheStatus": "miss",
+      "bytes": 357164,
+      "latencyMs": 6509
+    },
+    {
+      "id": "khi_humid",
+      "lang": "ur",
+      "gender": "female",
+      "cacheKey": "65439b34bc093fa9ed3c9fe0",
+      "provider": "gemini-tts",
+      "cacheStatus": "miss",
+      "bytes": 271076,
+      "latencyMs": 4653
+    },
+    {
+      "id": "suk_clear",
+      "lang": "ur",
+      "gender": "female",
+      "cacheKey": "8c5289d9707669aef40376a1",
+      "provider": "gemini-tts",
+      "cacheStatus": "miss",
+      "bytes": 359084,
+      "latencyMs": 18824
+    },
+    {
+      "id": "suk_clear",
+      "lang": "ur",
+      "gender": "male",
+      "cacheKey": "c82b8702205baa35839bd8bb",
+      "provider": "gemini-tts",
+      "cacheStatus": "miss",
+      "bytes": 376678,
+      "latencyMs": 5274
+    }
+  ]
+}

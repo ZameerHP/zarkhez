@@ -13,3 +13,5 @@ yarn-error.log*
 next-env.d.ts
 playwright-report
 test-results
+public/audio/cache/
+data/voice/pronunciation-feedback.jsonl

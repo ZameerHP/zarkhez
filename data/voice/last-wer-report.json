@@ -1,0 +1,139 @@
+{
+  "generatedAt": "2026-11-10T17:22:30.361Z",
+  "urdu": {
+    "lang": "ur",
+    "testedCount": 6,
+    "averageWerPct": 6.6,
+    "averageTtsMs": 6184,
+    "items": [
+      {
+        "id": "ur_01",
+        "category": "greeting",
+        "spokenTarget": "السلام علیکم کسان بھائی۔ آج حیدر آباد میں موسم صاف ہے۔",
+        "sttTranscript": "السلام علیکم کسان بھائیو۔ آج حیدر آباد میں موسم صاف ہے۔",
+        "wer": 9.1,
+        "ttsMs": 7245,
+        "sttMs": 3885,
+        "provider": "gemini-tts"
+      },
+      {
+        "id": "ur_02",
+        "category": "greeting",
+        "spokenTarget": "صبح بخیر کسان بھائی۔ بتائیے آج کس فصل کے بارے میں مشورہ چاہیے؟۔",
+        "sttTranscript": "صبح بخیر کسان بھائی۔ بتائیے، آج کس فصل کے بارے میں مشورہ چاہیے؟",
+        "wer": 0,
+        "ttsMs": 4026,
+        "sttMs": 3063,
+        "provider": "gemini-tts"
+      },
+      {
+        "id": "ur_03",
+        "category": "weather",
+        "spokenTarget": "آج درجہ حرارت ستائیس ڈگری سینٹی گریڈ ہے اور ہوا میں نمی اکتالیس فیصد ہے۔",
+        "sttTranscript": "آج درجہ حرارت 27 ڈگری سینٹی گریڈ ہے اور ہوا میں نمی 41 فیصد ہے۔",
+        "wer": 13.3,
+        "ttsMs": 8452,
+        "sttMs": 4199,
+        "provider": "gemini-tts"
+      },
+      {
+        "id": "ur_04",
+        "category": "weather",
+        "spokenTarget": "ہوا کی رفتار تین اعشاریہ ایک میٹر فی سیکنڈ ہے۔ آج سپرے کرنا محفوظ ہے۔",
+        "sttTranscript": "ہوا کی رفتار تین اعشاریہ ایک میٹر فی سیکنڈ ہے۔ آج سپرے کرنا محفوظ ہے۔",
+        "wer": 0,
+        "ttsMs": 9327,
+        "sttMs": 3521,
+        "provider": "gemini-tts"
+      },
+      {
+        "id": "ur_05",
+        "category": "weather",
+        "spokenTarget": "کل بارش کا پچہتر فیصد امکان ہے، اس لیے آج سپرے روک دیں۔",
+        "sttTranscript": "کل بارش کا 75 فیصد امکان ہے اس لیے آج سپرے روک دیں۔",
+        "wer": 7.7,
+        "ttsMs": 4577,
+        "sttMs": 3927,
+        "provider": "gemini-tts"
+      },
+      {
+        "id": "ur_06",
+        "category": "weather",
+        "spokenTarget": "آج سورج صبح چھ بج کر انتالیس منٹ پر نکلے گا اور شام پانچ بج کر اکتالیس منٹ۔ پر غروب ہوگا۔",
+        "sttTranscript": "آج سورج صبح چھ بج کر انتالیس منٹ پر نکلے گا اور شام پانچ بج کر اکتالیس منٹ پر غروب ہو گا۔",
+        "wer": 9.5,
+        "ttsMs": 3475,
+        "sttMs": 4950,
+        "provider": "gemini-tts"
+      }
+    ]
+  },
+  "sindhi": {
+    "lang": "sd",
+    "testedCount": 6,
+    "averageWerPct": 14.5,
+    "averageTtsMs": 5680,
+    "items": [
+      {
+        "id": "sd_01",
+        "category": "greeting",
+        "spokenTarget": "اسلام عليڪم هاري ڀاءُ۔ اڄ حيدرآباد ۾ موسم صاف آهي۔",
+        "sttTranscript": "السلام عليڪم هاري ڀا اڄ حيدرآباد ۾ موسم صاف آهي.",
+        "wer": 20,
+        "ttsMs": 8921,
+        "sttMs": 4247,
+        "provider": "gemini-tts"
+      },
+      {
+        "id": "sd_02",
+        "category": "greeting",
+        "spokenTarget": "صبح بخير هاري ڀاءُ۔ ٻڌايو ته اڄ ڪهڙي فصل بابت صلاح گهرجي؟۔",
+        "sttTranscript": "صبح بخير هاري ڀاءُ، ٻڌايو ته اڄ ڪهڙي فصل بابت صلاح گهرجي؟",
+        "wer": 0,
+        "ttsMs": 3498,
+        "sttMs": 3958,
+        "provider": "gemini-tts"
+      },
+      {
+        "id": "sd_03",
+        "category": "weather",
+        "spokenTarget": "اڄ گرمي پد ستاويهه ڊگري سينٽي گريڊ آهي ۽ هوا ۾ گهم ايڪيتاليهه سيڪڙو آهي۔",
+        "sttTranscript": "اڄ گرمي پد ستويهه ڊگري سينٽي گريڊ آهي ۽ هوا ۾ گهم اڪيتاليهه سيڪڙو آهي.",
+        "wer": 13.3,
+        "ttsMs": 2903,
+        "sttMs": 4815,
+        "provider": "gemini-tts"
+      },
+      {
+        "id": "sd_04",
+        "category": "weather",
+        "spokenTarget": "هوا جي رفتار ٽي ڏهائي هڪ ميٽر في سيڪنڊ آهي۔ اڄ اسپري ڪرڻ محفوظ آهي۔",
+        "sttTranscript": "هوا جي رفتار ٽي ڏهائي هڪ ميٽر في سيڪنڊ آهي. اڄ اسپري ڪرڻ محفوظ آهي.",
+        "wer": 0,
+        "ttsMs": 4564,
+        "sttMs": 4734,
+        "provider": "gemini-tts"
+      },
+      {
+        "id": "sd_05",
+        "category": "weather",
+        "spokenTarget": "سڀاڻي برسات جو پنجهتر سيڪڙو امڪان آهي، ان ڪري اڄ اسپري روڪيو۔",
+        "sttTranscript": "سڀاڻي برسات جو پنجاهه ٿر سيڪڙو امڪان آهي ان ڪري اڄ اسپري روڪيو.",
+        "wer": 16.7,
+        "ttsMs": 4478,
+        "sttMs": 5498,
+        "provider": "gemini-tts"
+      },
+      {
+        "id": "sd_06",
+        "category": "weather",
+        "spokenTarget": "اڄ سج صبح جو ڇهه لڳي اوڻيتاليهه منٽ تي اڀرندو ۽ شام جو پنج لڳي ايڪيتاليهه منٽ تي۔ لهندو۔",
+        "sttTranscript": "اج سج صبح جو ڇهه لڳي اوڀر کان اڀرندو ۽ شام جو پنج لڳي اولهه کان لهندو.",
+        "wer": 36.8,
+        "ttsMs": 9714,
+        "sttMs": 34198,
+        "provider": "gemini-tts"
+      }
+    ]
+  }
+}

@@ -27,6 +27,8 @@ import {
   startSpeechRecognition,
   stopSpeaking,
   unlockAudio,
+  VoiceLang,
+  VoicePhase,
 } from '@/lib/voice';
 import {
   getSavedFields,
@@ -39,6 +41,8 @@ interface ChatTurn {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  spokenContent?: string;
+  voiceLang?: VoiceLang;
 }
 
 /**
@@ -60,6 +64,8 @@ export default function AssistantPage() {
   const [listening, setListening] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [voiceLang, setVoiceLang] = useState<VoiceLang>(locale === 'en' ? 'en' : 'ur');
+  const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
   const [userAvatar, setUserAvatar] = useState('');
 
   const [contextInfo, setContextInfo] = useState({
@@ -107,11 +113,18 @@ export default function AssistantPage() {
         ? `Assalam o Alaikum! I am Zarkhez, your personal farming advisor. Speak or type any question below about your crops, water, fertilizer, or plant diseases.`
         : t('welcomeMsg');
 
+    const spokenWelcome =
+      locale === 'en'
+        ? 'Assalam o Alaikum. I am Zarkhez, your farm advisor. Ask me by voice about your crops, water, fertilizer, or plant diseases.'
+        : 'السلام علیکم کسان بھائی۔ میں آپ کا زرعی مشیر ہوں۔ بتائیے آج کس فصل کے بارے میں مشورہ چاہیے؟';
+
     setMessages([
       {
         id: 'welcome-turn',
         role: 'assistant',
         content: personalWelcome,
+        spokenContent: spokenWelcome,
+        voiceLang: locale === 'en' ? 'en' : 'ur',
       },
     ]);
 
@@ -142,14 +155,21 @@ export default function AssistantPage() {
     await saveProfile({ autoSpeakVoice: next });
   };
 
-  const speakAssistantReply = (replyText: string) => {
+  const speakAssistantReply = (replyText: string, replyLang: VoiceLang = voiceLang) => {
     if (!autoSpeak || !replyText.trim()) return;
-    const isUrduReply = /[\u0600-\u06FF]/.test(replyText) || locale === 'ur';
     setAiSpeaking(true);
-    speakText(replyText, isUrduReply ? 'ur' : 'en', {
+    setVoicePhase('speaking');
+    speakText(replyText, replyLang, {
+      onPhaseChange: (p) => setVoicePhase(p),
       onStart: () => setAiSpeaking(true),
-      onEnd: () => setAiSpeaking(false),
-      onError: () => setAiSpeaking(false),
+      onEnd: () => {
+        setAiSpeaking(false);
+        setVoicePhase('idle');
+      },
+      onError: () => {
+        setAiSpeaking(false);
+        setVoicePhase('error');
+      },
     });
   };
 
@@ -160,6 +180,7 @@ export default function AssistantPage() {
 
     stopSpeaking();
     setAiSpeaking(false);
+    setVoicePhase('thinking');
 
     const userTurn: ChatTurn = {
       id: `user-${Date.now()}`,
@@ -171,7 +192,7 @@ export default function AssistantPage() {
     const nextMessages = [...messages, userTurn];
     setMessages([
       ...nextMessages,
-      { id: assistantTurnId, role: 'assistant', content: '' },
+      { id: assistantTurnId, role: 'assistant', content: '', voiceLang },
     ]);
     setInputText('');
     setStreaming(true);
@@ -187,39 +208,70 @@ export default function AssistantPage() {
           })),
           context: contextInfo,
           lang: locale,
+          voiceLang,
+          voiceMode: true,
         }),
       });
 
-      if (!res.ok || !res.body) {
-        throw new Error('Failed to stream answer');
+      if (!res.ok) {
+        throw new Error('Failed to answer');
       }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = '';
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const dual = (await res.json()) as {
+          screenText?: string;
+          spokenText?: string;
+          language?: VoiceLang;
+        };
+        const screenText = (dual.screenText || dual.spokenText || '').trim();
+        const spokenText = (dual.spokenText || screenText).trim();
+        const replyLang: VoiceLang = dual.language || voiceLang;
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantTurnId ? { ...m, content: accumulated } : m
+            m.id === assistantTurnId
+              ? { ...m, content: screenText, spokenContent: spokenText, voiceLang: replyLang }
+              : m
           )
         );
-      }
+        if (spokenText) {
+          speakAssistantReply(spokenText, replyLang);
+        } else {
+          setVoicePhase('idle');
+        }
+      } else if (res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = '';
 
-      if (accumulated.trim()) {
-        speakAssistantReply(accumulated);
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          accumulated += decoder.decode(value, { stream: true });
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantTurnId ? { ...m, content: accumulated, spokenContent: accumulated, voiceLang } : m
+            )
+          );
+        }
+        if (accumulated.trim()) {
+          speakAssistantReply(accumulated, voiceLang);
+        } else {
+          setVoicePhase('idle');
+        }
       }
     } catch {
       const errText =
-        locale === 'ur'
-          ? 'Maazrat kisan bhai, connection mein thori rukawat aayi hai. Baraye meherbani dobara poochiye.'
-          : 'Sorry, connection interrupted. Please try again.';
+        voiceLang === 'sd'
+          ? 'معاف ڪجو هاري ڀاءُ، رابطي ۾ عارضي رنڊڪ آهي. مهرباني ڪري ٻيهر پڇو.'
+          : voiceLang === 'ur'
+          ? 'معاف کیجیے کسان بھائی، رابطے میں عارضی رکاوٹ آئی ہے۔ براہ کرم دوبارہ پوچھیں۔'
+          : 'Sorry, connection interrupted. Please ask again.';
+      setVoicePhase('error');
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantTurnId ? { ...m, content: errText } : m
+          m.id === assistantTurnId ? { ...m, content: errText, spokenContent: errText, voiceLang } : m
         )
       );
     } finally {
@@ -239,6 +291,7 @@ export default function AssistantPage() {
     if (listening) {
       sessionRef.current?.stop();
       setListening(false);
+      setVoicePhase('idle');
       if (inputText.trim().length > 1) {
         sendQuestion(inputText);
       }
@@ -246,7 +299,8 @@ export default function AssistantPage() {
     }
 
     setListening(true);
-    sessionRef.current = startSpeechRecognition(locale, {
+    setVoicePhase('listening');
+    sessionRef.current = startSpeechRecognition(voiceLang, {
       onResult: (transcript, isFinal) => {
         if (!transcript) return;
         setInputText(transcript);
@@ -257,18 +311,20 @@ export default function AssistantPage() {
 
         if (isFinal && transcript.trim().length > 1) {
           setListening(false);
+          setVoicePhase('thinking');
           sendQuestion(transcript);
         } else if (transcript.trim().length > 2) {
-          // Auto-send after 1.8 seconds of natural pause in speech
+          // Field VAD end-of-speech pause fallback (~900ms)
           silenceTimerRef.current = setTimeout(() => {
             sessionRef.current?.stop();
             setListening(false);
             sendQuestion(transcript);
-          }, 1800);
+          }, 950);
         }
       },
       onError: () => {
         setListening(false);
+        setVoicePhase('error');
       },
       onEnd: () => {
         setListening(false);
@@ -324,6 +380,58 @@ export default function AssistantPage() {
             {t('title')}
           </h1>
           <p className="text-xs text-cream mt-0.5">{t('subtitle')}</p>
+        </div>
+
+        {/* Voice Language Selector (Urdu ur-PK | Sindhi sd-PK | English en-PK) & State Indicator */}
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+          <div className="inline-flex items-center gap-1 rounded-full bg-white/10 p-1">
+            {(
+              [
+                { id: 'ur', label: 'اردو' },
+                { id: 'sd', label: 'سنڌي' },
+                { id: 'en', label: 'EN' },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => {
+                  stopSpeaking();
+                  setAiSpeaking(false);
+                  setVoiceLang(opt.id);
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-extrabold transition-all ${
+                  voiceLang === opt.id
+                    ? 'bg-emerald-400 text-[#062409]'
+                    : 'text-white/85 hover:bg-white/10'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          <span className="text-[11px] font-bold text-emerald-200">
+            {voicePhase === 'listening'
+              ? voiceLang === 'sd'
+                ? 'ٻڌي رهيو آهي...'
+                : voiceLang === 'ur'
+                ? 'سن رہا ہے...'
+                : 'Listening...'
+              : voicePhase === 'thinking'
+              ? voiceLang === 'sd'
+                ? 'جواب تيار ٿي رهيو آهي...'
+                : voiceLang === 'ur'
+                ? 'سوچ رہا ہے...'
+                : 'Thinking...'
+              : voicePhase === 'speaking'
+              ? voiceLang === 'sd'
+                ? 'ڳالهائي رهيو آهي...'
+                : voiceLang === 'ur'
+                ? 'بول رہا ہے...'
+                : 'Speaking...'
+              : ''}
+          </span>
         </div>
 
         {/* Farmer Persona Context Pill */}
@@ -453,7 +561,10 @@ export default function AssistantPage() {
 
                   {!isUser && msg.content && (
                     <div className="pt-1 border-t border-olive/10 flex justify-end">
-                      <ReadAloudButton text={msg.content} />
+                      <ReadAloudButton
+                        text={msg.spokenContent || msg.content}
+                        lang={msg.voiceLang || voiceLang}
+                      />
                     </div>
                   )}
                 </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   CloudSun,
   CloudRain,
@@ -12,10 +12,11 @@ import {
   MapPin,
   RefreshCw,
 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import { WeatherForecastResponse } from '@/lib/weather';
 import { ReadAloudButton } from '@/components/voice/ReadAloudButton';
+import { preloadSpeechAudio } from '@/lib/voice';
 
 interface WeatherCardProps {
   placeName: string;
@@ -41,6 +42,46 @@ export function WeatherCard({
 }: WeatherCardProps) {
   const tHome = useTranslations('home');
   const tAlerts = useTranslations('alerts');
+  const locale = (useLocale() === 'en' ? 'en' : 'ur') as 'ur' | 'en';
+
+  const current = weather?.current ?? {
+    temperature: 29,
+    humidity: 44,
+    precipitation: 0,
+    windSpeed: 2.3,
+    weatherCode: 1,
+    soilTemperature: 26,
+    soilMoisture: 24,
+  };
+  const todayRainProb = weather?.daily?.[0]?.precipitationProbMax ?? 10;
+  const sunrise = weather?.todaySunrise || '06:25';
+  const sunset = weather?.todaySunset || '17:15';
+  const alerts = weather?.alerts || [];
+
+  const activeAlertText =
+    alerts.length > 0
+      ? `${tAlerts(
+          alerts[0].titleKey.replace('alerts.', '') as 'heatwaveTitle'
+        )}. ${tAlerts(
+          alerts[0].descKey.replace('alerts.', '') as 'heatwaveDesc'
+        )}`
+      : '';
+
+  const cityLabel = placeName.split(',')[0].trim() || placeName;
+  const spokenSummary =
+    locale === 'ur'
+      ? `آج ${cityLabel} میں درجہ حرارت ${current.temperature}°C ہے اور ہوا میں نمی ${current.humidity}% ہے۔ ہوا کی رفتار ${current.windSpeed} m/s ہے، مٹی کی تپش ${current.soilTemperature}°C ہے اور بارش کا امکان ${todayRainProb}% ہے۔ ${
+          activeAlertText || 'آج سپرے اور کھیت کے معمول کے کاموں کے لیے موسم سازگار ہے۔'
+        }`
+      : `Today in ${cityLabel}, temperature is ${current.temperature}°C with ${current.humidity}% humidity. Wind speed is ${current.windSpeed} m/s and soil temperature is ${current.soilTemperature}°C. ${
+          activeAlertText || 'Weather is favorable for normal farm work.'
+        }`;
+
+  useEffect(() => {
+    if (weather && spokenSummary) {
+      void preloadSpeechAudio(spokenSummary, locale);
+    }
+  }, [weather, spokenSummary, locale]);
 
   if (loading && !weather) {
     return (
@@ -60,41 +101,12 @@ export function WeatherCard({
     );
   }
 
-  const current = weather?.current ?? {
-    temperature: 29,
-    humidity: 44,
-    precipitation: 0,
-    windSpeed: 2.3,
-    weatherCode: 1,
-    soilTemperature: 26,
-    soilMoisture: 24,
-  };
-  const todayRainProb = weather?.daily?.[0]?.precipitationProbMax ?? 10;
-  const sunrise = weather?.todaySunrise || '06:25';
-  const sunset = weather?.todaySunset || '17:15';
-  const alerts = weather?.alerts || [];
-
   const WeatherIcon =
     current.precipitation > 0 || todayRainProb >= 50
       ? CloudRain
       : current.weatherCode <= 1
       ? Sun
       : CloudSun;
-
-  const activeAlertText =
-    alerts.length > 0
-      ? `${tAlerts(
-          alerts[0].titleKey.replace('alerts.', '') as 'heatwaveTitle'
-        )}. ${tAlerts(
-          alerts[0].descKey.replace('alerts.', '') as 'heatwaveDesc'
-        )}`
-      : '';
-
-  const spokenSummary = `${placeName}. ${current.temperature}°C. ${tHome(
-    'soilTemp'
-  )} ${current.soilTemperature}°C. ${tHome('humidity')} ${
-    current.humidity
-  }%. ${tHome('wind')} ${current.windSpeed} m/s. ${activeAlertText}`;
 
   return (
     <div className="space-y-3">
