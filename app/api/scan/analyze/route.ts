@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CropAnalysisRequestSchema, StructuredScanError } from '@/lib/schemas';
+import { CropAnalysisRequestSchema, PublicScanError } from '@/lib/schemas';
 import { checkRateLimit } from '@/lib/ratelimit';
 import { analyzeCropImageWithGemini, GeminiVisionError } from '@/lib/gemini';
+import {
+  getCustomerErrorMessage,
+  redactSecrets,
+} from '@/lib/error-sanitizer';
+import {
+  recordDiagnosticEvent,
+  recordDiagnosticSuccess,
+} from '@/lib/server/diagnostics-store';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
-function makeStructuredErrorResponse(
-  payload: StructuredScanError,
+function makePublicErrorResponse(
+  payload: PublicScanError,
   status: number
 ): NextResponse {
-  return NextResponse.json(payload, { status });
+  return NextResponse.json(payload, {
+    status,
+    headers: { 'Cache-Control': 'no-store, private' },
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -18,17 +29,21 @@ export async function POST(req: NextRequest) {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
   const rate = await checkRateLimit(ip);
   if (!rate.success) {
-    return makeStructuredErrorResponse(
+    const requestId = recordDiagnosticEvent({
+      service: 'vision',
+      category: 'rate_limited',
+      code: 'APP_RATE_LIMITED',
+      statusCode: 429,
+      severity: 'warn',
+      summary: 'Client IP exceeded sliding-window scan rate limit.',
+    });
+    return makePublicErrorResponse(
       {
         error: 'structured_scan_error',
+        request_id: requestId,
         error_category: 'rate_limited',
-        code: 'RATE_LIMITED',
         retryable: true,
-        user_message: {
-          en: 'Too many scan requests right now. Please wait 30 seconds and try again.',
-          ur: 'اس وقت بہت زیادہ اسکین درخواستیں آ رہی ہیں۔ براہِ کرم 30 سیکنڈ انتظار کر کے دوبارہ کوشش کریں۔',
-        },
-        technical_summary: 'Client IP exceeded sliding-window scan rate limit (429).',
+        user_message: getCustomerErrorMessage('rate_limited', 'scan'),
       },
       429
     );
@@ -38,17 +53,21 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return makeStructuredErrorResponse(
+    const requestId = recordDiagnosticEvent({
+      service: 'vision',
+      category: 'invalid_image_input',
+      code: 'INVALID_REQUEST_JSON',
+      statusCode: 400,
+      severity: 'warn',
+      summary: 'Scan request body could not be parsed as JSON.',
+    });
+    return makePublicErrorResponse(
       {
         error: 'structured_scan_error',
+        request_id: requestId,
         error_category: 'invalid_image_input',
-        code: 'INVALID_REQUEST_JSON',
         retryable: false,
-        user_message: {
-          en: 'Invalid scan upload format. Please re-select your photo and try again.',
-          ur: 'تصویر بھیجنے کا فارمیٹ درست نہیں۔ براہِ کرم تصویر دوبارہ منتخب کر کے کوشش کریں۔',
-        },
-        technical_summary: 'Request body could not be parsed as JSON.',
+        user_message: getCustomerErrorMessage('invalid_image_input', 'scan'),
       },
       400
     );
@@ -56,24 +75,26 @@ export async function POST(req: NextRequest) {
 
   const parsed = CropAnalysisRequestSchema.safeParse(body);
   if (!parsed.success) {
-    const fieldErrors = parsed.error.issues.map((iss) => ({
-      path: iss.path.map(String).join('.') || '(body)',
-      code: iss.code,
-      message: iss.message,
-    }));
+    const fieldPaths = parsed.error.issues.map(
+      (iss) => iss.path.map(String).join('.') || '(body)'
+    );
+    const requestId = recordDiagnosticEvent({
+      service: 'vision',
+      category: 'invalid_image_input',
+      code: 'INVALID_SCAN_PAYLOAD',
+      statusCode: 400,
+      severity: 'warn',
+      summary: 'Request payload failed input schema validation.',
+      fieldPaths,
+    });
 
-    return makeStructuredErrorResponse(
+    return makePublicErrorResponse(
       {
         error: 'structured_scan_error',
+        request_id: requestId,
         error_category: 'invalid_image_input',
-        code: 'INVALID_SCAN_PAYLOAD',
         retryable: false,
-        user_message: {
-          en: 'The uploaded photo could not be accepted (missing data or file too large). Please take a clearer standard photo.',
-          ur: 'اپلوڈ کی گئی تصویر قابل قبول نہیں (فائل خالی یا سائز بہت بڑا ہے)۔ براہِ کرم عام سائز کی نئی تصویر لیں۔',
-        },
-        technical_summary: 'Request payload failed CropAnalysisRequestSchema validation.',
-        field_errors: fieldErrors,
+        user_message: getCustomerErrorMessage('invalid_image_input', 'scan'),
       },
       400
     );
@@ -89,30 +110,50 @@ export async function POST(req: NextRequest) {
       clientQuality
     );
 
-    return NextResponse.json(diagnosis, { status: 200 });
+    recordDiagnosticSuccess('vision');
+    return NextResponse.json(diagnosis, {
+      status: 200,
+      headers: { 'Cache-Control': 'no-store, private' },
+    });
   } catch (err: unknown) {
     if (err instanceof GeminiVisionError) {
+      const requestId = recordDiagnosticEvent({
+        service: 'vision',
+        category: err.errorCategory,
+        code: err.code,
+        statusCode: err.statusCode,
+        severity: err.statusCode >= 500 ? 'error' : 'warn',
+        summary: err.message,
+        fieldPaths: err.fieldErrors?.map((f) => f.path),
+      });
       console.error(
-        `[API /api/scan/analyze] Classified Error [${err.code} / ${err.errorCategory}]:`,
-        err.message
+        `[API /api/scan/analyze] [${requestId}] Classified [${err.code} / ${err.errorCategory}]`
       );
-      return makeStructuredErrorResponse(err.toStructuredError(), err.statusCode);
+      return makePublicErrorResponse(
+        err.toPublicCustomerError(requestId),
+        err.statusCode
+      );
     }
 
-    const message = err instanceof Error ? err.message : 'Unexpected server failure during scan';
-    console.error('[API /api/scan/analyze] Unexpected Error:', message);
+    const message =
+      err instanceof Error ? redactSecrets(err.message) : 'Unexpected server failure during scan';
+    const requestId = recordDiagnosticEvent({
+      service: 'vision',
+      category: 'temporary_service_failure',
+      code: 'INTERNAL_SCAN_ERROR',
+      statusCode: 503,
+      severity: 'error',
+      summary: message,
+    });
+    console.error(`[API /api/scan/analyze] [${requestId}] Unexpected Error:`, message);
 
-    return makeStructuredErrorResponse(
+    return makePublicErrorResponse(
       {
         error: 'structured_scan_error',
+        request_id: requestId,
         error_category: 'temporary_service_failure',
-        code: 'INTERNAL_SCAN_ERROR',
         retryable: true,
-        user_message: {
-          en: 'Unexpected temporary error while inspecting your plant photo. Your photo is preserved — tap Retry.',
-          ur: 'معائنے کے دوران عارضی تکنیکی خرابی پیش آئی ہے۔ آپ کی تصویر محفوظ ہے — براہِ کرم دوبارہ کوشش کریں۔',
-        },
-        technical_summary: message.slice(0, 300),
+        user_message: getCustomerErrorMessage('temporary_service_failure', 'scan'),
       },
       503
     );

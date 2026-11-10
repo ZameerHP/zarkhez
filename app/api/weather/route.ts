@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WeatherQuerySchema } from '@/lib/schemas';
 import { fetchOpenMeteoForecast } from '@/lib/weather';
+import { getCustomerErrorMessage, redactSecrets } from '@/lib/error-sanitizer';
+import {
+  recordDiagnosticEvent,
+  recordDiagnosticSuccess,
+} from '@/lib/server/diagnostics-store';
 
 export const revalidate = 1800;
 
@@ -12,8 +17,20 @@ export async function GET(req: NextRequest) {
   });
 
   if (!parsed.success) {
+    const requestId = recordDiagnosticEvent({
+      service: 'weather',
+      category: 'invalid_image_input',
+      code: 'INVALID_COORDINATES',
+      statusCode: 400,
+      severity: 'warn',
+      summary: 'Weather request had invalid latitude/longitude parameters.',
+    });
     return NextResponse.json(
-      { error: 'Invalid latitude or longitude parameters' },
+      {
+        error: 'weather_unavailable',
+        request_id: requestId,
+        user_message: getCustomerErrorMessage('temporary_service_failure', 'weather'),
+      },
       { status: 400 }
     );
   }
@@ -23,12 +40,22 @@ export async function GET(req: NextRequest) {
       parsed.data.lat,
       parsed.data.lon
     );
+    recordDiagnosticSuccess('weather');
     return NextResponse.json(forecast);
   } catch (err) {
+    const requestId = recordDiagnosticEvent({
+      service: 'weather',
+      category: 'temporary_service_failure',
+      code: 'WEATHER_UPSTREAM_FAILED',
+      statusCode: 502,
+      severity: 'error',
+      summary: err instanceof Error ? redactSecrets(err.message) : 'Weather forecast fetch failed',
+    });
     return NextResponse.json(
       {
-        error:
-          err instanceof Error ? err.message : 'Failed to fetch weather forecast',
+        error: 'weather_unavailable',
+        request_id: requestId,
+        user_message: getCustomerErrorMessage('temporary_service_failure', 'weather'),
       },
       { status: 502 }
     );

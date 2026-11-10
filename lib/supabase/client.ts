@@ -358,7 +358,7 @@ export async function triggerSupabaseGoogleOAuth(
       },
     });
     if (error || !data?.url) {
-      return { startedRedirect: false, error: error?.message || 'oauth_failed' };
+      return { startedRedirect: false, error: 'oauth_failed' };
     }
     return { startedRedirect: true };
   } catch {
@@ -572,12 +572,11 @@ export async function sendEmailOtp(
     });
 
     if (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: 'otp_send_failed' };
     }
     return { success: true };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'network_error';
-    return { success: false, error: msg };
+  } catch {
+    return { success: false, error: 'network_error' };
   }
 }
 
@@ -621,7 +620,7 @@ export async function verifyEmailOtp(
     });
 
     if (error || !data?.user) {
-      return { success: false, error: error?.message || 'verification_failed' };
+      return { success: false, error: 'verification_failed' };
     }
 
     const profile = await saveProfile({
@@ -638,9 +637,8 @@ export async function verifyEmailOtp(
     await linkGuestToAccount(data.user.id);
 
     return { success: true, profile };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'network_error';
-    return { success: false, error: msg };
+  } catch {
+    return { success: false, error: 'network_error' };
   }
 }
 
@@ -817,7 +815,7 @@ export async function saveProfile(
           last_seen_at: new Date().toISOString(),
         });
         if (dbError) {
-          console.warn('[Supabase Profiles DB] Upsert warning:', dbError.message);
+          console.warn('[Sync] Profile update deferred; saved locally.');
         }
       }
     } catch {
@@ -899,7 +897,7 @@ export async function addFarmField(
           sowing_date: newField.sowing_date,
         });
         if (dbError) {
-          console.warn('[Supabase Fields DB] Insert warning:', dbError.message);
+          console.warn('[Sync] Field save deferred; saved locally.');
         }
       }
     } catch {
@@ -924,7 +922,7 @@ export function deleteFarmField(fieldId: string): FarmField[] {
           .eq('id', fieldId)
           .eq('user_id', session.user.id)
           .then(({ error }) => {
-            if (error) console.warn('[Supabase Fields DB] Delete warning:', error.message);
+            if (error) console.warn('[Sync] Field delete deferred; removed locally.');
           });
       }
     }).catch(() => {});
@@ -1012,8 +1010,8 @@ export async function saveScanRecord(
               contentType: 'image/jpeg',
               upsert: true,
             });
-          } catch (storageErr) {
-            console.warn('[Supabase Scans Storage] Thumbnail upload skipped:', storageErr);
+          } catch {
+            console.warn('[Sync] Thumbnail upload deferred; saved locally.');
           }
         }
         const { error: dbError } = await supabase.from('scans').insert({
@@ -1025,14 +1023,14 @@ export async function saveScanRecord(
           advice: scan.advice,
         });
         if (dbError) {
-          console.warn('[Supabase Scans DB] Insert returned error:', dbError.message);
+          console.warn('[Sync] Scan record save deferred; preserved locally.');
           cloudSynced = false;
         } else {
           cloudSynced = true;
         }
       }
-    } catch (err) {
-      console.warn('[Supabase Scans] Cloud sync failed:', err);
+    } catch {
+      console.warn('[Sync] Offline mode active; scan preserved locally.');
     }
   }
 
@@ -1086,7 +1084,7 @@ export async function addDiaryEntry(
           entry_date: entry.entry_date,
         });
         if (dbError) {
-          console.warn('[Supabase Diary DB] Insert warning:', dbError.message);
+          console.warn('[Sync] Diary save deferred; saved locally.');
         }
       }
     } catch {

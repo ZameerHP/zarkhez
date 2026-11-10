@@ -4,18 +4,22 @@ import diseasesData from '@/data/diseases.json';
 import type { ImageQualityReport } from './image-quality';
 import { extractAndParseJson } from './json-extractor';
 import { normalizeAndValidateDiagnosis } from './diagnosis-normalizer';
+import { getCustomerErrorMessage, redactSecrets, sanitizeCustomerText } from './error-sanitizer';
 import {
   Advice,
   AdviceSchema,
   SecondOpinion,
   SecondOpinionSchema,
   CropDiagnosis,
-  GEMINI_DIAGNOSIS_RESPONSE_SCHEMA,
   ScanErrorCategory,
-  FieldValidationIssue,
-  StructuredScanError,
+  PublicScanError,
   LocalizedString,
 } from './schemas';
+import {
+  GEMINI_DIAGNOSIS_RESPONSE_SCHEMA,
+  FieldValidationIssue,
+  StructuredScanError,
+} from './server/vision-schemas';
 
 /**
  * Google Gemini Multimodal Plant Pathology & Farming Advisor (lib/gemini.ts)
@@ -311,14 +315,14 @@ function readEnvLocalValue(keys: string[]): string | undefined {
   return undefined;
 }
 
-export function getGeminiApiKey(clientApiKey?: string): string | undefined {
-  if (clientApiKey && clientApiKey.trim().length > 15) {
-    return clientApiKey.trim();
+export function getGeminiApiKey(): string | undefined {
+  if (typeof window !== 'undefined') {
+    // Strictly server-only: private vision keys must never be accessed in browser contexts
+    return undefined;
   }
   return readEnvLocalValue([
     'GEMINI_API_KEY',
     'GOOGLE_API_KEY',
-    'NEXT_PUBLIC_GEMINI_API_KEY',
   ]);
 }
 
@@ -440,9 +444,7 @@ export function validateScanImagePayload(base64Image: string): {
 }
 
 function sanitizeErrorMessage(msg: string): string {
-  return msg
-    .replace(/key=[A-Za-z0-9_-]+/gi, 'key=[REDACTED]')
-    .replace(/\bgemini[\w-]*/gi, 'Cloud-AI');
+  return redactSecrets(msg).replace(/\bgemini[\w-]*/gi, 'Cloud-AI');
 }
 
 export class GeminiVisionError extends Error {
@@ -470,10 +472,13 @@ export class GeminiVisionError extends Error {
     this.code = code;
     this.errorCategory = options?.errorCategory || 'temporary_service_failure';
     this.retryable = options?.retryable ?? statusCode >= 500;
-    this.userMessage = options?.userMessage || {
-      en: 'Could not complete cloud plant inspection right now. Your photo is preserved — please retry in a moment.',
-      ur: 'کلاؤڈ پودا معائنہ مکمل نہیں ہو سکا۔ آپ کی تصویر محفوظ ہے — براہِ کرم دوبارہ کوشش کریں۔',
-    };
+    const defaultMsg = getCustomerErrorMessage(this.errorCategory, 'scan');
+    this.userMessage = options?.userMessage
+      ? {
+          en: sanitizeCustomerText(options.userMessage.en, 'en', this.errorCategory, 'scan'),
+          ur: sanitizeCustomerText(options.userMessage.ur, 'ur', this.errorCategory, 'scan'),
+        }
+      : defaultMsg;
     this.fieldErrors = options?.fieldErrors;
   }
 
@@ -490,6 +495,19 @@ export class GeminiVisionError extends Error {
         : {}),
     };
   }
+
+  toPublicCustomerError(requestId?: string): PublicScanError {
+    return {
+      error: 'structured_scan_error',
+      ...(requestId ? { request_id: requestId } : {}),
+      error_category: this.errorCategory,
+      retryable: this.retryable,
+      user_message: {
+        en: sanitizeCustomerText(this.userMessage.en, 'en', this.errorCategory, 'scan'),
+        ur: sanitizeCustomerText(this.userMessage.ur, 'ur', this.errorCategory, 'scan'),
+      },
+    };
+  }
 }
 
 /**
@@ -503,7 +521,6 @@ async function callGeminiApi({
   temperature = 0.15,
   maxOutputTokens = 4096,
   responseSchema,
-  apiKeyOverride,
 }: {
   model: string;
   systemInstruction?: string;
@@ -517,9 +534,8 @@ async function callGeminiApi({
   temperature?: number;
   maxOutputTokens?: number;
   responseSchema?: Record<string, unknown>;
-  apiKeyOverride?: string;
 }): Promise<{ text: string; modelUsed: string }> {
-  const apiKey = getGeminiApiKey(apiKeyOverride);
+  const apiKey = getGeminiApiKey();
   if (!apiKey) {
     throw new GeminiVisionError(
       'Missing Cloud AI vision key in server environment.',
@@ -528,10 +544,7 @@ async function callGeminiApi({
       {
         errorCategory: 'permanent_config_error',
         retryable: false,
-        userMessage: {
-          en: 'Cloud AI vision service is not configured on the server yet. Please contact support.',
-          ur: 'کلاؤڈ اے آئی وژن سروس سرور پر کنفیگر نہیں ہے۔ براہِ کرم ایڈمن سے رابطہ کریں۔',
-        },
+        userMessage: getCustomerErrorMessage('permanent_config_error', 'scan'),
       }
     );
   }
@@ -602,10 +615,7 @@ async function callGeminiApi({
             {
               errorCategory: 'permanent_config_error',
               retryable: false,
-              userMessage: {
-                en: 'Server AI credentials were rejected. Please check Cloud AI key configuration.',
-                ur: 'سرور کی اے آئی کی تصدیق ناکام ہو گئی ہے۔ براہِ کرم سیٹنگ چیک کریں۔',
-              },
+              userMessage: getCustomerErrorMessage('permanent_config_error', 'scan'),
             }
           );
         }
@@ -654,14 +664,8 @@ async function callGeminiApi({
               errorCategory: isQuotaExhausted ? 'quota_exhausted' : 'rate_limited',
               retryable: !isQuotaExhausted,
               userMessage: isQuotaExhausted
-                ? {
-                    en: 'Cloud AI daily quota is temporarily exhausted. Please try again later or inspect with a local officer.',
-                    ur: 'کلاؤڈ اے آئی کی یومیہ حد پوری ہو گئی ہے۔ براہِ کرم کچھ دیر بعد کوشش کریں۔',
-                  }
-                : {
-                    en: 'Too many scan requests at once. Please wait 20 seconds and tap Retry.',
-                    ur: 'اس وقت بہت زیادہ درخواستیں آ رہی ہیں۔ براہِ کرم 20 سیکنڈ انتظار کر کے دوبارہ کوشش کریں۔',
-                  },
+                ? getCustomerErrorMessage('quota_exhausted', 'scan')
+                : getCustomerErrorMessage('rate_limited', 'scan'),
             }
           );
         }
@@ -678,10 +682,7 @@ async function callGeminiApi({
             {
               errorCategory: 'temporary_service_failure',
               retryable: true,
-              userMessage: {
-                en: 'Cloud AI vision service is temporarily busy due to high demand. Tap Retry to re-scan.',
-                ur: 'کلاؤڈ اے آئی سرور اس وقت عارضی طور پر مصروف ہے۔ براہِ کرم دوبارہ کوشش کریں۔',
-              },
+              userMessage: getCustomerErrorMessage('temporary_service_failure', 'scan'),
             }
           );
           continue;
@@ -1278,10 +1279,7 @@ export async function analyzeCropImageWithGemini(
       {
         errorCategory: 'permanent_config_error',
         retryable: false,
-        userMessage: {
-          en: 'Cloud AI vision service is not configured on the server yet. Please contact support.',
-          ur: 'کلاؤڈ اے آئی وژن سروس سرور پر کنفیگر نہیں ہے۔ براہِ کرم ایڈمن سے رابطہ کریں۔',
-        },
+        userMessage: getCustomerErrorMessage('permanent_config_error', 'scan'),
       }
     );
   }

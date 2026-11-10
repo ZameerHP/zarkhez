@@ -289,8 +289,12 @@ async function run() {
       assert.ok(res.status >= 500);
       const errBody = await res.json();
       assert.equal(errBody.error, 'structured_scan_error');
-      assert.equal(errBody.code, 'EMPTY_RESPONSE');
+      assert.equal(errBody.error_category, 'malformed_ai_response');
       assert.equal(errBody.retryable, true);
+      assert.ok(errBody.request_id && typeof errBody.request_id === 'string');
+      assert.equal(errBody.code, undefined);
+      assert.equal(errBody.technical_summary, undefined);
+      assert.equal(errBody.field_errors, undefined);
     });
 
     // 10. Null / undefined response
@@ -438,8 +442,12 @@ async function run() {
       assert.equal(res.status, 400);
       const body = await res.json();
       assert.equal(body.error, 'structured_scan_error');
-      assert.equal(body.code, 'INVALID_REQUEST_JSON');
+      assert.equal(body.error_category, 'invalid_image_input');
       assert.equal(body.retryable, false);
+      assert.ok(body.request_id && typeof body.request_id === 'string');
+      assert.equal(body.code, undefined);
+      assert.equal(body.technical_summary, undefined);
+      assert.equal(body.field_errors, undefined);
     });
 
     // 18. Database & localStorage quota failure resilience
@@ -639,10 +647,12 @@ async function run() {
         path.resolve('app/[locale]/scan/page.tsx'),
         'utf8'
       );
-      assert.ok(scanUiSource.includes('showDevDiagnostics'), 'Diagnostics panel must be collapsible');
+      assert.ok(!scanUiSource.includes('showDevDiagnostics'), 'Developer diagnostics toggle must not appear in customer UI');
+      assert.ok(!scanUiSource.includes('technical_summary'), 'Technical summary must not be read or rendered in customer UI');
+      assert.ok(!scanUiSource.includes('field_errors'), 'Zod field errors must not be exposed in customer UI');
       assert.ok(!scanUiSource.includes('{diagnosis.message[locale]}'), 'Unsafe direct indexing removed');
       assert.ok(!scanUiSource.includes('{diagnosis.problem_name[locale]}'), 'Unsafe direct indexing removed');
-      assert.ok(scanUiSource.includes('overflow-y-auto'), 'Diagnostics box constrained cleanly for mobile');
+      assert.ok(scanUiSource.includes('pb-32'), 'Safe bottom spacing preserved above mobile nav');
     });
 
     // 25. Urdu diagnosis localization safety

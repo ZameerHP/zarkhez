@@ -3,8 +3,14 @@ import { ChatRequestSchema } from '@/lib/schemas';
 import { checkRateLimit } from '@/lib/ratelimit';
 import {
   generateFallbackChatReply,
+  getGeminiApiKey,
   streamGeminiChatResponse,
 } from '@/lib/gemini';
+import { getCustomerErrorMessage, redactSecrets } from '@/lib/error-sanitizer';
+import {
+  recordDiagnosticEvent,
+  recordDiagnosticSuccess,
+} from '@/lib/server/diagnostics-store';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -14,8 +20,20 @@ export async function POST(req: NextRequest) {
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
   const rate = await checkRateLimit(ip);
   if (!rate.success) {
+    const requestId = recordDiagnosticEvent({
+      service: 'chat',
+      category: 'rate_limited',
+      code: 'CHAT_RATE_LIMITED',
+      statusCode: 429,
+      severity: 'warn',
+      summary: 'Chat endpoint rate limit reached.',
+    });
     return NextResponse.json(
-      { error: 'Rate limit reached (max 20 AI calls per 10 min).' },
+      {
+        error: 'service_busy',
+        request_id: requestId,
+        user_message: getCustomerErrorMessage('rate_limited', 'chat'),
+      },
       { status: 429 }
     );
   }
@@ -24,13 +42,40 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    const requestId = recordDiagnosticEvent({
+      service: 'chat',
+      category: 'invalid_image_input',
+      code: 'CHAT_INVALID_JSON',
+      statusCode: 400,
+      severity: 'warn',
+      summary: 'Chat request JSON parse failed.',
+    });
+    return NextResponse.json(
+      {
+        error: 'invalid_request',
+        request_id: requestId,
+        user_message: getCustomerErrorMessage('temporary_service_failure', 'chat'),
+      },
+      { status: 400 }
+    );
   }
 
   const parsed = ChatRequestSchema.safeParse(body);
   if (!parsed.success) {
+    const requestId = recordDiagnosticEvent({
+      service: 'chat',
+      category: 'invalid_image_input',
+      code: 'CHAT_VALIDATION_FAILED',
+      statusCode: 400,
+      severity: 'warn',
+      summary: 'Chat request payload validation failed.',
+    });
     return NextResponse.json(
-      { error: 'Invalid chat request input' },
+      {
+        error: 'invalid_request',
+        request_id: requestId,
+        user_message: getCustomerErrorMessage('temporary_service_failure', 'chat'),
+      },
       { status: 400 }
     );
   }
@@ -39,11 +84,18 @@ export async function POST(req: NextRequest) {
   const lastUserMsg =
     [...messages].reverse().find((m) => m.role === 'user')?.content || '';
 
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  const apiKey = getGeminiApiKey();
   const encoder = new TextEncoder();
 
   if (!apiKey) {
-    // Stream the fallback agricultural response smoothly word-by-word
+    recordDiagnosticEvent({
+      service: 'chat',
+      category: 'permanent_config_error',
+      code: 'CHAT_FALLBACK_NO_KEY',
+      statusCode: 503,
+      severity: 'warn',
+      summary: 'Chat using fallback response because server AI key is not set.',
+    });
     const reply = generateFallbackChatReply(lastUserMsg, lang, context);
     const words = reply.split(' ');
     const stream = new ReadableStream({
@@ -59,12 +111,12 @@ export async function POST(req: NextRequest) {
     return new Response(stream, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-store, private',
       },
     });
   }
 
-  // Stream Gemini response word-by-word
+  // Stream AI response word-by-word without exposing upstream provider details
   const stream = new ReadableStream({
     async start(controller) {
       try {
@@ -82,13 +134,22 @@ export async function POST(req: NextRequest) {
           lang
         );
 
+        recordDiagnosticSuccess('chat');
         const words = fullReply.split(' ');
         for (let i = 0; i < words.length; i++) {
           const chunk = (i === 0 ? '' : ' ') + words[i];
           controller.enqueue(encoder.encode(chunk));
           await new Promise((r) => setTimeout(r, 12));
         }
-      } catch {
+      } catch (err) {
+        recordDiagnosticEvent({
+          service: 'chat',
+          category: 'temporary_service_failure',
+          code: 'CHAT_STREAM_FALLBACK',
+          statusCode: 503,
+          severity: 'warn',
+          summary: err instanceof Error ? redactSecrets(err.message) : 'Chat upstream failed; served fallback.',
+        });
         const fallback = generateFallbackChatReply(lastUserMsg, lang, context);
         controller.enqueue(encoder.encode(fallback));
       } finally {
@@ -100,7 +161,7 @@ export async function POST(req: NextRequest) {
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': 'no-cache, no-store, private',
     },
   });
 }

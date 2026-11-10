@@ -311,8 +311,8 @@ export function MultiPhotoCapture({
       } else {
         commitPhoto(newPhoto);
       }
-    } catch (err) {
-      console.error('Failed to process photo', err);
+    } catch {
+      console.warn('Photo processing could not complete cleanly.');
     }
   };
 

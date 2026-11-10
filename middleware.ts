@@ -14,6 +14,7 @@ const PROTECTED_ROUTES = [
   '/weather',
   '/crop',
   '/tools',
+  '/admin',
 ];
 
 export default function middleware(req: NextRequest) {

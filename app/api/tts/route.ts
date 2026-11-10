@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCustomerErrorMessage, redactSecrets } from '@/lib/error-sanitizer';
+import {
+  recordDiagnosticEvent,
+  recordDiagnosticSuccess,
+} from '@/lib/server/diagnostics-store';
 
 /**
  * Neural Human-Like Urdu & English Text-to-Speech API Route (/api/tts)
@@ -368,6 +373,7 @@ export async function GET(req: NextRequest) {
         const audioBuf = await res.arrayBuffer();
         const uint8 = new Uint8Array(audioBuf);
         ttsMemoryCache.set(cacheKey, { buffer: uint8, timestamp: Date.now() });
+        recordDiagnosticSuccess('tts');
 
         return new Response(Buffer.from(uint8), {
           status: 200,
@@ -377,8 +383,28 @@ export async function GET(req: NextRequest) {
           },
         });
       }
+
+      recordDiagnosticEvent({
+        service: 'tts',
+        category: res.status === 429 ? 'rate_limited' : 'temporary_service_failure',
+        code: `AZURE_TTS_HTTP_${res.status}`,
+        statusCode: res.status,
+        severity: 'warn',
+        summary: `Azure Speech returned status ${res.status}; switching to fallback voice stream.`,
+      });
     } catch (azureErr) {
-      console.warn('[Azure TTS] Fallback to fast parallel engine:', azureErr);
+      recordDiagnosticEvent({
+        service: 'tts',
+        category: 'temporary_service_failure',
+        code: 'AZURE_TTS_EXCEPTION',
+        statusCode: 503,
+        severity: 'warn',
+        summary:
+          azureErr instanceof Error
+            ? redactSecrets(azureErr.message)
+            : 'Azure Speech unavailable; using voice fallback.',
+      });
+      console.warn('[TTS] Falling back to secondary speech stream');
     }
   }
 
@@ -428,8 +454,20 @@ export async function GET(req: NextRequest) {
     );
 
     if (buffers.length === 0) {
+      const requestId = recordDiagnosticEvent({
+        service: 'tts',
+        category: 'temporary_service_failure',
+        code: 'TTS_UPSTREAM_EMPTY',
+        statusCode: 502,
+        severity: 'error',
+        summary: 'All speech synthesis engines returned empty buffers.',
+      });
       return NextResponse.json(
-        { error: 'TTS upstream unavailable' },
+        {
+          error: 'voice_unavailable',
+          request_id: requestId,
+          user_message: getCustomerErrorMessage('temporary_service_failure', 'tts'),
+        },
         { status: 502 }
       );
     }
@@ -446,6 +484,7 @@ export async function GET(req: NextRequest) {
       ttsMemoryCache.clear();
     }
     ttsMemoryCache.set(cacheKey, { buffer: combined, timestamp: Date.now() });
+    recordDiagnosticSuccess('tts');
 
     return new Response(Buffer.from(combined), {
       status: 200,
@@ -455,9 +494,21 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
-    console.error('[TTS API error]:', err);
+    const requestId = recordDiagnosticEvent({
+      service: 'tts',
+      category: 'temporary_service_failure',
+      code: 'TTS_ROUTE_FAILURE',
+      statusCode: 502,
+      severity: 'error',
+      summary: err instanceof Error ? redactSecrets(err.message) : 'Unexpected TTS failure',
+    });
+    console.error(`[TTS API] [${requestId}] Synthesis failed`);
     return NextResponse.json(
-      { error: 'Failed to synthesize speech' },
+      {
+        error: 'voice_unavailable',
+        request_id: requestId,
+        user_message: getCustomerErrorMessage('temporary_service_failure', 'tts'),
+      },
       { status: 502 }
     );
   }

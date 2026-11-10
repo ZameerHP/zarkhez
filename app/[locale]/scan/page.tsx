@@ -30,8 +30,6 @@ import {
   Bug,
   ShieldCheck,
   WifiOff,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
@@ -40,12 +38,16 @@ import { ReadAloudButton } from '@/components/voice/ReadAloudButton';
 import {
   CropDiagnosis,
   CropDiagnosisSchema,
-  StructuredScanError,
-  StructuredScanErrorSchema,
+  PublicScanError,
+  PublicScanErrorSchema,
   Advice,
   AppLang,
   getLocalizedText,
 } from '@/lib/schemas';
+import {
+  getCustomerErrorMessage,
+  sanitizeCustomerText,
+} from '@/lib/customer-messages';
 import { getSavedProfile, saveScanRecord } from '@/lib/supabase/client';
 import { speakText, stopSpeaking, unlockAudio } from '@/lib/voice';
 import { GuestPromptSheet } from '@/components/auth/GuestPromptSheet';
@@ -101,8 +103,7 @@ export default function ScanPage() {
   const [savedToDiary, setSavedToDiary] = useState(false);
   const [savingToDiary, setSavingToDiary] = useState(false);
   const [diarySaveNote, setDiarySaveNote] = useState<string | null>(null);
-  const [scanError, setScanError] = useState<StructuredScanError | null>(null);
-  const [showDevDiagnostics, setShowDevDiagnostics] = useState(false);
+  const [scanError, setScanError] = useState<PublicScanError | null>(null);
   const [voiceErrorMsg, setVoiceErrorMsg] = useState<string | null>(null);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
   const [viewMode, setViewMode] = useState<'annotated' | 'original'>('annotated');
@@ -165,18 +166,16 @@ export default function ScanPage() {
     };
   }, []);
 
-  const validateSelectedFile = (file: File): StructuredScanError | null => {
+  const validateSelectedFile = (file: File): PublicScanError | null => {
     if (file.size === 0) {
       return {
         error: 'structured_scan_error',
         error_category: 'invalid_image_input',
-        code: 'EMPTY_IMAGE_FILE',
         retryable: false,
         user_message: {
-          en: 'The selected file is empty (0 bytes). Please capture or choose a real plant photo.',
-          ur: 'منتخب کردہ تصویر کی فائل خالی ہے۔ براہِ کرم پودے کی درست تصویر منتخب کریں۔',
+          en: 'This photo appears empty. Please take or choose another clear plant photo.',
+          ur: 'منتخب کردہ تصویر خالی ہے۔ براہِ کرم پودے کی دوسری واضح تصویر لیں۔',
         },
-        technical_summary: `Rejected file "${file.name || 'unnamed'}": size is 0 bytes.`,
       };
     }
 
@@ -186,13 +185,11 @@ export default function ScanPage() {
       return {
         error: 'structured_scan_error',
         error_category: 'invalid_image_input',
-        code: 'UNSUPPORTED_IMAGE_TYPE',
         retryable: false,
         user_message: {
-          en: `File format "${mime || file.name}" is not supported. Please upload a JPEG, PNG, or WebP photo.`,
-          ur: `یہ فائل فارمیٹ (${mime || 'نامعلوم'}) قابل قبول نہیں۔ براہِ کرم کیمرے کی عام تصویر (JPEG یا PNG) استعمال کریں۔`,
+          en: "We couldn't process this file type. Please choose a standard camera photo.",
+          ur: 'یہ فائل قابل قبول نہیں۔ براہِ کرم فون کے کیمرے سے لی گئی عام تصویر منتخب کریں۔',
         },
-        technical_summary: `Rejected MIME="${mime || 'none'}" name="${file.name || 'unnamed'}".`,
       };
     }
 
@@ -200,13 +197,11 @@ export default function ScanPage() {
       return {
         error: 'structured_scan_error',
         error_category: 'invalid_image_input',
-        code: 'RAW_FILE_TOO_LARGE',
         retryable: false,
         user_message: {
-          en: 'Photo file exceeds 25 MB limit. Please pick a standard camera photo.',
-          ur: 'تصویر کی فائل بہت بڑی (25 ایم بی سے زائد) ہے۔ براہِ کرم عام سائز کی تصویر لیں۔',
+          en: 'This photo file is too large. Please take a standard camera photo.',
+          ur: 'یہ تصویر بہت بڑی ہے۔ براہِ کرم عام سائز کی نئی تصویر لیں۔',
         },
-        technical_summary: `Raw file size ${file.size} bytes exceeded 25MB guard.`,
       };
     }
 
@@ -270,7 +265,6 @@ export default function ScanPage() {
   ) => {
     if (scanInFlightRef.current) return;
     setScanError(null);
-    setShowDevDiagnostics(false);
     setVoiceErrorMsg(null);
     setScanStage('validating_image');
 
@@ -300,18 +294,13 @@ export default function ScanPage() {
         return;
       }
       runAnalysisPipeline(compressed.fullDataUrl, cropKey, false, compressed.quality);
-    } catch (err) {
+    } catch {
       setScanStage('error');
       setScanError({
         error: 'structured_scan_error',
         error_category: 'invalid_image_input',
-        code: 'CORRUPT_IMAGE_DECODE',
         retryable: false,
-        user_message: {
-          en: 'Could not open or decode this image file. It may be corrupted or an unsupported format.',
-          ur: 'یہ تصویر کھولی یا پڑھی نہیں جا سکی۔ ممکن ہے فائل خراب ہو — براہِ کرم نئی تصویر لیں۔',
-        },
-        technical_summary: err instanceof Error ? err.message : 'Image decode failure',
+        user_message: getCustomerErrorMessage('invalid_image_input', 'scan'),
       });
     }
   };
@@ -362,7 +351,6 @@ export default function ScanPage() {
 
     setPendingQualityData(null);
     setScanError(null);
-    setShowDevDiagnostics(false);
     setVoiceErrorMsg(null);
     setDiarySaveNote(null);
     setAnalysing(true);
@@ -400,20 +388,18 @@ export default function ScanPage() {
         setPreservedQuality(qualityReport);
       }
 
-      // Guard Vercel's 4.5MB serverless request payload cap safely
+      // Guard upload payload size cleanly
       if (fullDataUrl.length > 3_900_000) {
         clearTimeout(timeoutId);
         setScanStage('error');
         setScanError({
           error: 'structured_scan_error',
           error_category: 'invalid_image_input',
-          code: 'PAYLOAD_TOO_LARGE',
           retryable: false,
           user_message: {
-            en: 'Compressed image is still too large (>4 MB). Please capture a normal resolution photo closer to the leaf.',
-            ur: 'کمپریس کرنے کے بعد بھی تصویر کا سائز بڑا ہے۔ براہِ کرم کیمرے سے عام ریزولوشن تصویر لیں۔',
+            en: 'This picture is still too large to send. Please take a regular camera photo.',
+            ur: 'تصویر کا سائز بہت بڑا ہے۔ براہِ کرم کیمرے سے عام تصویر لیں۔',
           },
-          technical_summary: `Encoded data URL length (${fullDataUrl.length} chars) exceeds serverless safe upload limit.`,
         });
         return;
       }
@@ -425,13 +411,8 @@ export default function ScanPage() {
         setScanError({
           error: 'structured_scan_error',
           error_category: 'network_or_timeout',
-          code: 'OFFLINE_DEVICE',
           retryable: true,
-          user_message: {
-            en: 'You appear to be offline. Reconnect to the internet and tap Retry, or run an Offline Preliminary Check below.',
-            ur: 'آپ کا انٹرنیٹ بند ہے۔ انٹرنیٹ آن کر کے دوبارہ کوشش کریں یا نیچے سے آف لائن ابتدائی جائزہ دیکھیں۔',
-          },
-          technical_summary: 'Browser reported navigator.onLine === false before POST /api/scan/analyze.',
+          user_message: getCustomerErrorMessage('network_or_timeout', 'scan'),
         });
         return;
       }
@@ -460,10 +441,28 @@ export default function ScanPage() {
       }
 
       if (!res.ok) {
-        const structuredParsed = StructuredScanErrorSchema.safeParse(parsedBody);
+        const structuredParsed = PublicScanErrorSchema.safeParse(parsedBody);
         if (structuredParsed.success) {
           setScanStage('error');
-          setScanError(structuredParsed.data);
+          setScanError({
+            error: 'structured_scan_error',
+            error_category: structuredParsed.data.error_category,
+            retryable: structuredParsed.data.retryable,
+            user_message: {
+              en: sanitizeCustomerText(
+                structuredParsed.data.user_message.en,
+                'en',
+                structuredParsed.data.error_category,
+                'scan'
+              ),
+              ur: sanitizeCustomerText(
+                structuredParsed.data.user_message.ur,
+                'ur',
+                structuredParsed.data.error_category,
+                'scan'
+              ),
+            },
+          });
           return;
         }
 
@@ -480,47 +479,21 @@ export default function ScanPage() {
         setScanError({
           error: 'structured_scan_error',
           error_category: fallbackCategory,
-          code: `HTTP_${res.status}`,
           retryable: res.status !== 400 && res.status !== 401 && res.status !== 403 && res.status !== 413,
-          user_message: {
-            en:
-              res.status === 413
-                ? 'Photo upload was too large. Please retake at standard camera quality.'
-                : res.status === 429
-                ? 'Too many scans in a short time. Wait 20 seconds and tap Retry.'
-                : 'Could not reach Cloud Vision server properly. Your photo is preserved — tap Retry.',
-            ur:
-              res.status === 413
-                ? 'تصویر کا سائز بہت بڑا ہے۔ براہِ کرم عام سائز کی تصویر دوبارہ لیں۔'
-                : res.status === 429
-                ? 'تھوڑے وقت میں زیادہ درخواستیں بھیجی گئیں۔ 20 سیکنڈ بعد دوبارہ کوشش کریں۔'
-                : 'کلاؤڈ وژن سرور سے مکمل جواب موصول نہیں ہو سکا۔ آپ کی تصویر محفوظ ہے — دوبارہ کوشش کریں۔',
-          },
-          technical_summary: `HTTP ${res.status}: ${rawResponseText.slice(0, 220) || 'Empty response'}`,
+          user_message: getCustomerErrorMessage(fallbackCategory, 'scan'),
         });
         return;
       }
 
-      // Strictly validate canonical diagnosis contract on client as well before rendering
+      // Strictly validate canonical diagnosis contract on client before rendering
       const diagValidated = CropDiagnosisSchema.safeParse(parsedBody);
       if (!diagValidated.success) {
-        const fieldErrors = diagValidated.error.issues.map((iss) => ({
-          path: iss.path.map(String).join('.') || '(root)',
-          code: iss.code,
-          message: iss.message,
-        }));
         setScanStage('error');
         setScanError({
           error: 'structured_scan_error',
           error_category: 'schema_validation_failed',
-          code: 'CLIENT_CONTRACT_MISMATCH',
           retryable: true,
-          user_message: {
-            en: 'Cloud AI returned an incomplete diagnosis structure. Your photo is preserved — tap Retry Scan.',
-            ur: 'کلاؤڈ اے آئی کی تشخیصی رپورٹ نامکمل موصول ہوئی ہے۔ آپ کی تصویر محفوظ ہے — براہِ کرم دوبارہ کوشش کریں۔',
-          },
-          technical_summary: 'Client CropDiagnosisSchema guard rejected incomplete 200 payload.',
-          field_errors: fieldErrors,
+          user_message: getCustomerErrorMessage('schema_validation_failed', 'scan'),
         });
         return;
       }
@@ -554,18 +527,8 @@ export default function ScanPage() {
       setScanError({
         error: 'structured_scan_error',
         error_category: 'network_or_timeout',
-        code: timedOut ? 'CLIENT_TIMEOUT' : 'NETWORK_DISCONNECTED',
         retryable: true,
-        user_message: timedOut
-          ? {
-              en: 'Cloud Vision took longer than expected. Your photo is saved — please tap Retry Scan.',
-              ur: 'کلاؤڈ معائنے میں معمول سے زیادہ وقت لگا۔ آپ کی تصویر محفوظ ہے — براہِ کرم دوبارہ کوشش کریں۔',
-            }
-          : {
-              en: 'Connection lost while analyzing your plant photo. Your photo is safe — check internet and retry.',
-              ur: 'تجزیے کے دوران انٹرنیٹ کنکشن منقطع ہو گیا۔ آپ کی تصویر محفوظ ہے — انٹرنیٹ چیک کر کے دوبارہ کوشش کریں۔',
-            },
-        technical_summary: err instanceof Error ? err.message : String(err),
+        user_message: getCustomerErrorMessage('network_or_timeout', 'scan'),
       });
     } finally {
       clearTimeout(timeoutId);
@@ -712,7 +675,6 @@ export default function ScanPage() {
     setSavingToDiary(false);
     setDiarySaveNote(null);
     setScanError(null);
-    setShowDevDiagnostics(false);
     setVoiceErrorMsg(null);
     setPendingQualityData(null);
   };
@@ -1110,44 +1072,41 @@ export default function ScanPage() {
                 >
                   {scanError.error_category === 'network_or_timeout'
                     ? locale === 'ur'
-                      ? 'انٹرنیٹ / سرور تاخیر'
-                      : 'Connection Interrupted'
-                    : scanError.error_category === 'rate_limited'
+                      ? 'انٹرنیٹ کا مسئلہ'
+                      : 'Connection Issue'
+                    : scanError.error_category === 'rate_limited' ||
+                      scanError.error_category === 'quota_exhausted'
                     ? locale === 'ur'
-                      ? 'عارضی وقفہ درکار'
-                      : 'Rate Limit Pause'
-                    : scanError.error_category === 'quota_exhausted'
-                    ? locale === 'ur'
-                      ? 'سروس حد مکمل'
-                      : 'Daily Limit Reached'
+                      ? 'سروس مصروف ہے'
+                      : 'Temporarily Busy'
                     : scanError.error_category === 'invalid_image_input'
                     ? locale === 'ur'
-                      ? 'تصویر ناقابلِ قبول'
-                      : 'Image Could Not Be Read'
+                      ? 'دوسری تصویر لگائیں'
+                      : 'Photo Issue'
                     : scanError.error_category === 'permanent_config_error'
                     ? locale === 'ur'
-                      ? 'سروس کنفیگریشن مسئلہ'
-                      : 'Configuration Notice'
+                      ? 'سروس عارضی طور پر بند'
+                      : 'Service Unavailable'
                     : locale === 'ur'
-                    ? 'کلاؤڈ معائنہ نامکمل'
-                    : 'Inspection Incomplete'}
+                    ? 'معائنہ مکمل نہیں ہو سکا'
+                    : 'Scan Incomplete'}
                 </span>
                 <h3 className="font-black text-base sm:text-lg text-ink leading-snug">
                   {scanError.error_category === 'invalid_image_input'
                     ? locale === 'ur'
-                      ? 'تصویر درست فارمیٹ یا حالت میں نہیں ہے'
-                      : 'Please Select a Valid Plant Photo'
+                      ? 'براہِ کرم پودے کی واضح تصویر منتخب کریں'
+                      : 'Please Choose Another Plant Photo'
                     : scanError.error_category === 'permanent_config_error'
                     ? locale === 'ur'
-                      ? 'اے آئی سروس کی سیٹنگ درکار ہے'
-                      : 'Cloud AI Configuration Required'
+                      ? 'یہ سروس اس وقت دستیاب نہیں ہے'
+                      : 'Service Temporarily Unavailable'
                     : scanError.error_category === 'rate_limited' || scanError.error_category === 'quota_exhausted'
                     ? locale === 'ur'
-                      ? 'اے آئی سرور پر زیادہ رش ہے'
-                      : 'Cloud Vision Busy Right Now'
+                      ? 'اس وقت بہت سے کسان استعمال کر رہے ہیں'
+                      : 'AI Scanning Is Busy Right Now'
                     : locale === 'ur'
-                    ? 'کلاؤڈ معائنہ مکمل نہیں ہو سکا'
-                    : 'Cloud Plant Inspection Could Not Complete'}
+                    ? 'پودے کا معائنہ مکمل نہیں ہو سکا'
+                    : 'Could Not Complete Plant Scan'}
                 </h3>
               </div>
             </div>
@@ -1173,7 +1132,7 @@ export default function ScanPage() {
                   <p className="text-ink/65 text-[11px] mt-0.5 leading-tight">
                     {locale === 'ur'
                       ? 'دوبارہ تصویر لینے کی ضرورت نہیں؛ نیچے دیئے گئے بٹن سے دوبارہ کوشش کریں'
-                      : 'No need to retake photo; tap retry to re-analyze'}
+                      : 'No need to retake photo; tap retry to try again'}
                   </p>
                 </div>
               </div>
@@ -1196,8 +1155,8 @@ export default function ScanPage() {
                   <RotateCcw className={`w-4 h-4 ${analysing ? 'animate-spin' : ''}`} />
                   <span>
                     {locale === 'ur'
-                      ? 'دوبارہ کلاؤڈ معائنہ کریں (تصویر محفوظ ہے)'
-                      : 'Retry Cloud Analysis (Photo Preserved)'}
+                      ? 'دوبارہ کوشش کریں (تصویر محفوظ ہے)'
+                      : 'Try Again (Photo Preserved)'}
                   </span>
                 </button>
               )}
@@ -1214,7 +1173,7 @@ export default function ScanPage() {
                     <span>
                       {locale === 'ur'
                         ? 'ابتدائی آف لائن تصویر چیک دیکھیں (غیر حتمی)'
-                        : 'View Offline Preliminary Check (Non-Cloud)'}
+                        : 'View Offline Preliminary Check'}
                     </span>
                   </button>
                 )}
@@ -1235,50 +1194,6 @@ export default function ScanPage() {
                     : 'Take New Photo / Cancel'}
                 </span>
               </button>
-            </div>
-
-            {/* Optional Collapsible Developer Diagnostics Panel (Closed by Default) */}
-            <div className="pt-2 border-t border-olive/10">
-              <button
-                type="button"
-                onClick={() => setShowDevDiagnostics((v) => !v)}
-                className="w-full flex items-center justify-between text-[11px] font-bold text-ink/55 hover:text-ink py-1"
-              >
-                <span>
-                  {locale === 'ur'
-                    ? 'ڈویلپر تشخیصی تفصیلات (اختیاری)'
-                    : 'Developer Diagnostics (Optional)'}
-                </span>
-                {showDevDiagnostics ? (
-                  <ChevronUp className="w-3.5 h-3.5" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5" />
-                )}
-              </button>
-
-              {showDevDiagnostics && (
-                <div className="mt-2 bg-ink/5 p-3 rounded-xl border border-ink/15 text-[11px] font-mono text-ink/80 space-y-1.5 max-h-44 overflow-y-auto break-words">
-                  <div>
-                    <strong>Code:</strong> {scanError.code} ({scanError.error_category})
-                  </div>
-                  <div>
-                    <strong>Summary:</strong> {scanError.technical_summary}
-                  </div>
-                  {scanError.field_errors && scanError.field_errors.length > 0 && (
-                    <div>
-                      <strong>Validation Paths:</strong>
-                      <ul className="list-disc ps-4 mt-1 space-y-0.5">
-                        {scanError.field_errors.map((fe, idx) => (
-                          <li key={idx}>
-                            <code>{fe.path}</code>: {fe.message}
-                            {fe.received ? ` (got ${fe.received})` : ''}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </motion.div>
         )}

@@ -36,6 +36,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
+  // Security rule: NEVER cache API responses or admin pages in browser Cache Storage
+  if (url.pathname.startsWith('/api/') || url.pathname.includes('/admin')) {
+    return;
+  }
+
   // Cache-first for TensorFlow.js model files and static icons
   if (url.pathname.startsWith('/model/') || url.pathname === '/icon.svg') {
     event.respondWith(

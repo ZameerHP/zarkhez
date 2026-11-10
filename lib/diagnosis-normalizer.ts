@@ -1,9 +1,9 @@
 import {
   CropDiagnosis,
   CropDiagnosisSchema,
-  FieldValidationIssue,
   LocalizedString,
 } from './schemas';
+import type { FieldValidationIssue } from './server/vision-schemas';
 import type { ImageQualityReport } from './image-quality';
 
 export interface NormalizationContext {
