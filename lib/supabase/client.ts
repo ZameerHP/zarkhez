@@ -41,6 +41,43 @@ export interface FarmerProfile {
 
 export type FarmProfile = FarmerProfile;
 
+export function isValidUuid(val: string | undefined | null): boolean {
+  if (!val) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    val
+  );
+}
+
+export function generateUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
+ * Returns true when the farmer has filled out all personal & farm profile fields.
+ */
+export function arePersonalFieldsComplete(
+  p: Partial<FarmerProfile> | null | undefined
+): boolean {
+  if (!p) return false;
+  const name = (p.fullName || '').trim();
+  const placeholderNames = new Set(['guest farmer', 'مہمان کسان', 'farmer', 'کسان بھائی', '']);
+  if (!name || placeholderNames.has(name.toLowerCase())) return false;
+  if (!(p.fatherOrFarmName || '').trim()) return false;
+  if (!(p.phone || '').trim()) return false;
+  if (!(p.villageOrTehsil || '').trim()) return false;
+  if (!(p.placeName || '').trim()) return false;
+  if (!(Number(p.totalAcres) > 0)) return false;
+  if (!Array.isArray(p.primaryCrops) || p.primaryCrops.length === 0) return false;
+  return true;
+}
+
 export type ScanOrgan =
   | 'leaf_top'
   | 'leaf_under'
@@ -341,32 +378,132 @@ export async function syncSupabaseAuthSession(): Promise<FarmerProfile | null> {
 
     const u = session.user;
     const existing = getSavedProfile();
-    const email = u.email || existing.email || '';
+
+    // Hydrate from cloud database first so saved personal details & crops persist across reloads/devices
+    const { data: dbProfile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', u.id)
+      .maybeSingle();
+
+    const email = u.email || dbProfile?.email || existing.email || '';
     const fullName =
+      (dbProfile?.full_name && String(dbProfile.full_name).trim()) ||
+      existing.fullName ||
       u.user_metadata?.full_name ||
       u.user_metadata?.name ||
-      existing.fullName ||
       email.split('@')[0] ||
       'کسان بھائی';
     const avatarUrl =
+      dbProfile?.avatar_url ||
       u.user_metadata?.avatar_url ||
       u.user_metadata?.picture ||
       existing.avatarUrl ||
       '';
     const farmerId =
-      existing.farmerId || generateFarmerPersonaId(email || u.id);
+      dbProfile?.farmer_id || existing.farmerId || generateFarmerPersonaId(email || u.id);
+
+    const dbPrimaryCrops =
+      Array.isArray(dbProfile?.primary_crops) && dbProfile.primary_crops.length > 0
+        ? (dbProfile.primary_crops as string[])
+        : Array.isArray(dbProfile?.main_crops) && dbProfile.main_crops.length > 0
+        ? (dbProfile.main_crops as string[])
+        : null;
 
     const merged: FarmerProfile = {
       ...existing,
       farmerId,
       fullName,
+      fatherOrFarmName:
+        (dbProfile?.father_or_farm_name as string) || existing.fatherOrFarmName || '',
       email,
+      phone: (dbProfile?.phone as string) || existing.phone || '',
+      district: (dbProfile?.district as string) || existing.district,
+      province: (dbProfile?.province as string) || existing.province,
+      villageOrTehsil:
+        (dbProfile?.village_or_tehsil as string) || existing.villageOrTehsil || '',
+      placeName: (dbProfile?.place_name as string) || existing.placeName || 'Faisalabad, Punjab',
+      lat: typeof dbProfile?.lat === 'number' ? dbProfile.lat : existing.lat,
+      lon: typeof dbProfile?.lon === 'number' ? dbProfile.lon : existing.lon,
+      totalAcres:
+        typeof dbProfile?.total_acres === 'number' && dbProfile.total_acres > 0
+          ? Number(dbProfile.total_acres)
+          : existing.totalAcres,
+      landAcresBand: (dbProfile?.land_acres_band as string) || existing.landAcresBand,
+      primaryCrops: dbPrimaryCrops || existing.primaryCrops,
+      mainCrops: dbPrimaryCrops || existing.mainCrops || existing.primaryCrops,
+      preferredVoice: (dbProfile?.preferred_voice as string) || existing.preferredVoice,
+      voiceSpeed:
+        typeof dbProfile?.voice_speed === 'number'
+          ? Number(dbProfile.voice_speed)
+          : existing.voiceSpeed,
+      onboardingDone:
+        typeof dbProfile?.onboarding_done === 'boolean'
+          ? dbProfile.onboarding_done
+          : existing.onboardingDone,
       avatarUrl,
-      authProvider: 'google',
+      authProvider: (dbProfile?.auth_provider as FarmerProfile['authProvider']) || 'google',
       isAuthenticated: true,
-      joinedAt: existing.joinedAt || new Date().toISOString().slice(0, 10),
+      joinedAt:
+        existing.joinedAt ||
+        (dbProfile?.created_at ? String(dbProfile.created_at).slice(0, 10) : '') ||
+        new Date().toISOString().slice(0, 10),
     };
+
     await saveProfile(merged);
+
+    // Sync user's saved fields & diary entries from cloud DB into local cache if present
+    if (typeof window !== 'undefined') {
+      try {
+        const [{ data: remoteFields }, { data: remoteDiary }] = await Promise.all([
+          supabase.from('fields').select('*').eq('user_id', u.id).order('created_at', { ascending: false }),
+          supabase.from('diary_entries').select('*').eq('user_id', u.id).order('created_at', { ascending: false }),
+        ]);
+
+        if (Array.isArray(remoteFields) && remoteFields.length > 0) {
+          const localFields = getSavedFields();
+          const seenFieldIds = new Set(remoteFields.map((f) => String(f.id)));
+          const localOnly = localFields.filter((lf) => !seenFieldIds.has(lf.id));
+          const mergedFields: FarmField[] = [
+            ...remoteFields.map((rf) => ({
+              id: String(rf.id),
+              name: String(rf.name || ''),
+              crop: String(rf.crop || 'wheat'),
+              area_acres: Number(rf.area_acres || 1),
+              soil_type: (rf.soil_type as SoilType) || 'medium',
+              sowing_date: String(rf.sowing_date || new Date().toISOString().slice(0, 10)),
+              completedTaskIds: [] as string[],
+              created_at: String(rf.created_at || new Date().toISOString()),
+            })),
+            ...localOnly,
+          ];
+          localStorage.setItem(KEYS.FIELDS, JSON.stringify(mergedFields));
+        }
+
+        if (Array.isArray(remoteDiary) && remoteDiary.length > 0) {
+          const localDiary = getDiaryEntries();
+          const seenDiaryIds = new Set(remoteDiary.map((d) => String(d.id)));
+          const localOnlyDiary = localDiary.filter((ld) => !seenDiaryIds.has(ld.id));
+          const mergedDiary: DiaryEntry[] = [
+            ...remoteDiary.map((rd) => ({
+              id: String(rd.id),
+              field_id: rd.field_id ? String(rd.field_id) : null,
+              kind: (rd.kind as DiaryEntry['kind']) || 'note',
+              category: String(rd.category || 'general'),
+              amount: Number(rd.amount || 0),
+              note: String(rd.note || ''),
+              entry_date: String(rd.entry_date || new Date().toISOString().slice(0, 10)),
+              created_at: String(rd.created_at || new Date().toISOString()),
+            })),
+            ...localOnlyDiary,
+          ];
+          localStorage.setItem(KEYS.DIARY, JSON.stringify(mergedDiary));
+        }
+      } catch {
+        // ignore cloud pull errors when offline
+      }
+    }
+
     return merged;
   } catch {
     return null;
@@ -518,9 +655,8 @@ export async function linkGuestToAccount(newUserId: string): Promise<void> {
     const localScans = getSavedScans();
     for (const scan of localScans) {
       await supabase.from('scans').upsert({
-        id: scan.id,
+        ...(isValidUuid(scan.id) ? { id: scan.id } : {}),
         user_id: newUserId,
-        crop: scan.crop,
         label: scan.label,
         confidence: scan.confidence,
         advice: scan.advice,
@@ -531,7 +667,7 @@ export async function linkGuestToAccount(newUserId: string): Promise<void> {
     const localFields = getSavedFields();
     for (const field of localFields) {
       await supabase.from('fields').upsert({
-        id: field.id,
+        ...(isValidUuid(field.id) ? { id: field.id } : {}),
         user_id: newUserId,
         name: field.name,
         crop: field.crop,
@@ -645,47 +781,48 @@ export async function saveProfile(
     }
   }
 
-  // Sync to Supabase in the background without blocking the UI
+  // Sync to Supabase database reliably (await upsert so caller knows save reached DB)
   const supabase = getSupabaseClient();
   if (supabase) {
-    (async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (session?.user?.id) {
-          await supabase.from('profiles').upsert({
-            id: session.user.id,
-            farmer_id: merged.farmerId,
-            full_name: merged.fullName,
-            father_or_farm_name: merged.fatherOrFarmName,
-            email: merged.email,
-            phone: merged.phone,
-            district: merged.district || (merged.placeName ? merged.placeName.split(',')[0].trim() : undefined),
-            province: merged.province || (merged.placeName ? merged.placeName.split(',')[1]?.trim() : undefined),
-            village_or_tehsil: merged.villageOrTehsil,
-            total_acres: merged.totalAcres,
-            land_acres_band: merged.landAcresBand,
-            primary_crops: merged.primaryCrops,
-            main_crops: merged.mainCrops || merged.primaryCrops,
-            preferred_voice: merged.preferredVoice || 'ur-PK-UzmaNeural',
-            voice_speed: merged.voiceSpeed || 1.0,
-            onboarding_done: merged.onboardingDone ?? false,
-            consent_terms_at: merged.consentTermsAt,
-            consent_improve_model: merged.consentImproveModel ?? false,
-            avatar_url: merged.avatarUrl,
-            auth_provider: merged.authProvider,
-            language: merged.language,
-            place_name: merged.placeName,
-            lat: merged.lat,
-            lon: merged.lon,
-            last_seen_at: new Date().toISOString(),
-          });
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        const { error: dbError } = await supabase.from('profiles').upsert({
+          id: session.user.id,
+          farmer_id: merged.farmerId,
+          full_name: merged.fullName,
+          father_or_farm_name: merged.fatherOrFarmName,
+          email: merged.email,
+          phone: merged.phone,
+          district: merged.district || (merged.placeName ? merged.placeName.split(',')[0].trim() : undefined),
+          province: merged.province || (merged.placeName ? merged.placeName.split(',')[1]?.trim() : undefined),
+          village_or_tehsil: merged.villageOrTehsil,
+          total_acres: merged.totalAcres,
+          land_acres_band: merged.landAcresBand,
+          primary_crops: merged.primaryCrops,
+          main_crops: merged.mainCrops || merged.primaryCrops,
+          preferred_voice: merged.preferredVoice || 'ur-PK-UzmaNeural',
+          voice_speed: merged.voiceSpeed || 1.0,
+          onboarding_done: merged.onboardingDone ?? false,
+          consent_terms_at: merged.consentTermsAt,
+          consent_improve_model: merged.consentImproveModel ?? false,
+          avatar_url: merged.avatarUrl,
+          auth_provider: merged.authProvider,
+          language: merged.language,
+          place_name: merged.placeName,
+          lat: merged.lat,
+          lon: merged.lon,
+          last_seen_at: new Date().toISOString(),
+        });
+        if (dbError) {
+          console.warn('[Supabase Profiles DB] Upsert warning:', dbError.message);
         }
-      } catch {
-        // ignore offline error
       }
-    })();
+    } catch {
+      // ignore offline error — localStorage copy preserved
+    }
   }
 
   return merged;
@@ -736,7 +873,7 @@ export async function addFarmField(
   const existing = getSavedFields();
   const newField: FarmField = {
     ...field,
-    id: `field-${Date.now()}`,
+    id: generateUuid(),
     completedTaskIds: [],
     created_at: new Date().toISOString(),
   };
@@ -752,7 +889,8 @@ export async function addFarmField(
         data: { session },
       } = await supabase.auth.getSession();
       if (session?.user?.id) {
-        await supabase.from('fields').insert({
+        const { error: dbError } = await supabase.from('fields').insert({
+          id: newField.id,
           user_id: session.user.id,
           name: newField.name,
           crop: newField.crop,
@@ -760,6 +898,9 @@ export async function addFarmField(
           soil_type: newField.soil_type,
           sowing_date: newField.sowing_date,
         });
+        if (dbError) {
+          console.warn('[Supabase Fields DB] Insert warning:', dbError.message);
+        }
       }
     } catch {
       // ignore offline error
@@ -772,6 +913,21 @@ export function deleteFarmField(fieldId: string): FarmField[] {
   const updated = getSavedFields().filter((f) => f.id !== fieldId);
   if (typeof window !== 'undefined') {
     localStorage.setItem(KEYS.FIELDS, JSON.stringify(updated));
+  }
+  const supabase = getSupabaseClient();
+  if (supabase && isValidUuid(fieldId)) {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.id) {
+        supabase
+          .from('fields')
+          .delete()
+          .eq('id', fieldId)
+          .eq('user_id', session.user.id)
+          .then(({ error }) => {
+            if (error) console.warn('[Supabase Fields DB] Delete warning:', error.message);
+          });
+      }
+    }).catch(() => {});
   }
   return updated;
 }
@@ -862,7 +1018,7 @@ export async function saveScanRecord(
         }
         const { error: dbError } = await supabase.from('scans').insert({
           user_id: userId,
-          field_id: scan.field_id || null,
+          field_id: isValidUuid(scan.field_id) ? scan.field_id : null,
           image_path: imagePath,
           label: scan.label,
           confidence: scan.confidence,
@@ -904,7 +1060,7 @@ export async function addDiaryEntry(
   const existing = getDiaryEntries();
   const record: DiaryEntry = {
     ...entry,
-    id: `diary-${Date.now()}`,
+    id: generateUuid(),
     created_at: new Date().toISOString(),
   };
   const updated = [record, ...existing];
@@ -919,15 +1075,19 @@ export async function addDiaryEntry(
         data: { session },
       } = await supabase.auth.getSession();
       if (session?.user?.id) {
-        await supabase.from('diary_entries').insert({
+        const { error: dbError } = await supabase.from('diary_entries').insert({
+          id: record.id,
           user_id: session.user.id,
-          field_id: entry.field_id || null,
+          field_id: isValidUuid(entry.field_id) ? entry.field_id : null,
           kind: entry.kind,
           category: entry.category,
           amount: entry.amount,
           note: entry.note,
           entry_date: entry.entry_date,
         });
+        if (dbError) {
+          console.warn('[Supabase Diary DB] Insert warning:', dbError.message);
+        }
       }
     } catch {
       // ignore offline error
@@ -940,6 +1100,23 @@ export async function deleteDiaryEntry(id: string): Promise<DiaryEntry[]> {
   const existing = getDiaryEntries().filter((e) => e.id !== id);
   if (typeof window !== 'undefined') {
     localStorage.setItem(KEYS.DIARY, JSON.stringify(existing));
+  }
+  const supabase = getSupabaseClient();
+  if (supabase && isValidUuid(id)) {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        await supabase
+          .from('diary_entries')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', session.user.id);
+      }
+    } catch {
+      // ignore offline error
+    }
   }
   return existing;
 }
@@ -1001,9 +1178,9 @@ export async function createScanSession(
   sessionData: Partial<ScanSession>
 ): Promise<ScanSession> {
   const session: ScanSession = {
-    id: sessionData.id || `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: isValidUuid(sessionData.id) ? (sessionData.id as string) : generateUuid(),
     user_id: sessionData.user_id || 'anonymous',
-    field_id: sessionData.field_id || null,
+    field_id: isValidUuid(sessionData.field_id) ? sessionData.field_id : null,
     crop_selected: sessionData.crop_selected || null,
     answers: sessionData.answers || {},
     quick: sessionData.quick || {},

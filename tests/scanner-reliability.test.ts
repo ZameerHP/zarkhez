@@ -13,7 +13,10 @@ import {
 import { buildOfflinePreliminaryAssessment } from '../lib/offline-assessment';
 import { CropDiagnosisSchema, getLocalizedText } from '../lib/schemas';
 import { POST as analyzeRoutePost } from '../app/api/scan/analyze/route';
-import { saveScanRecord } from '../lib/supabase/client';
+import {
+  arePersonalFieldsComplete,
+  saveScanRecord,
+} from '../lib/supabase/client';
 import { speakText } from '../lib/voice';
 
 let passed = 0;
@@ -717,6 +720,50 @@ async function run() {
         'Fallback diagnosis JSON must not expose Gemini branding'
       );
       assert.equal(brandLeakRegex.test(JSON.stringify(errObj)), false, 'Structured error output must scrub Gemini branding');
+    });
+
+    // 28. Home privacy cleanup, Profile hide-on-complete, and Mirpur Khas city coverage
+    await testCase('28. Home hides Google ID/email, Profile hides fields when complete, Mirpur Khas in weather cities', () => {
+      assert.equal(
+        arePersonalFieldsComplete({
+          fullName: 'Muhammad Akram',
+          fatherOrFarmName: '',
+          phone: '03001234567',
+          villageOrTehsil: 'Chak 45',
+          placeName: 'Mirpur Khas, Sindh',
+          totalAcres: 5,
+          primaryCrops: ['wheat'],
+        }),
+        false,
+        'Incomplete profile must return false'
+      );
+      assert.equal(
+        arePersonalFieldsComplete({
+          fullName: 'Muhammad Akram',
+          fatherOrFarmName: 'Al-Noor Farm',
+          phone: '03001234567',
+          villageOrTehsil: 'Chak 45',
+          placeName: 'Mirpur Khas, Sindh',
+          totalAcres: 5,
+          primaryCrops: ['wheat'],
+        }),
+        true,
+        'Fully filled profile must return true'
+      );
+
+      const homeSrc = fs.readFileSync(path.resolve('app/[locale]/home/page.tsx'), 'utf8');
+      assert.equal(/GoogleLogoSvg|FarmerPersonaCard|profile\.email|profile\.farmerId|Google ID/.test(homeSrc), false, 'Home must not expose Google badge, email, or ID');
+
+      const profileSrc = fs.readFileSync(path.resolve('app/[locale]/profile/page.tsx'), 'utf8');
+      assert.ok(profileSrc.includes('isPersonalInfoComplete && !editingPersonalInfo'), 'Profile must collapse completed form behind Personal Info button');
+      assert.ok(profileSrc.includes('Personal Info'), 'Profile must show Personal Info toggle');
+
+      const locModalSrc = fs.readFileSync(path.resolve('components/weather/LocationPickerModal.tsx'), 'utf8');
+      assert.ok(locModalSrc.includes('Mirpur Khas'), 'Mirpur Khas must be present in weather location picker');
+      const welcomeSrc = fs.readFileSync(path.resolve('app/[locale]/page.tsx'), 'utf8');
+      assert.ok(welcomeSrc.includes('Mirpur Khas'), 'Mirpur Khas must be present in Welcome districts');
+      const onboardingSrc = fs.readFileSync(path.resolve('components/auth/OnboardingModal.tsx'), 'utf8');
+      assert.ok(onboardingSrc.includes('Mirpur Khas'), 'Mirpur Khas must be present in Onboarding districts');
     });
   } finally {
     globalThis.fetch = originalFetch;

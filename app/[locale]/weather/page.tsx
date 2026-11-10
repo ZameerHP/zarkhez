@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { WeatherCard } from '@/components/weather/WeatherCard';
+import { LocationPickerModal } from '@/components/weather/LocationPickerModal';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
 import { ZarkhezLogo } from '@/components/layout/ZarkhezLogo';
 import {
@@ -24,7 +25,7 @@ import {
   saveWeatherToCache,
   WeatherForecastResponse,
 } from '@/lib/weather';
-import { getSavedProfile } from '@/lib/supabase/client';
+import { getSavedProfile, saveProfile } from '@/lib/supabase/client';
 
 /**
  * Weather Screen (Section 11.2 of SPEC.md):
@@ -40,6 +41,7 @@ export default function WeatherPage() {
   const [weather, setWeather] = useState<WeatherForecastResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
 
   const fetchWeather = useCallback(async (lat: number, lon: number) => {
     setLoading(true);
@@ -69,6 +71,18 @@ export default function WeatherPage() {
     if (cached) setWeather(cached);
     fetchWeather(profile.lat, profile.lon);
   }, [fetchWeather]);
+
+  const handleSelectPlace = async (
+    nextPlace: string,
+    lat: number,
+    lon: number
+  ) => {
+    setPlaceName(nextPlace);
+    setCoords({ lat, lon });
+    setShowLocationModal(false);
+    await saveProfile({ placeName: nextPlace, lat, lon });
+    fetchWeather(lat, lon);
+  };
 
   const hasSprayWarning = weather?.alerts?.some(
     (a) => a.type === 'spray_warning'
@@ -120,6 +134,7 @@ export default function WeatherPage() {
           loading={loading}
           isOfflineCached={isOffline}
           onRefresh={() => fetchWeather(coords.lat, coords.lon)}
+          onChangeLocation={() => setShowLocationModal(true)}
         />
 
         {/* Spray Safety Status Pill */}
@@ -274,6 +289,12 @@ export default function WeatherPage() {
       </main>
 
       <BottomNav />
+
+      <LocationPickerModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onSelectPlace={handleSelectPlace}
+      />
     </div>
   );
 }

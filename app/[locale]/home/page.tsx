@@ -13,29 +13,21 @@ import {
   Sprout,
   Calculator,
   Plus,
-  ChevronRight,
   Trash2,
   CheckCircle2,
-  UserCheck,
-  MapPin,
-  Navigation,
-  X,
+  User,
 } from 'lucide-react';
 import { ZarkhezLogo } from '@/components/layout/ZarkhezLogo';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { WeatherCard } from '@/components/weather/WeatherCard';
-import {
-  FarmerPersonaCard,
-  GoogleLogoSvg,
-} from '@/components/cards/FarmerPersonaCard';
+import { LocationPickerModal } from '@/components/weather/LocationPickerModal';
 import {
   getAllCrops,
   generateCropCalendar,
   getCurrentCropStage,
 } from '@/lib/calendar';
 import {
-  GeocodePlace,
   getCachedWeather,
   saveWeatherToCache,
   WeatherForecastResponse,
@@ -44,7 +36,6 @@ import {
   addFarmField,
   deleteAllUserData,
   deleteFarmField,
-  deriveGoogleIdentityFromEmail,
   FarmerProfile,
   FarmField,
   getSavedFields,
@@ -55,25 +46,9 @@ import {
 import { SoilType } from '@/lib/fertilizer';
 import { unlockAudio } from '@/lib/voice';
 
-const POPULAR_PLACES: GeocodePlace[] = [
-  { id: 1, name: 'Faisalabad', admin1: 'Punjab', latitude: 31.418, longitude: 73.079 },
-  { id: 2, name: 'Sahiwal', admin1: 'Punjab', latitude: 30.6682, longitude: 73.1114 },
-  { id: 3, name: 'Lahore', admin1: 'Punjab', latitude: 31.5204, longitude: 74.3587 },
-  { id: 4, name: 'Sargodha', admin1: 'Punjab', latitude: 32.0836, longitude: 72.6711 },
-  { id: 5, name: 'Gujranwala', admin1: 'Punjab', latitude: 32.1877, longitude: 74.1945 },
-  { id: 6, name: 'Rahim Yar Khan', admin1: 'Punjab', latitude: 28.4202, longitude: 70.3013 },
-  { id: 7, name: 'Bahawalpur', admin1: 'Punjab', latitude: 29.3956, longitude: 71.6836 },
-  { id: 8, name: 'Multan', admin1: 'Punjab', latitude: 30.1575, longitude: 71.5249 },
-  { id: 9, name: 'Hyderabad', admin1: 'Sindh', latitude: 25.396, longitude: 68.3578 },
-  { id: 10, name: 'Mardan', admin1: 'KPK', latitude: 34.1986, longitude: 72.0404 },
-  { id: 11, name: 'Swat', admin1: 'KPK', latitude: 35.2227, longitude: 72.4258 },
-];
-
 export default function HomePage() {
   const t = useTranslations('home');
-  const tWelcome = useTranslations('welcome');
   const tApp = useTranslations('app');
-  const tAuth = useTranslations('auth');
   const tTools = useTranslations('tools');
   const tDiary = useTranslations('diary');
   const locale = useLocale() as 'ur' | 'en';
@@ -89,9 +64,6 @@ export default function HomePage() {
   const [fields, setFields] = useState<FarmField[]>([]);
   const [showAddField, setShowAddField] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
-  const [detectingGps, setDetectingGps] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<GeocodePlace[]>([]);
   const [deletedBanner, setDeletedBanner] = useState(false);
 
   // New field form state
@@ -131,7 +103,10 @@ export default function HomePage() {
     setNewFieldDate(new Date().toISOString().slice(0, 10));
 
     syncSupabaseAuthSession().then((synced) => {
-      if (synced) setProfile(synced);
+      if (synced) {
+        setProfile(synced);
+        setFields(getSavedFields());
+      }
     });
 
     const cached = getCachedWeather();
@@ -146,41 +121,15 @@ export default function HomePage() {
     lat: number,
     lon: number
   ) => {
-    const updated = await saveProfile({ placeName, lat, lon });
+    const updated = await saveProfile({
+      placeName,
+      district: placeName.split(',')[0].trim(),
+      lat,
+      lon,
+    });
     setProfile(updated);
     setShowLocationModal(false);
     loadWeather(lat, lon);
-  };
-
-  const handleUseGps = () => {
-    if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
-    setDetectingGps(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setDetectingGps(false);
-        handleSelectPlace(
-          locale === 'ur' ? 'میرا کھیت (GPS)' : 'My Farm (GPS)',
-          pos.coords.latitude,
-          pos.coords.longitude
-        );
-      },
-      () => setDetectingGps(false),
-      { timeout: 6000 }
-    );
-  };
-
-  const handleSearchPlace = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim().length < 2) return;
-    try {
-      const res = await fetch(
-        `/api/geocode?q=${encodeURIComponent(searchQuery.trim())}`
-      );
-      const data = await res.json();
-      setSearchResults(data.places || []);
-    } catch {
-      setSearchResults([]);
-    }
   };
 
   const handleAddField = async (e: React.FormEvent) => {
@@ -225,14 +174,18 @@ export default function HomePage() {
 
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas overflow-x-hidden">
-      {/* Deep Emerald / Olive Header with Cropped Logo Emblem & Direct Google Identity */}
-      <header className="bg-gradient-to-b from-[#062409] via-olive-dark to-olive-dark text-white rounded-b-[34px] px-4 sm:px-5 pt-4 pb-24 shadow-soft relative overflow-hidden">
+      {/* Enhanced Deep Emerald / Olive Header */}
+      <header className="bg-gradient-to-b from-[#051D08] via-[#133A19] to-[#264E1C] text-white rounded-b-[36px] px-4 sm:px-5 pt-4 pb-24 shadow-[0_14px_38px_rgba(6,36,9,0.22)] relative overflow-hidden">
         <div
-          className="absolute -top-20 -end-16 w-56 h-56 rounded-full bg-olive-fresh/25 blur-2xl pointer-events-none"
+          className="absolute -top-20 -end-16 w-60 h-60 rounded-full bg-olive-fresh/25 blur-3xl pointer-events-none"
+          aria-hidden="true"
+        />
+        <div
+          className="absolute -bottom-16 -start-14 w-48 h-48 rounded-full bg-wheat/15 blur-2xl pointer-events-none"
           aria-hidden="true"
         />
 
-        {/* Top Bar: Cropped Zarkhez Emblem + Language Toggle + Refresh */}
+        {/* Top Bar: Zarkhez Emblem + Language Toggle + Refresh */}
         <div className="relative z-10 flex items-center justify-between gap-2">
           <ZarkhezLogo size={38} lightText />
           <div className="flex items-center gap-1.5 sm:gap-2">
@@ -253,15 +206,18 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Personalized Greeting + Google Auth Avatar & Persona ID Badge */}
+        {/* Clean Personalized Greeting */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
-          className="relative z-10 mt-4 flex items-center justify-between gap-2.5 flex-wrap"
+          className="relative z-10 mt-5 flex items-center justify-between gap-3"
         >
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl leading-relaxed truncate">
+            <p className="text-[11px] sm:text-xs text-emerald-200/80 font-medium tracking-wide">
+              {formattedDate}
+            </p>
+            <h1 className="text-[22px] sm:text-[26px] leading-snug mt-0.5 truncate">
               <span className="font-light text-white/90">
                 {t('greetingLight')}{' '}
               </span>
@@ -269,64 +225,32 @@ export default function HomePage() {
                 {profile.fullName || t('greetingBold')}
               </span>
             </h1>
-            <div className="flex items-center gap-2 flex-wrap mt-0.5">
-              <p className="text-[11px] sm:text-xs text-white/75">
-                {formattedDate}
-              </p>
-              {profile.email && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-300 font-semibold">
-                  <GoogleLogoSvg className="w-3 h-3" />
-                  <bdi dir="ltr">{profile.email}</bdi>
-                </span>
-              )}
-            </div>
           </div>
 
-          {profile.isAuthenticated && profile.farmerId ? (
-            <Link
-              href="/profile"
-              className="inline-flex items-center gap-2 ps-1.5 pe-3 py-1 rounded-full bg-white/15 hover:bg-white/25 border border-emerald-400/35 text-white shadow-sm transition-all flex-shrink-0"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+          <Link
+            href="/profile"
+            aria-label={locale === 'ur' ? 'پروفائل' : 'Profile'}
+            className="w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 flex items-center justify-center text-cream shadow-sm transition-all flex-shrink-0 overflow-hidden"
+          >
+            {profile.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={
-                  profile.avatarUrl ||
-                  deriveGoogleIdentityFromEmail(
-                    profile.email || profile.fullName
-                  ).avatarUrl
-                }
-                alt={profile.fullName}
-                className="w-7 h-7 rounded-full object-cover border border-wheat"
+                src={profile.avatarUrl}
+                alt={profile.fullName || 'Profile'}
+                className="w-full h-full object-cover"
               />
-              <div className="text-start leading-tight">
-                <bdi
-                  dir="ltr"
-                  className="block font-mono font-extrabold text-[10px] text-wheat"
-                >
-                  {profile.farmerId}
-                </bdi>
-                <span className="block text-[9px] text-white/80">
-                  {locale === 'ur' ? 'گوگل تصدیق شدہ' : 'Google ID'}
-                </span>
-              </div>
-            </Link>
-          ) : (
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white text-ink font-extrabold text-xs shadow-sm"
-            >
-              <GoogleLogoSvg className="w-4 h-4" />
-              <span>{tAuth('signInWithGoogle')}</span>
-            </Link>
-          )}
+            ) : (
+              <User className="w-5 h-5" />
+            )}
+          </Link>
         </motion.div>
 
-        {/* Voice Bar: Translucent pill with search icon and large mic */}
+        {/* Elevated Voice Bar */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.05 }}
-          className="relative z-10 mt-3.5"
+          className="relative z-10 mt-4"
         >
           <button
             type="button"
@@ -334,7 +258,7 @@ export default function HomePage() {
               unlockAudio();
               router.push('/assistant?mic=1');
             }}
-            className="w-full min-h-[52px] rounded-full glass ps-4 pe-2 py-1.5 flex items-center justify-between gap-2 text-start hover:bg-white/30 transition-all shadow-soft active:scale-98"
+            className="w-full min-h-[54px] rounded-full glass border border-white/25 ps-4 pe-2 py-1.5 flex items-center justify-between gap-2 text-start hover:bg-white/25 transition-all shadow-[0_8px_24px_rgba(0,0,0,0.18)] active:scale-98"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <Search className="w-4 h-4 sm:w-5 sm:h-5 text-cream flex-shrink-0" />
@@ -342,7 +266,7 @@ export default function HomePage() {
                 {t('askPlaceholder')}
               </span>
             </div>
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-olive-fresh text-white flex items-center justify-center shadow-md flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-olive-fresh to-olive text-white flex items-center justify-center shadow-md ring-1 ring-white/25 flex-shrink-0">
               <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </button>
@@ -361,48 +285,11 @@ export default function HomePage() {
           onChangeLocation={() => setShowLocationModal(true)}
         />
 
-        {/* Farmer Persona Card / Google Login Banner */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.08 }}
-        >
-          {profile.isAuthenticated ? (
-            <FarmerPersonaCard
-              profile={profile}
-              compact
-              onEditClick={() => router.push('/profile')}
-            />
-          ) : (
-            <Link
-              href="/"
-              className="block bg-white rounded-card p-4 shadow-soft border-2 border-olive/20 hover:border-olive transition-all"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-11 h-11 rounded-2xl bg-canvas flex items-center justify-center flex-shrink-0">
-                    <GoogleLogoSvg className="w-6 h-6" />
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="font-extrabold text-sm text-ink truncate">
-                      {tAuth('signInWithGoogle')}
-                    </h2>
-                    <p className="text-xs text-ink/70 mt-0.5 truncate">
-                      {tAuth('personaSubtitle')}
-                    </p>
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-olive rtl:rotate-180 flex-shrink-0" />
-              </div>
-            </Link>
-          )}
-        </motion.div>
-
-        {/* Quick Tools with Smooth Tap & Entrance Animations */}
+        {/* Quick Tools with Subtle Tactile Upgrades */}
         <motion.section
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.12 }}
+          transition={{ duration: 0.4, delay: 0.08 }}
           aria-labelledby="quick-tools-heading"
         >
           <h2
@@ -415,7 +302,7 @@ export default function HomePage() {
             <Link
               href="/scan"
               onClick={() => unlockAudio()}
-              className="bg-[#062409] text-white rounded-card p-3.5 sm:p-4 shadow-soft flex items-center gap-3 min-h-[74px] hover:bg-olive-dark transition-all active:scale-95 border border-emerald-400/25"
+              className="bg-gradient-to-br from-[#062409] to-[#17411D] text-white rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md flex items-center gap-3 min-h-[76px] hover:-translate-y-0.5 transition-all active:scale-95 border border-emerald-400/25"
             >
               <div className="w-11 h-11 rounded-2xl bg-olive-fresh/25 border border-emerald-400/35 flex items-center justify-center flex-shrink-0">
                 <ScanLine className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-300" />
@@ -432,7 +319,7 @@ export default function HomePage() {
 
             <Link
               href="/tools/calendar"
-              className="bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft border border-olive/12 flex items-center gap-3 min-h-[74px] hover:border-olive transition-all active:scale-95"
+              className="bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md border border-olive/12 flex items-center gap-3 min-h-[76px] hover:border-olive hover:-translate-y-0.5 transition-all active:scale-95"
             >
               <div className="w-11 h-11 rounded-2xl bg-olive/12 text-olive-dark flex items-center justify-center flex-shrink-0">
                 <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -449,7 +336,7 @@ export default function HomePage() {
 
             <Link
               href="/tools/fertilizer"
-              className="bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft border border-olive/12 flex items-center gap-3 min-h-[74px] hover:border-olive transition-all active:scale-95"
+              className="bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md border border-olive/12 flex items-center gap-3 min-h-[76px] hover:border-olive hover:-translate-y-0.5 transition-all active:scale-95"
             >
               <div className="w-11 h-11 rounded-2xl bg-cream text-wheat flex items-center justify-center flex-shrink-0">
                 <Sprout className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -466,7 +353,7 @@ export default function HomePage() {
 
             <Link
               href="/tools/profit"
-              className="bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft border border-olive/12 flex items-center gap-3 min-h-[74px] hover:border-olive transition-all active:scale-95"
+              className="bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md border border-olive/12 flex items-center gap-3 min-h-[76px] hover:border-olive hover:-translate-y-0.5 transition-all active:scale-95"
             >
               <div className="w-11 h-11 rounded-2xl bg-olive/12 text-olive flex items-center justify-center flex-shrink-0">
                 <Calculator className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -487,7 +374,7 @@ export default function HomePage() {
         <motion.section
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.16 }}
+          transition={{ duration: 0.4, delay: 0.12 }}
           aria-labelledby="my-crops-heading"
         >
           <div className="flex items-center justify-between mb-2.5">
@@ -504,7 +391,7 @@ export default function HomePage() {
               <Link
                 key={crop.key}
                 href={`/crop/${crop.key}`}
-                className="flex-shrink-0 w-28 sm:w-32 bg-white rounded-card p-3 shadow-soft border border-olive/10 hover:border-olive transition-all active:scale-95 flex flex-col items-center text-center group"
+                className="flex-shrink-0 w-28 sm:w-32 bg-white rounded-card p-3 shadow-soft hover:shadow-md border border-olive/12 hover:border-olive hover:-translate-y-0.5 transition-all active:scale-95 flex flex-col items-center text-center group"
               >
                 <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-olive/20 group-hover:border-olive transition-colors">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -537,7 +424,7 @@ export default function HomePage() {
         <motion.section
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
+          transition={{ duration: 0.4, delay: 0.16 }}
           aria-labelledby="my-fields-heading"
         >
           <div className="flex items-center justify-between mb-2.5">
@@ -595,7 +482,7 @@ export default function HomePage() {
                   <Link
                     key={field.id}
                     href={`/crop/${crop.key}?fieldId=${field.id}&sowing=${field.sowing_date}`}
-                    className="block bg-white rounded-card overflow-hidden shadow-soft border border-olive/12 hover:border-olive transition-all active:scale-98"
+                    className="block bg-white rounded-card overflow-hidden shadow-soft hover:shadow-md border border-olive/12 hover:border-olive transition-all active:scale-98"
                   >
                     <div className="flex items-stretch">
                       <div className="w-24 sm:w-28 relative flex-shrink-0">
@@ -684,112 +571,12 @@ export default function HomePage() {
         </footer>
       </main>
 
-      {/* Inline Change Location / District Modal */}
-      <AnimatePresence>
-        {showLocationModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 40, opacity: 0 }}
-              className="w-full max-w-[420px] bg-white rounded-card p-5 shadow-2xl space-y-4"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-olive" />
-                  <h3 className="font-extrabold text-base text-ink">
-                    {tWelcome('locationTitle')}
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowLocationModal(false)}
-                  className="w-8 h-8 rounded-full bg-canvas flex items-center justify-center text-ink/60"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleUseGps}
-                disabled={detectingGps}
-                className="w-full min-h-[46px] bg-olive hover:bg-olive-dark text-white font-bold rounded-full px-4 py-2 flex items-center justify-center gap-2 text-sm shadow-soft"
-              >
-                <Navigation className="w-4 h-4" />
-                <span>
-                  {detectingGps ? tWelcome('detectingGps') : tWelcome('useGps')}
-                </span>
-              </button>
-
-              <form onSubmit={handleSearchPlace} className="flex gap-2">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={tWelcome('searchPlaceholder')}
-                  className="flex-1 min-h-[44px] px-3.5 rounded-full bg-canvas border border-olive/25 text-ink text-sm"
-                />
-                <button
-                  type="submit"
-                  className="min-h-[44px] px-4 rounded-full bg-ink text-white text-xs font-bold"
-                >
-                  {tWelcome('searchBtn')}
-                </button>
-              </form>
-
-              {searchResults.length > 0 && (
-                <div className="max-h-32 overflow-y-auto space-y-1">
-                  {searchResults.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() =>
-                        handleSelectPlace(
-                          `${p.name}${p.admin1 ? `, ${p.admin1}` : ''}`,
-                          p.latitude,
-                          p.longitude
-                        )
-                      }
-                      className="w-full px-3 py-2 rounded-tile bg-canvas hover:bg-olive/15 text-start text-xs font-bold text-ink flex items-center justify-between"
-                    >
-                      <span>
-                        {p.name}
-                        {p.admin1 ? `, ${p.admin1}` : ''}
-                      </span>
-                      <ChevronRight className="w-4 h-4 text-olive rtl:rotate-180" />
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {POPULAR_PLACES.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() =>
-                      handleSelectPlace(
-                        `${p.name}, ${p.admin1}`,
-                        p.latitude,
-                        p.longitude
-                      )
-                    }
-                    className="px-3 py-1.5 rounded-full bg-canvas hover:bg-olive hover:text-white text-xs font-bold text-ink border border-olive/20 transition-colors"
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Shared Change Location / District Modal (includes Mirpur Khas) */}
+      <LocationPickerModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onSelectPlace={handleSelectPlace}
+      />
 
       {/* Add Field Modal */}
       <AnimatePresence>

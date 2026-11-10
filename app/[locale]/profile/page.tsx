@@ -7,17 +7,21 @@ import {
   ArrowLeft,
   CheckCircle2,
   LogOut,
-  Volume2,
   Sparkles,
   Trash2,
   MapPin,
-  Phone,
   Sprout,
+  UserCheck,
+  ShieldCheck,
+  ChevronRight,
+  X,
 } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
 import { ZarkhezLogo } from '@/components/layout/ZarkhezLogo';
+import { LocationPickerModal } from '@/components/weather/LocationPickerModal';
 import {
+  arePersonalFieldsComplete,
   deleteAllUserData,
   FarmerProfile,
   generateFarmerPersonaId,
@@ -41,37 +45,56 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState('');
   const [villageOrTehsil, setVillageOrTehsil] = useState('');
   const [placeName, setPlaceName] = useState('Faisalabad, Punjab');
+  const [lat, setLat] = useState<number | undefined>(undefined);
+  const [lon, setLon] = useState<number | undefined>(undefined);
   const [totalAcres, setTotalAcres] = useState('5');
   const [selectedCrops, setSelectedCrops] = useState<string[]>(['wheat']);
+
   const [autoSpeakVoice, setAutoSpeakVoice] = useState(true);
-  const [preferredVoice, setPreferredVoice] = useState<'ur-PK-UzmaNeural' | 'ur-PK-AsadNeural'>('ur-PK-UzmaNeural');
+  const [preferredVoice, setPreferredVoice] = useState<
+    'ur-PK-UzmaNeural' | 'ur-PK-AsadNeural'
+  >('ur-PK-UzmaNeural');
   const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
+
+  const [editingPersonalInfo, setEditingPersonalInfo] = useState(false);
+  const [showCityPicker, setShowCityPicker] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
   const [deletedNotice, setDeletedNotice] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    const p = getSavedProfile();
+  const hydrateFieldsFromProfile = (p: FarmerProfile) => {
     setProfile(p);
-    setFullName(p.fullName);
-    setFatherOrFarmName(p.fatherOrFarmName);
-    setPhone(p.phone);
-    setVillageOrTehsil(p.villageOrTehsil);
+    setFullName(p.fullName || '');
+    setFatherOrFarmName(p.fatherOrFarmName || '');
+    setPhone(p.phone || '');
+    setVillageOrTehsil(p.villageOrTehsil || '');
     setPlaceName(p.placeName || 'Faisalabad, Punjab');
-    setTotalAcres(String(p.totalAcres || 5));
+    setLat(p.lat);
+    setLon(p.lon);
+    setTotalAcres(String(p.totalAcres > 0 ? p.totalAcres : ''));
     setSelectedCrops(p.primaryCrops?.length ? p.primaryCrops : ['wheat']);
     setAutoSpeakVoice(p.autoSpeakVoice ?? true);
-    setPreferredVoice((p.preferredVoice as any) || 'ur-PK-UzmaNeural');
+    setPreferredVoice(
+      (p.preferredVoice as 'ur-PK-UzmaNeural' | 'ur-PK-AsadNeural') ||
+        'ur-PK-UzmaNeural'
+    );
     setVoiceSpeed(p.voiceSpeed || 1.0);
+  };
+
+  useEffect(() => {
+    const p = getSavedProfile();
+    hydrateFieldsFromProfile(p);
 
     syncSupabaseAuthSession().then((synced) => {
       if (synced) {
-        setProfile(synced);
-        setFullName(synced.fullName);
+        hydrateFieldsFromProfile(synced);
       }
     });
   }, []);
+
+  const isPersonalInfoComplete = arePersonalFieldsComplete(profile);
 
   const toggleCrop = (cropKey: string) => {
     setSelectedCrops((prev) =>
@@ -83,8 +106,9 @@ export default function ProfilePage() {
     );
   };
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
+  const handleSavePersonalDetails = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     const farmerId =
       profile.farmerId ||
       generateFarmerPersonaId(phone || fullName || String(Date.now()));
@@ -92,24 +116,48 @@ export default function ProfilePage() {
     const updated = await saveProfile({
       ...profile,
       farmerId,
-      fullName: fullName.trim() || (locale === 'ur' ? 'کسان بھائی' : 'Farmer Friend'),
+      fullName:
+        fullName.trim() || (locale === 'ur' ? 'کسان بھائی' : 'Farmer Friend'),
       fatherOrFarmName: fatherOrFarmName.trim(),
       phone: phone.trim(),
       villageOrTehsil: villageOrTehsil.trim(),
       placeName: placeName.trim() || 'Faisalabad, Punjab',
       district: placeName.split(',')[0].trim(),
-      totalAcres: Math.max(0, parseFloat(totalAcres) || 0),
+      ...(typeof lat === 'number' && typeof lon === 'number' ? { lat, lon } : {}),
+      totalAcres: Math.max(0.5, parseFloat(totalAcres) || 1),
       primaryCrops: selectedCrops,
       mainCrops: selectedCrops,
       autoSpeakVoice,
       preferredVoice,
       voiceSpeed,
       language: locale,
+      onboardingDone: true,
     });
 
-    setProfile(updated);
+    hydrateFieldsFromProfile(updated);
+    setSaving(false);
+    setEditingPersonalInfo(false);
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 3500);
+  };
+
+  const handleSaveVoiceSettings = async (
+    nextVoice: 'ur-PK-UzmaNeural' | 'ur-PK-AsadNeural',
+    nextSpeed: number,
+    nextAutoSpeak: boolean
+  ) => {
+    setPreferredVoice(nextVoice);
+    setVoiceSpeed(nextSpeed);
+    setAutoSpeakVoice(nextAutoSpeak);
+    const updated = await saveProfile({
+      preferredVoice: nextVoice,
+      voiceSpeed: nextSpeed,
+      autoSpeakVoice: nextAutoSpeak,
+      language: locale,
+    });
+    setProfile(updated);
+    setSavedNotice(true);
+    setTimeout(() => setSavedNotice(false), 2500);
   };
 
   const handleSignOut = async () => {
@@ -136,6 +184,8 @@ export default function ProfilePage() {
     .slice(0, 2)
     .toUpperCase();
 
+  const showFieldsForm = !isPersonalInfoComplete || editingPersonalInfo;
+
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas overflow-x-hidden">
       {/* Clean Header */}
@@ -160,33 +210,21 @@ export default function ProfilePage() {
           </h1>
           <p className="text-xs text-cream/90 mt-0.5">
             {locale === 'ur'
-              ? 'اپنی ذاتی معلومات اور فصلوں کا ریکارڈ منظم کریں'
-              : 'Manage your farm details and preferences'}
+              ? 'آپ کا اکاؤنٹ اور ذاتی معلومات کلاؤڈ ڈیٹابیس میں محفوظ ہیں'
+              : 'Your account & farm details stay securely synced to cloud database'}
           </p>
         </div>
       </header>
 
       <main className="px-4 sm:px-5 mt-4 space-y-4">
-        {/* Simple & Clean Farmer Card */}
-        <section className="rounded-2xl bg-gradient-to-br from-[#062409] via-olive-dark to-[#062409] text-white p-4 shadow-lg border border-wheat/30 space-y-3">
-          <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2.5">
-            <span className="text-[11px] font-bold tracking-wider uppercase text-wheat">
-              {locale === 'ur' ? 'زرخیز کسان کارڈ' : 'Zarkhez Farmer Card'}
-            </span>
-            <bdi
-              dir="ltr"
-              className="px-2.5 py-0.5 rounded-full bg-wheat text-ink font-mono font-black text-xs shadow-sm"
-            >
-              {profile.farmerId || 'ZRK-PK-000000'}
-            </bdi>
-          </div>
-
-          <div className="flex items-center gap-3">
+        {/* Clean Minimal Identity Summary (Never exposes personal info fields when saved) */}
+        <section className="rounded-2xl bg-gradient-to-br from-[#062409] via-olive-dark to-[#062409] text-white p-4 shadow-lg border border-wheat/30">
+          <div className="flex items-center gap-3.5">
             {profile.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={profile.avatarUrl}
-                alt=""
+                alt={profile.fullName || 'Farmer'}
                 className="w-14 h-14 rounded-full object-cover border-2 border-wheat flex-shrink-0"
               />
             ) : (
@@ -196,223 +234,328 @@ export default function ProfilePage() {
             )}
             <div className="min-w-0 flex-1">
               <h2 className="font-black text-lg text-white truncate">
-                {fullName || profile.fullName || (locale === 'ur' ? 'کسان بھائی' : 'Farmer')}
+                {profile.fullName ||
+                  fullName ||
+                  (locale === 'ur' ? 'کسان بھائی' : 'Farmer')}
               </h2>
-              {fatherOrFarmName && (
-                <p className="text-xs text-cream/80 truncate mt-0.5">{fatherOrFarmName}</p>
-              )}
-              <p className="text-[11px] text-white/70 flex items-center gap-1 mt-1 truncate">
-                <MapPin className="w-3.5 h-3.5 text-wheat flex-shrink-0" />
-                <span>{villageOrTehsil ? `${villageOrTehsil} • ${placeName}` : placeName}</span>
-              </p>
+              <span className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full bg-emerald-400/15 border border-emerald-400/35 text-emerald-200 text-[11px] font-bold">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+                <span>
+                  {locale === 'ur'
+                    ? 'ڈیٹابیس سے محفوظ منسلک'
+                    : 'Synced to Database'}
+                </span>
+              </span>
             </div>
           </div>
         </section>
 
-        {/* Simple Farm Form */}
-        <form onSubmit={handleSaveProfile} className="bg-white rounded-2xl p-4 sm:p-5 shadow-soft border border-olive/15 space-y-3.5">
-          <h3 className="font-extrabold text-sm sm:text-base text-ink">
-            {locale === 'ur' ? 'ذاتی و زرعی تفصیلات' : 'Personal & Farm Details'}
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-ink/75 mb-1">
-                {locale === 'ur' ? 'کسان کا نام' : 'Full Name'} *
-              </label>
-              <input
-                type="text"
-                required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder={locale === 'ur' ? 'مثلاً محمد اکرم' : 'e.g. Muhammad Akram'}
-                className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-ink/75 mb-1">
-                {locale === 'ur' ? 'والدیت یا فارم کا نام' : "Father's or Farm Name"}
-              </label>
-              <input
-                type="text"
-                value={fatherOrFarmName}
-                onChange={(e) => setFatherOrFarmName(e.target.value)}
-                placeholder={locale === 'ur' ? 'مثلاً النور فارم' : 'e.g. Al-Noor Farm'}
-                className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-ink/75 mb-1">
-                {locale === 'ur' ? 'موبائل نمبر' : 'Phone Number'}
-              </label>
-              <input
-                type="tel"
-                dir="ltr"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="0300-1234567"
-                className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-ink/75 mb-1">
-                {locale === 'ur' ? 'زرعی رقبہ (ایکڑ)' : 'Cultivated Area (Acres)'}
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.5"
-                dir="ltr"
-                value={totalAcres}
-                onChange={(e) => setTotalAcres(e.target.value)}
-                className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-ink/75 mb-1">
-                {locale === 'ur' ? 'گاؤں یا چک نمبر' : 'Village / Tehsil'}
-              </label>
-              <input
-                type="text"
-                value={villageOrTehsil}
-                onChange={(e) => setVillageOrTehsil(e.target.value)}
-                placeholder={locale === 'ur' ? 'مثلاً چک 45/12-L' : 'e.g. Village 45/12-L'}
-                className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-ink/75 mb-1">
-                {locale === 'ur' ? 'ضلع' : 'District'}
-              </label>
-              <input
-                type="text"
-                value={placeName}
-                onChange={(e) => setPlaceName(e.target.value)}
-                placeholder="Faisalabad, Punjab"
-                className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
-              />
-            </div>
-          </div>
-
-          {/* Crops Multi-Select */}
-          <div>
-            <label className="block text-xs font-bold text-ink/75 mb-1.5 flex items-center gap-1.5">
-              <Sprout className="w-3.5 h-3.5 text-olive" />
-              <span>{locale === 'ur' ? 'اہم فصلیں' : 'Primary Crops'}</span>
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {crops.map((c) => {
-                const active = selectedCrops.includes(c.key);
-                return (
-                  <button
-                    key={c.key}
-                    type="button"
-                    onClick={() => toggleCrop(c.key)}
-                    className={`min-h-[42px] px-2 rounded-xl text-xs font-bold transition-all ${
-                      active
-                        ? 'bg-olive text-white shadow-sm'
-                        : 'bg-canvas text-ink hover:bg-olive/15'
-                    }`}
-                  >
-                    {c.name[locale]}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Simple Voice Preferences */}
-          <div className="p-3 rounded-xl bg-canvas border border-olive/15 space-y-2.5">
-            <span className="block text-xs font-bold text-ink">
-              {locale === 'ur' ? 'اردو آواز کی ترتیبات' : 'Urdu Voice Settings'}
+        {savedNotice && (
+          <div className="p-3 rounded-xl bg-olive/15 text-olive-dark text-xs font-bold flex items-center gap-2 border border-olive/25">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            <span>
+              {locale === 'ur'
+                ? 'پروفائل کامیابی سے ڈیٹابیس میں محفوظ ہو گئی ہے'
+                : 'Profile saved and synced to database!'}
             </span>
+          </div>
+        )}
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setPreferredVoice('ur-PK-UzmaNeural')}
-                className={`min-h-[42px] p-2 rounded-xl text-xs font-bold transition-all border ${
-                  preferredVoice === 'ur-PK-UzmaNeural'
-                    ? 'bg-olive text-white border-olive shadow-sm'
-                    : 'bg-white text-ink border-olive/20'
-                }`}
-              >
-                {t('femaleVoice')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setPreferredVoice('ur-PK-AsadNeural')}
-                className={`min-h-[42px] p-2 rounded-xl text-xs font-bold transition-all border ${
-                  preferredVoice === 'ur-PK-AsadNeural'
-                    ? 'bg-olive text-white border-olive shadow-sm'
-                    : 'bg-white text-ink border-olive/20'
-                }`}
-              >
-                {t('maleVoice')}
-              </button>
+        {/* When all fields are filled and not editing: Show ONLY a clean Personal Info Button */}
+        {isPersonalInfoComplete && !editingPersonalInfo && (
+          <button
+            type="button"
+            onClick={() => setEditingPersonalInfo(true)}
+            className="w-full bg-white hover:bg-olive/5 rounded-2xl p-4 shadow-soft border border-olive/20 hover:border-olive transition-all flex items-center justify-between gap-3 text-start active:scale-[0.98]"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-olive/12 text-olive-dark flex items-center justify-center flex-shrink-0">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="block font-extrabold text-sm sm:text-base text-ink">
+                  {locale === 'ur' ? 'ذاتی معلومات' : 'Personal Info'}
+                </span>
+                <span className="block text-xs text-ink/65 mt-0.5">
+                  {locale === 'ur'
+                    ? 'محفوظ شدہ تفصیلات دیکھنے یا تبدیل کرنے کے لیے کلک کریں'
+                    : 'Tap to view or update your personal details'}
+                </span>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-olive rtl:rotate-180 flex-shrink-0" />
+          </button>
+        )}
+
+        {/* Personal & Farm Form: visible ONLY until all fields are filled OR when Personal Info button is clicked */}
+        {showFieldsForm && (
+          <form
+            onSubmit={handleSavePersonalDetails}
+            className="bg-white rounded-2xl p-4 sm:p-5 shadow-soft border border-olive/15 space-y-3.5"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-extrabold text-sm sm:text-base text-ink">
+                {locale === 'ur' ? 'ذاتی و زرعی تفصیلات' : 'Personal Info'}
+              </h3>
+              {isPersonalInfoComplete && editingPersonalInfo && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    hydrateFieldsFromProfile(profile);
+                    setEditingPersonalInfo(false);
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-canvas text-xs font-bold text-ink/70 hover:text-ink"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>{tApp('cancel')}</span>
+                </button>
+              )}
             </div>
 
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <span className="text-[11px] font-bold text-ink/70">
-                {t('voiceSpeedLabel')}:
-              </span>
-              <div className="flex gap-1.5">
-                {[0.85, 1.0, 1.15].map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setVoiceSpeed(s)}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                      voiceSpeed === s
-                        ? 'bg-olive text-white'
-                        : 'bg-white text-ink/75 border border-olive/20'
-                    }`}
-                  >
-                    {s}x
-                  </button>
-                ))}
+            {!isPersonalInfoComplete && (
+              <p className="text-[11px] text-olive-dark bg-olive/10 px-3 py-2 rounded-xl font-semibold">
+                {locale === 'ur'
+                  ? 'تمام خانے پُر کر کے محفوظ کریں — اس کے بعد آپ کی ذاتی معلومات محفوظ ہو کر اسکرین سے چھپ جائیں گی۔'
+                  : 'Complete all fields below and save — once saved, your personal info stays hidden behind the Personal Info button.'}
+              </p>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-ink/75 mb-1">
+                  {locale === 'ur' ? 'کسان کا نام' : 'Full Name'} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder={locale === 'ur' ? 'مثلاً محمد اکرم' : 'e.g. Muhammad Akram'}
+                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-ink/75 mb-1">
+                  {locale === 'ur' ? 'والدیت یا فارم کا نام' : "Father's or Farm Name"} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={fatherOrFarmName}
+                  onChange={(e) => setFatherOrFarmName(e.target.value)}
+                  placeholder={locale === 'ur' ? 'مثلاً النور فارم' : 'e.g. Al-Noor Farm'}
+                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                />
               </div>
             </div>
 
-            <label className="flex items-center justify-between gap-2 pt-1 cursor-pointer">
-              <span className="text-xs font-bold text-ink/85">
-                {t('autoSpeakLabel')}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-ink/75 mb-1">
+                  {locale === 'ur' ? 'موبائل نمبر' : 'Phone Number'} *
+                </label>
+                <input
+                  type="tel"
+                  required
+                  dir="ltr"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="0300-1234567"
+                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-ink/75 mb-1">
+                  {locale === 'ur' ? 'زرعی رقبہ (ایکڑ)' : 'Cultivated Area (Acres)'} *
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="0.5"
+                  step="0.5"
+                  dir="ltr"
+                  value={totalAcres}
+                  onChange={(e) => setTotalAcres(e.target.value)}
+                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-ink/75 mb-1">
+                  {locale === 'ur' ? 'گاؤں یا چک نمبر' : 'Village / Tehsil'} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={villageOrTehsil}
+                  onChange={(e) => setVillageOrTehsil(e.target.value)}
+                  placeholder={locale === 'ur' ? 'مثلاً چک 45/12-L' : 'e.g. Village 45/12-L'}
+                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-ink/75 mb-1">
+                  {locale === 'ur' ? 'ضلع / شہر' : 'District / City'} *
+                </label>
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    required
+                    value={placeName}
+                    onChange={(e) => setPlaceName(e.target.value)}
+                    placeholder="Mirpur Khas, Sindh"
+                    className="flex-1 min-w-0 min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCityPicker(true)}
+                    className="min-h-[46px] px-3 rounded-xl bg-olive/12 text-olive-dark hover:bg-olive/20 flex items-center justify-center flex-shrink-0"
+                    aria-label={locale === 'ur' ? 'شہر منتخب کریں' : 'Choose City'}
+                  >
+                    <MapPin className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Crops Multi-Select */}
+            <div>
+              <label className="block text-xs font-bold text-ink/75 mb-1.5 flex items-center gap-1.5">
+                <Sprout className="w-3.5 h-3.5 text-olive" />
+                <span>{locale === 'ur' ? 'اہم فصلیں' : 'Primary Crops'} *</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {crops.map((c) => {
+                  const active = selectedCrops.includes(c.key);
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => toggleCrop(c.key)}
+                      className={`min-h-[42px] px-2 rounded-xl text-xs font-bold transition-all ${
+                        active
+                          ? 'bg-olive text-white shadow-sm'
+                          : 'bg-canvas text-ink hover:bg-olive/15'
+                      }`}
+                    >
+                      {c.name[locale]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full min-h-[50px] rounded-xl bg-olive hover:bg-olive-dark text-white font-black text-sm shadow-soft flex items-center justify-center gap-2 transition-all active:scale-98 disabled:opacity-60"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>
+                {saving
+                  ? locale === 'ur'
+                    ? 'ڈیٹابیس میں محفوظ ہو رہا ہے...'
+                    : 'Saving to database...'
+                  : locale === 'ur'
+                  ? 'معلومات محفوظ کریں'
+                  : 'Save Personal Info'}
               </span>
-              <input
-                type="checkbox"
-                checked={autoSpeakVoice}
-                onChange={(e) => setAutoSpeakVoice(e.target.checked)}
-                className="w-4 h-4 accent-olive rounded"
-              />
-            </label>
+            </button>
+          </form>
+        )}
+
+        {/* Voice Preferences (Always accessible & auto-synced cleanly) */}
+        <section className="bg-white rounded-2xl p-4 shadow-soft border border-olive/15 space-y-2.5">
+          <span className="block text-xs font-extrabold text-ink">
+            {locale === 'ur' ? 'اردو آواز کی ترتیبات' : 'Urdu Voice Settings'}
+          </span>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                handleSaveVoiceSettings(
+                  'ur-PK-UzmaNeural',
+                  voiceSpeed,
+                  autoSpeakVoice
+                )
+              }
+              className={`min-h-[42px] p-2 rounded-xl text-xs font-bold transition-all border ${
+                preferredVoice === 'ur-PK-UzmaNeural'
+                  ? 'bg-olive text-white border-olive shadow-sm'
+                  : 'bg-canvas text-ink border-olive/20'
+              }`}
+            >
+              {t('femaleVoice')}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                handleSaveVoiceSettings(
+                  'ur-PK-AsadNeural',
+                  voiceSpeed,
+                  autoSpeakVoice
+                )
+              }
+              className={`min-h-[42px] p-2 rounded-xl text-xs font-bold transition-all border ${
+                preferredVoice === 'ur-PK-AsadNeural'
+                  ? 'bg-olive text-white border-olive shadow-sm'
+                  : 'bg-canvas text-ink border-olive/20'
+              }`}
+            >
+              {t('maleVoice')}
+            </button>
           </div>
 
-          {savedNotice && (
-            <div className="p-3 rounded-xl bg-olive/15 text-olive-dark text-xs font-bold flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-              <span>{locale === 'ur' ? 'پروفائل کامیابی سے محفوظ ہو گئی ہے' : 'Profile saved successfully!'}</span>
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <span className="text-[11px] font-bold text-ink/70">
+              {t('voiceSpeedLabel')}:
+            </span>
+            <div className="flex gap-1.5">
+              {[0.85, 1.0, 1.15].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() =>
+                    handleSaveVoiceSettings(preferredVoice, s, autoSpeakVoice)
+                  }
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                    voiceSpeed === s
+                      ? 'bg-olive text-white'
+                      : 'bg-canvas text-ink/75 border border-olive/20'
+                  }`}
+                >
+                  {s}x
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
-          <button
-            type="submit"
-            className="w-full min-h-[50px] rounded-xl bg-olive hover:bg-olive-dark text-white font-black text-sm shadow-soft flex items-center justify-center gap-2 transition-all active:scale-98"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>{locale === 'ur' ? 'معلومات محفوظ کریں' : 'Save Details'}</span>
-          </button>
-        </form>
+          <label className="flex items-center justify-between gap-2 pt-1 cursor-pointer">
+            <span className="text-xs font-bold text-ink/85">
+              {t('autoSpeakLabel')}
+            </span>
+            <input
+              type="checkbox"
+              checked={autoSpeakVoice}
+              onChange={(e) =>
+                handleSaveVoiceSettings(
+                  preferredVoice,
+                  voiceSpeed,
+                  e.target.checked
+                )
+              }
+              className="w-4 h-4 accent-olive rounded"
+            />
+          </label>
+        </section>
 
-        {/* Simple Bottom Actions: Back, Sign Out, Delete Data */}
+        {/* Bottom Actions: Back, Sign Out, Delete Data */}
         <div className="space-y-3 pt-1">
           <div className="flex items-center gap-2">
             <button
@@ -448,6 +591,18 @@ export default function ProfilePage() {
             </button>
           </div>
         </div>
+
+        {/* City Selector Modal inside Profile Editor (includes Mirpur Khas) */}
+        <LocationPickerModal
+          isOpen={showCityPicker}
+          onClose={() => setShowCityPicker(false)}
+          onSelectPlace={(nextPlace, nextLat, nextLon) => {
+            setPlaceName(nextPlace);
+            setLat(nextLat);
+            setLon(nextLon);
+            setShowCityPicker(false);
+          }}
+        />
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && (
