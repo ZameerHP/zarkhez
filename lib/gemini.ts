@@ -25,11 +25,6 @@ import {
   looksLikeRomanUrdu,
   transliterateCommonRomanUrduToUrdu,
 } from './voice/speech-prep';
-import {
-  getRegionalRiskNote,
-  SUPPORTED_AGRICULTURAL_CROPS,
-} from './vision/knowledge-base';
-import { hashImageData, recordScanTelemetry } from './vision/learning-store';
 
 /**
  * Google Gemini Multimodal Plant Pathology & Farming Advisor (lib/gemini.ts)
@@ -155,37 +150,17 @@ function findDiseaseCatalogEntry(
   return diseases['not_a_plant'];
 }
 
-function buildCropReferenceHint(selectedCrop: string, region?: string): string {
+function buildCropReferenceHint(selectedCrop: string): string {
   const norm = normalizeCropName(selectedCrop);
-  const meta = SUPPORTED_AGRICULTURAL_CROPS.find(
-    (c) => c.slug === norm || c.aliases.some((a) => a.toLowerCase() === norm)
-  );
   const diseases = diseasesData as Record<string, DiseaseCatalogEntry>;
-  const matches = Object.values(diseases).filter(
-    (entry) => entry.crop === norm && entry.pathogen_type !== 'healthy'
-  );
+  const matches = Object.values(diseases)
+    .filter((entry) => entry.crop === norm && entry.pathogen_type !== 'healthy')
+    .slice(0, 4);
+  if (matches.length === 0) return '';
   const summaryLines = matches
-    .slice(0, 8)
-    .map(
-      (m) =>
-        `  * ${m.problem_name.en} / ${m.problem_name.ur}${m.scientific_name ? ` (${m.scientific_name}, ${m.pathogen_type || 'disease'})` : ''}`
-    )
+    .map((m) => `  * ${m.problem_name.en} / ${m.problem_name.ur}`)
     .join('\n');
-
-  const lines: string[] = [];
-  if (meta) {
-    lines.push(`- Agronomic Differential Focus (${meta.en}): ${meta.keyDifferentialsEn}`);
-  }
-  if (summaryLines) {
-    lines.push(
-      `- Pakistani Reference Profiles for "${norm}" (use ONLY if pixel symptoms genuinely match; NEVER guess a listed disease if healthy or different):\n${summaryLines}`
-    );
-  }
-  const regionNote = getRegionalRiskNote(region);
-  if (regionNote) {
-    lines.push(regionNote);
-  }
-  return lines.length > 0 ? `\n${lines.join('\n')}` : '';
+  return `\n- Common Pakistani ${norm} conditions (only if pixels genuinely match):\n${summaryLines}`;
 }
 
 export function getStaticFallbackAdvice(
@@ -1660,36 +1635,23 @@ export async function analyzeCropImageWithGemini(
 
   const primaryModel = resolvePreferredModel('vision');
 
-  const systemInstruction = `You are Zarkhez's Senior Plant Pathologist & Agricultural Vision Specialist serving Pakistani farmers.
-Examine this single crop photograph with strict visual precision and return an honest, clear, easy-to-understand diagnosis.
+  const systemInstruction = `You are Zarkhez's Senior Plant Pathologist serving Pakistani farmers.
+Inspect this crop photograph accurately and return crisp, easy-to-understand English (.en) & everyday Pakistani Urdu (.ur) JSON.
 
-CRITICAL RULES FOR ACCURACY & SIMPLE CLARITY:
-1. TRUE VISUAL IDENTIFICATION FIRST:
-   - Inspect what plant and plant part are actually shown (Leaf, Stem, Roots, Flower, Fruit, Seed, Grain, Corn Cob, Trunk, Whole Plant, Soil, Pest, or Harvested Crop).
-   - Farmer choice: "${isAutoCrop ? 'Auto-Detect / Other Plant' : selectedCrop}". If unrecognizable, set detected_crop = "Unidentified Plant" (ur: "غیر شناختہ پودا") honestly.
-   - Only flag crop_mismatch when "${isAutoCrop ? 'FALSE' : 'TRUE'}", the visible crop clearly differs from "${selectedCrop}", and confirmMismatchOverride is FALSE (set crop_match = false, diagnosis_status = "crop_mismatch", severity = "not_assessed", requires_retake = false).
-   - If non-plant/irrelevant (phone, room, person, screen, random object): set image_valid = false, diagnosis_status = "invalid_image", problem_category = "unidentified_or_non_crop", severity = "not_assessed", requires_retake = true.
-2. HONEST HEALTHY VERIFICATION ("جو اچھا ہے اسے اچھا ہی بولو"):
-   - If the plant looks healthy, green, and vigorous — ignoring harmless dust, water drops, sunlight reflection, shadows, or minor wind nicks — MUST set diagnosis_status = "healthy_no_symptoms", pathogen_type = "healthy", problem_category = "healthy", severity = "low", severity_level = "healthy_none", visual_inspection.lesion_detected = false, visual_inspection.detected_hotspots = [], requires_expert_review = false. Advise routine care only; never invent disease on healthy plants!
-3. ACCURATE DISEASE, PEST, DEFICIENCY & STRESS DISTINCTION:
-   - Never assume brown/yellow spots are automatically fungal! Classify accurately across fungal, bacterial, viral, insect_pest, nematode_root, nutrient_deficiency, nutrient_toxicity, water_stress, heat_stress, cold_frost_damage, sunburn, chemical_herbicide_injury, soil_salinity, environmental_stress, or post_harvest_storage.
-   - For maize cobs/kernels compare Fusarium vs Diplodia vs Gibberella ear rot; for curled leaves check Begomovirus vs herbicide drift vs thrips/mites; for burnt margins check salinity/fertilizer burn vs blight. When uncertain or photo cannot separate look-alikes, state honestly and lower confidence.
-4. SIMPLE, CLEAN, NON-REPETITIVE FARMER LANGUAGE (MOST IMPORTANT):
-   - Populate EVERY localized field cleanly: pure natural English in ".en" and simple everyday Pakistani Urdu in ".ur" (NO English words, underscores, or technical jargon inside ".ur" strings!). Keep every value concise (1 short phrase/sentence per bullet, max 2 items per list) so responses stay crisp.
-   - Keep observed_symptoms (1-3 sharp visible clues), possible_causes (1-2 clear drivers), explanations.farmer_friendly (1-2 clear sentences telling the farmer plainly what happened), and treatment_pillars.immediate_actions (2-3 crisp numbered steps the farmer can act on today without repeating prevention points).
-   - Recommend ONLY registered active ingredient classes with safety/PHI notes; NEVER invent commercial doses or banned WHO Class Ia/Ib chemicals (Monocrotophos, Endosulfan, Carbofuran, DDT). Never mention "Gemini" or "Google" (refer only to "Zarkhez Cloud Vision").`;
+RULES:
+1. IDENTIFY CROP & PART FIRST: Detect actual crop & part ("Leaf", "Stem", "Roots", "Fruit", "Flower", "Whole plant"). Farmer selected "${selectedCrop}". If visibly a different crop and confirmMismatchOverride is FALSE (and "${isAutoCrop ? 'FALSE' : 'TRUE'}" is TRUE), set crop_match=false, diagnosis_status="crop_mismatch", severity="not_assessed", requires_retake=false. If not a plant (phone, room, person, screen), set image_valid=false, diagnosis_status="invalid_image", problem_category="unidentified_or_non_crop", severity="not_assessed", requires_retake=true.
+2. HONEST HEALTHY CHECK: If healthy and vigorous (ignoring harmless dust/shadows/water drops), set diagnosis_status="healthy_no_symptoms", pathogen_type="healthy", problem_category="healthy", severity="low", severity_level="healthy_none", visual_inspection.lesion_detected=false, visual_inspection.detected_hotspots=[], requires_expert_review=false.
+3. ACCURATE DIAGNOSIS: Distinguish fungal, bacterial, viral, pest, nutrient deficiency, or water/heat/herbicide stress cleanly without blaming fungi for every yellow/brown spot.
+4. SIMPLE FARMER WORDING: Pure natural Urdu in ".ur" (no English words or technical jargon), short clear English in ".en", max 2 items per list. Suggest only safe registered classes; never mention Gemini/Google or banned chemicals (Monocrotophos, Endosulfan, Carbofuran, DDT).`;
 
-  const regionalHint = buildCropReferenceHint(selectedCrop, scanOptions?.region);
+  const cropHint = buildCropReferenceHint(selectedCrop);
 
-  const basePromptText = `Inspect this plant photograph carefully:
-- Farmer Selected Crop: "${selectedCrop}"
-- Confirm Mismatch Override: ${confirmMismatchOverride ? 'TRUE' : 'FALSE'}${
+  const basePromptText = `Crop selected: "${selectedCrop}", confirmMismatchOverride: ${confirmMismatchOverride ? 'TRUE' : 'FALSE'}${
     clientQuality
-      ? `\n- Optical Check: Subject=${clientQuality.subjectRatio}, LesionRatio=${clientQuality.lesionRatio ?? 0}, VisibleLesions=${clientQuality.hasVisibleLesions ? 'YES' : 'NO'}, Blur=${clientQuality.isBlurry ? 'YES' : 'NO'}, Dark=${clientQuality.isDark ? 'YES' : 'NO'}`
+      ? `\nOptical Check: Subject=${clientQuality.subjectRatio}, LesionRatio=${clientQuality.lesionRatio ?? 0}, VisibleLesions=${clientQuality.hasVisibleLesions ? 'YES' : 'NO'}, Blur=${clientQuality.isBlurry ? 'YES' : 'NO'}, Dark=${clientQuality.isDark ? 'YES' : 'NO'}`
       : ''
-  }${regionalHint}
-
-Return valid JSON matching the bilingual English & Urdu schema with clear, concise farmer wording.`;
+  }${cropHint}
+Return crisp bilingual JSON.`;
 
   const MAX_FORMAT_RETRIES = 1;
   let lastValidationError: GeminiVisionError | null = null;
@@ -1795,13 +1757,6 @@ Return valid JSON matching the bilingual English & Urdu schema with clear, conci
       }
       throw lastValidationError;
     }
-
-    recordScanTelemetry({
-      imageHash: hashImageData(cleanBase64),
-      diagnosis: normalized.data,
-      scanMode,
-      region: scanOptions?.region,
-    });
 
     return normalized.data;
   }

@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import type { CropDiagnosis } from '../schemas';
 import { redactSecrets } from '../error-sanitizer';
@@ -93,13 +94,25 @@ export interface ExpertVerifiedDatasetRecord {
 }
 
 const DEFAULT_STORE_DIR = path.resolve(process.cwd(), 'data/vision');
+const TMP_STORE_DIR = path.join(os.tmpdir(), 'zarkhez-vision');
 
 function getStorePath(fileName: string, overrideDir?: string): string {
   const dir = overrideDir || DEFAULT_STORE_DIR;
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  try {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return path.join(dir, fileName);
+  } catch {
+    try {
+      if (!fs.existsSync(TMP_STORE_DIR)) {
+        fs.mkdirSync(TMP_STORE_DIR, { recursive: true });
+      }
+      return path.join(TMP_STORE_DIR, fileName);
+    } catch {
+      return path.join(TMP_STORE_DIR, fileName);
+    }
   }
-  return path.join(dir, fileName);
 }
 
 export function hashImageData(base64OrUrl: string): string {
@@ -145,23 +158,27 @@ export function recordScanTelemetry(params: {
   consentToStore?: boolean;
   storeDir?: string;
 }): boolean {
-  const entry = {
-    timestamp: new Date().toISOString(),
-    imageHash: params.imageHash,
-    modelVersion: params.diagnosis.model_version || MODEL_VERSION_HISTORY[0].version,
-    scanMode: params.scanMode,
-    region: params.region || 'unspecified',
-    detectedCrop: params.diagnosis.detected_crop,
-    plantPart: params.diagnosis.detected_plant_part,
-    diagnosisStatus: params.diagnosis.diagnosis_status,
-    problemCategory: params.diagnosis.problem_category,
-    primaryProblem: params.diagnosis.problem_name.en,
-    modelConfidence: params.diagnosis.confidence_breakdown?.model_confidence ?? params.diagnosis.identification_confidence,
-    diagnosticCertainty: params.diagnosis.identification_confidence,
-    evidenceQuality: params.diagnosis.confidence_breakdown?.visual_evidence_quality ?? 'moderate',
-    consentToStore: Boolean(params.consentToStore),
-  };
-  return appendJsonlSafe(getStorePath('scan-telemetry.jsonl', params.storeDir), entry);
+  try {
+    const entry = {
+      timestamp: new Date().toISOString(),
+      imageHash: params.imageHash,
+      modelVersion: params.diagnosis.model_version || MODEL_VERSION_HISTORY[0].version,
+      scanMode: params.scanMode,
+      region: params.region || 'unspecified',
+      detectedCrop: params.diagnosis.detected_crop,
+      plantPart: params.diagnosis.detected_plant_part,
+      diagnosisStatus: params.diagnosis.diagnosis_status,
+      problemCategory: params.diagnosis.problem_category,
+      primaryProblem: params.diagnosis.problem_name.en,
+      modelConfidence: params.diagnosis.confidence_breakdown?.model_confidence ?? params.diagnosis.identification_confidence,
+      diagnosticCertainty: params.diagnosis.identification_confidence,
+      evidenceQuality: params.diagnosis.confidence_breakdown?.visual_evidence_quality ?? 'moderate',
+      consentToStore: Boolean(params.consentToStore),
+    };
+    return appendJsonlSafe(getStorePath('scan-telemetry.jsonl', params.storeDir), entry);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -224,7 +241,11 @@ export function verifyAndPromoteFeedback(params: {
     const updated = allFeedback.map((f) =>
       f.feedbackId === params.feedbackId ? { ...f, quarantineStatus: 'rejected' as const } : f
     );
-    fs.writeFileSync(fbPath, `${updated.map((u) => JSON.stringify(u)).join('\n')}\n`, 'utf8');
+    try {
+      fs.writeFileSync(fbPath, `${updated.map((u) => JSON.stringify(u)).join('\n')}\n`, 'utf8');
+    } catch {
+      return { ok: false, reason: 'storage_read_only' };
+    }
     return { ok: true, reason: 'rejected_by_expert' };
   }
 
@@ -260,7 +281,11 @@ export function verifyAndPromoteFeedback(params: {
   const updated = allFeedback.map((f) =>
     f.feedbackId === params.feedbackId ? { ...f, quarantineStatus: 'approved_for_dataset' as const } : f
   );
-  fs.writeFileSync(fbPath, `${updated.map((u) => JSON.stringify(u)).join('\n')}\n`, 'utf8');
+  try {
+    fs.writeFileSync(fbPath, `${updated.map((u) => JSON.stringify(u)).join('\n')}\n`, 'utf8');
+  } catch {
+    // Non-fatal on read-only runtime
+  }
 
   return { ok: true, promotedRecord };
 }

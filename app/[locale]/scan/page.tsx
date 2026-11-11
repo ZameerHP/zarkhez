@@ -58,10 +58,8 @@ import {
 import { buildOfflinePreliminaryAssessment } from '@/lib/offline-assessment';
 import {
   formatProblemCategoryLabel,
-  RegionSelectorBar,
   TechnicalDetailsDrawer,
 } from '@/components/scan/VisionInsightsAndFeedback';
-import { SUPPORTED_AGRICULTURAL_CROPS } from '@/lib/vision/knowledge-base';
 
 type ScanStage =
   | 'idle'
@@ -113,8 +111,6 @@ export default function ScanPage() {
   const [voiceErrorMsg, setVoiceErrorMsg] = useState<string | null>(null);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
   const [viewMode, setViewMode] = useState<'annotated' | 'original'>('annotated');
-  const [region, setRegion] = useState<string>('');
-  const [showAllCrops, setShowAllCrops] = useState(false);
 
   // Quality check state
   const [pendingQualityData, setPendingQualityData] = useState<{
@@ -131,24 +127,16 @@ export default function ScanPage() {
   const scanInFlightRef = useRef(false);
   const activeAbortRef = useRef<AbortController | null>(null);
 
-  const supportedCrops = SUPPORTED_AGRICULTURAL_CROPS.map((c) => ({
-    key: c.slug,
-    en: c.en,
-    ur: c.ur,
-  }));
-
-  useEffect(() => {
-    const p = getSavedProfile();
-    if (p?.province || p?.district) {
-      const txt = `${p.province || ''} ${p.district || ''}`.toLowerCase();
-      if (txt.includes('sindh') || txt.includes('hyderabad') || txt.includes('sukkur')) setRegion('sindh_delta');
-      else if (txt.includes('multan') || txt.includes('bahawal')) setRegion('south_punjab');
-      else if (txt.includes('punjab') || txt.includes('lahore')) setRegion('central_punjab');
-      else if (txt.includes('potohar') || txt.includes('rawalpindi') || txt.includes('chakwal')) setRegion('potohar_rainfed');
-      else if (txt.includes('kp') || txt.includes('peshawar') || txt.includes('swat')) setRegion('kp_valleys');
-      else if (txt.includes('baloch') || txt.includes('quetta')) setRegion('balochistan_arid');
-    }
-  }, []);
+  const supportedCrops = [
+    { key: 'wheat', en: 'Wheat', ur: 'گندم' },
+    { key: 'rice', en: 'Rice', ur: 'دھان' },
+    { key: 'cotton', en: 'Cotton', ur: 'کپاس' },
+    { key: 'maize', en: 'Maize', ur: 'مکئی' },
+    { key: 'sugarcane', en: 'Sugarcane', ur: 'کماد' },
+    { key: 'tomato', en: 'Tomato', ur: 'ٹماٹر' },
+    { key: 'potato', en: 'Potato', ur: 'آلو' },
+    { key: 'chili', en: 'Chili', ur: 'مرچ' },
+  ] as const;
 
   const organGuides = [
     { icon: Leaf, ur: 'پتا', en: 'Leaf' },
@@ -432,7 +420,6 @@ export default function ScanPage() {
           selectedCrop: cropKey,
           confirmMismatchOverride,
           clientQuality: qualityReport,
-          region: region || undefined,
         }),
         signal: controller.signal,
       });
@@ -743,19 +730,17 @@ export default function ScanPage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              {(showAllCrops ? supportedCrops : supportedCrops.slice(0, 8)).map((c) => {
+            <div className="grid grid-cols-4 gap-1.5">
+              {supportedCrops.map((c) => {
                 const active = selectedCrop.toLowerCase() === c.key;
                 return (
                   <button
                     key={c.key}
                     type="button"
                     onClick={() => setSelectedCrop(c.key)}
-                    className={`min-h-[40px] px-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all border ${
+                    className={`min-h-[40px] rounded-xl font-extrabold text-xs transition-all border ${
                       active
                         ? 'bg-[#062409] text-white border-[#062409] shadow-sm'
-                        : c.key === 'auto'
-                        ? 'bg-emerald-50 text-emerald-950 hover:bg-emerald-100 border-emerald-300'
                         : 'bg-canvas text-ink/80 hover:bg-olive/15 border-olive/15'
                     }`}
                   >
@@ -764,31 +749,7 @@ export default function ScanPage() {
                 );
               })}
             </div>
-
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowAllCrops((v) => !v)}
-                className="text-[11px] font-extrabold text-olive hover:underline"
-              >
-                {showAllCrops
-                  ? locale === 'ur'
-                    ? 'کم فصلیں دکھائیں'
-                    : 'Show fewer crops'
-                  : locale === 'ur'
-                  ? `مزید فصلیں اور باغات دیکھیں (${supportedCrops.length})`
-                  : `Show all ${supportedCrops.length} crops & orchards`}
-              </button>
-            </div>
           </motion.section>
-        )}
-
-        {!diagnosis && !analysing && (
-          <RegionSelectorBar
-            locale={locale}
-            region={region}
-            onRegionChange={setRegion}
-          />
         )}
 
         {/* 1-Image Primary Capture Frame */}
@@ -1789,7 +1750,6 @@ export default function ScanPage() {
                 <TechnicalDetailsDrawer
                   diagnosis={diagnosis}
                   reportLang={reportLang}
-                  region={region}
                 />
 
                 {/* Actions: Save to Farm Diary & Scan Another */}
