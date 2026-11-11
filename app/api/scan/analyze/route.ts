@@ -105,10 +105,7 @@ export async function POST(req: NextRequest) {
     selectedCrop,
     confirmMismatchOverride,
     clientQuality,
-    scanMode,
     region,
-    additionalImages,
-    fieldContext,
   } = parsed.data;
 
   try {
@@ -117,12 +114,7 @@ export async function POST(req: NextRequest) {
       selectedCrop,
       confirmMismatchOverride,
       clientQuality,
-      {
-        scanMode,
-        region,
-        additionalImages,
-        fieldContext,
-      }
+      { region }
     );
 
     recordDiagnosticSuccess('vision');

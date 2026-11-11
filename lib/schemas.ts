@@ -380,17 +380,7 @@ export const CropAnalysisRequestSchema = z.object({
   selectedCrop: z.string().min(1).max(60),
   confirmMismatchOverride: z.boolean().optional().default(false),
   clientQuality: z.any().optional(),
-  scanMode: z.enum(['single_plant', 'whole_field']).optional().default('single_plant'),
   region: z.string().max(120).optional(),
-  additionalImages: z.array(z.string().min(20).max(5_000_000)).max(3).optional(),
-  fieldContext: z
-    .object({
-      growthStageHint: z.string().max(80).optional(),
-      spreadObservation: z.string().max(240).optional(),
-      recentWeatherOrSpray: z.string().max(240).optional(),
-      lightingCondition: z.string().max(80).optional(),
-    })
-    .optional(),
 });
 
 export type CropAnalysisRequest = z.infer<typeof CropAnalysisRequestSchema>;

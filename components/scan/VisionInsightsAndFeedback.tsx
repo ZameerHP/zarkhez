@@ -2,244 +2,138 @@
 
 import React, { useState } from 'react';
 import {
-  AlertTriangle,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Download,
   ExternalLink,
   FileText,
   FlaskConical,
   Layers,
   MapPin,
-  Plus,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
   ThumbsDown,
   ThumbsUp,
-  Trash2,
 } from 'lucide-react';
 import { CropDiagnosis, getLocalizedText } from '@/lib/schemas';
 import { PAKISTAN_REGION_PROFILES } from '@/lib/vision/knowledge-base';
 import { buildStructuredAgronomyReportText } from '@/lib/vision/report-formatter';
-import { compressAndAssessLeafImage } from '@/lib/image-quality';
 
-interface MultiFieldPanelProps {
-  locale: 'en' | 'ur';
-  scanMode: 'single_plant' | 'whole_field';
-  onScanModeChange: (mode: 'single_plant' | 'whole_field') => void;
-  region: string;
-  onRegionChange: (r: string) => void;
-  additionalImages: string[];
-  onAddExtraImage: (dataUrl: string) => void;
-  onRemoveExtraImage: (idx: number) => void;
+const CATEGORY_LABELS: Record<string, { en: string; ur: string }> = {
+  fungal_infection: { en: 'Fungal Disease', ur: 'پھپھوندی کی بیماری' },
+  bacterial_infection: { en: 'Bacterial Infection', ur: 'بیکٹیریل بیماری' },
+  viral_infection: { en: 'Viral Disease', ur: 'وائرس کی بیماری' },
+  insect_pest: { en: 'Insect / Pest', ur: 'کیڑوں کا حملہ' },
+  nematode_root: { en: 'Root Nematode', ur: 'جڑوں کا کیڑا (نیماٹوڈ)' },
+  nutrient_deficiency: { en: 'Nutrient Deficiency', ur: 'غذائی کمی' },
+  nutrient_toxicity: { en: 'Nutrient Excess', ur: 'کھاد یا نمکیات کی زیادتی' },
+  water_stress: { en: 'Water Stress', ur: 'پانی کی کمی یا زیادتی' },
+  heat_stress: { en: 'Heat Stress', ur: 'شدید گرمی کا اثر' },
+  cold_frost_damage: { en: 'Frost / Cold', ur: 'کہر / سردی کا اثر' },
+  sunburn: { en: 'Sunburn', ur: 'تیز دھوپ کا جھلساؤ' },
+  chemical_herbicide_injury: { en: 'Spray / Herbicide Burn', ur: 'دوا یا سپرے کا اثر' },
+  soil_salinity: { en: 'Soil Salinity', ur: 'زمینی کلر / نمکیات' },
+  environmental_stress: { en: 'Weather Stress', ur: 'موسمی دباؤ' },
+  mechanical_physical_damage: { en: 'Physical Damage', ur: 'ظاہری چوٹ / ہوا کا نقصان' },
+  post_harvest_storage: { en: 'Storage Issue', ur: 'ذخیرے میں خرابی' },
+  healthy: { en: 'Healthy Crop', ur: 'تندرست پودا' },
+  unidentified_or_non_crop: { en: 'Unclear / Other', ur: 'غیر واضح تصویر' },
+};
+
+const VISUAL_VALUE_MAP: Record<string, { en: string; ur: string }> = {
+  none: { en: 'None', ur: 'کوئی نہیں' },
+  zero: { en: 'None', ur: 'کوئی نہیں' },
+  few: { en: 'A few spots', ur: 'چند دھبے' },
+  several: { en: 'Several spots', ur: 'کئی دھبے' },
+  many: { en: 'Many spots', ur: 'کافی زیادہ دھبے' },
+  widespread: { en: 'Widespread', ur: 'پوری سطح پر پھیلے ہوئے' },
+  unassessed: { en: 'Not checked', ur: 'جانچ نہیں ہوئی' },
+  spindle_shaped: { en: 'Spindle / diamond shaped', ur: 'نوکیلے / لمبوترے' },
+  circular_oval: { en: 'Round / oval spots', ur: 'گول / بیضوی' },
+  irregular: { en: 'Irregular patches', ur: 'بے ترتیب دھبے' },
+  streaks: { en: 'Long stripes / streaks', ur: 'لمبی لکیریں' },
+  well_defined: { en: 'Clear borders', ur: 'واضح کنارے' },
+  diffuse: { en: 'Faded borders', ur: 'دھندلے کنارے' },
+  water_soaked: { en: 'Water-soaked edges', ur: 'گیلے کنارے' },
+};
+
+export function formatProblemCategoryLabel(
+  category: string | undefined,
+  lang: 'en' | 'ur'
+): string {
+  if (!category) return '';
+  const hit = CATEGORY_LABELS[category];
+  if (hit) return hit[lang];
+  return lang === 'en' ? category.replace(/_/g, ' ') : 'زرعی کیفیت';
 }
 
-export function ScanModeAndFieldContextPanel({
+export function formatVisualMetricLabel(
+  raw: string | undefined,
+  lang: 'en' | 'ur'
+): string {
+  if (!raw) return lang === 'en' ? 'None' : 'کوئی نہیں';
+  const key = raw.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const hit = VISUAL_VALUE_MAP[key];
+  if (hit) return hit[lang];
+  if (lang === 'en') return raw.replace(/_/g, ' ');
+  return /[a-z_]/i.test(raw) ? 'دھبے موجود' : raw;
+}
+
+export function RegionSelectorBar({
   locale,
-  scanMode,
-  onScanModeChange,
   region,
   onRegionChange,
-  additionalImages,
-  onAddExtraImage,
-  onRemoveExtraImage,
-}: MultiFieldPanelProps) {
-  const [addingExtra, setAddingExtra] = useState(false);
-
-  const handleExtraFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || additionalImages.length >= 3) return;
-    setAddingExtra(true);
-    try {
-      const compressed = await compressAndAssessLeafImage(file);
-      onAddExtraImage(compressed.fullDataUrl);
-    } catch {
-      // ignore corrupted frame safely
-    } finally {
-      setAddingExtra(false);
-    }
-  };
-
+}: {
+  locale: 'en' | 'ur';
+  region: string;
+  onRegionChange: (r: string) => void;
+}) {
   return (
-    <div className="bg-white rounded-2xl p-3.5 shadow-soft border border-olive/15 space-y-3 text-start">
-      <div className="grid grid-cols-2 gap-1.5 bg-canvas p-1 rounded-xl border border-olive/15">
-        <button
-          type="button"
-          onClick={() => onScanModeChange('single_plant')}
-          className={`py-2 px-2.5 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
-            scanMode === 'single_plant'
-              ? 'bg-[#062409] text-white shadow-sm'
-              : 'text-ink/75 hover:bg-olive/10'
-          }`}
-        >
-          <Layers className="w-3.5 h-3.5 text-emerald-400" />
-          <span>{locale === 'ur' ? 'انفرادی پودا / حصہ' : 'Single Plant / Organ'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onScanModeChange('whole_field')}
-          className={`py-2 px-2.5 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
-            scanMode === 'whole_field'
-              ? 'bg-[#062409] text-white shadow-sm'
-              : 'text-ink/75 hover:bg-olive/10'
-          }`}
-        >
-          <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-          <span>{locale === 'ur' ? 'پورا کھیت (متعدد تصاویر)' : 'Whole Field (Multi-Photo)'}</span>
-        </button>
-      </div>
-
-      {/* Geographical Region Selector */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <label className="text-[11px] font-extrabold text-ink/75 flex items-center gap-1">
-          <MapPin className="w-3.5 h-3.5 text-olive" />
-          <span>{locale === 'ur' ? 'علاقہ (موسم کے حساب سے):' : 'Region / Agro-Zone:'}</span>
-        </label>
-        <select
-          value={region}
-          onChange={(e) => onRegionChange(e.target.value)}
-          className="text-xs font-bold bg-canvas border border-olive/20 rounded-xl px-2.5 py-1.5 text-ink max-w-[230px]"
-        >
-          <option value="">{locale === 'ur' ? 'عام / کوئی بھی علاقہ' : 'Auto / General Region'}</option>
-          {PAKISTAN_REGION_PROFILES.map((rp) => (
-            <option key={rp.key} value={rp.key}>
-              {locale === 'ur' ? rp.ur : rp.en}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {scanMode === 'whole_field' && (
-        <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-2.5 space-y-2">
-          <p className="text-[11px] text-emerald-950 font-semibold leading-snug">
-            {locale === 'ur'
-              ? 'پورے کھیت کے درست اندازے کے لیے کھیت کے مختلف کونوں یا مختلف حصوں (پتا، تنا، جڑ/بھٹہ) کی 3 تک اضافی تصاویر شامل کریں، پھر مرکزی تصویر لیں:'
-              : 'Add up to 3 additional field-corner or close-up angle photos before taking your primary scan photo so whole-field distribution can be assessed honestly:'}
-          </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            {additionalImages.map((src, i) => (
-              <div key={i} className="relative w-12 h-12 rounded-lg overflow-hidden border border-olive/30">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt="" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => onRemoveExtraImage(i)}
-                  aria-label="Remove"
-                  className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-            {additionalImages.length < 3 && (
-              <label className="px-3 py-2 rounded-xl bg-white border border-dashed border-olive/40 text-xs font-bold text-ink cursor-pointer flex items-center gap-1 hover:bg-olive/5">
-                <Plus className="w-3.5 h-3.5 text-olive" />
-                <span>
-                  {addingExtra
-                    ? locale === 'ur' ? 'شامل ہو رہا ہے...' : 'Adding...'
-                    : locale === 'ur' ? 'اضافی تصویر شامل کریں' : 'Add Field Angle'}
-                </span>
-                <input type="file" accept="image/*" onChange={handleExtraFiles} className="hidden" />
-              </label>
-            )}
-          </div>
-        </div>
-      )}
+    <div className="bg-white rounded-2xl px-3.5 py-2.5 shadow-soft border border-olive/15 flex items-center justify-between gap-2 flex-wrap text-start">
+      <label className="text-[11px] font-extrabold text-ink/75 flex items-center gap-1.5">
+        <MapPin className="w-3.5 h-3.5 text-olive" />
+        <span>{locale === 'ur' ? 'علاقہ (اختیاری):' : 'Region (Optional):'}</span>
+      </label>
+      <select
+        value={region}
+        onChange={(e) => onRegionChange(e.target.value)}
+        className="text-xs font-bold bg-canvas border border-olive/20 rounded-xl px-2.5 py-1.5 text-ink max-w-[230px]"
+      >
+        <option value="">{locale === 'ur' ? 'تمام علاقے (خودکار)' : 'Auto / Any Region'}</option>
+        {PAKISTAN_REGION_PROFILES.map((rp) => (
+          <option key={rp.key} value={rp.key}>
+            {locale === 'ur' ? rp.ur : rp.en}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
 
-export function ConfidenceCalibrationPanel({
+export function TechnicalDetailsDrawer({
   diagnosis,
   reportLang,
+  region,
 }: {
   diagnosis: CropDiagnosis;
   reportLang: 'en' | 'ur';
+  region?: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const [fbStatus, setFbStatus] = useState<'idle' | 'editing' | 'submitting' | 'submitted'>('idle');
+  const [correctedDisease, setCorrectedDisease] = useState('');
+  const [correctedCrop, setCorrectedCrop] = useState('');
+  const [notes, setNotes] = useState('');
+  const [consentForDataset, setConsentForDataset] = useState(false);
+  const [serverMsg, setServerMsg] = useState('');
+
   const cb = diagnosis.confidence_breakdown;
-  if (!cb) return null;
+  const modelPct = Math.round((cb?.model_confidence ?? diagnosis.identification_confidence ?? 0) * 100);
+  const certaintyPct = Math.round((cb?.diagnostic_certainty ?? diagnosis.identification_confidence ?? 0) * 100);
 
-  const modelPct = Math.round((cb.model_confidence || 0) * 100);
-  const certaintyPct = Math.round((cb.diagnostic_certainty || 0) * 100);
-  const altPct = Math.round((cb.alternative_top_probability || 0) * 100);
-
-  return (
-    <div className="bg-canvas/90 rounded-2xl p-3.5 border border-olive/15 space-y-2.5 text-xs text-start">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="font-black text-[11px] text-ink uppercase flex items-center gap-1.5">
-          <FlaskConical className="w-3.5 h-3.5 text-olive" />
-          <span>
-            {reportLang === 'en'
-              ? 'Calibrated Certainty & Laboratory Status'
-              : 'موزوں تشخیصی یقین اور لیبارٹری حیثیت'}
-          </span>
-        </span>
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
-          {reportLang === 'en' ? 'Unconfirmed Visual Screening Only' : 'صرف بصری معائنہ (غیر تصدیق شدہ لیب)'}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-        <div className="bg-white p-2 rounded-xl border border-olive/10">
-          <span className="text-ink/55 block font-bold">
-            {reportLang === 'en' ? 'Raw AI Score' : 'اے آئی سکور'}
-          </span>
-          <strong className="text-sm text-ink">{modelPct}%</strong>
-        </div>
-        <div className="bg-white p-2 rounded-xl border border-olive/10">
-          <span className="text-ink/55 block font-bold">
-            {reportLang === 'en' ? 'Calibrated Certainty' : 'حقیقی یقین'}
-          </span>
-          <strong className="text-sm text-emerald-700">{certaintyPct}%</strong>
-        </div>
-        <div className="bg-white p-2 rounded-xl border border-olive/10">
-          <span className="text-ink/55 block font-bold">
-            {reportLang === 'en' ? 'Visual Evidence' : 'تصویری شواہد'}
-          </span>
-          <strong className="text-sm capitalize text-ink">{cb.visual_evidence_quality}</strong>
-        </div>
-        <div className="bg-white p-2 rounded-xl border border-olive/10">
-          <span className="text-ink/55 block font-bold">
-            {reportLang === 'en' ? 'Alt. Possibility' : 'دوسرا امکان'}
-          </span>
-          <strong className="text-sm text-ink">{altPct > 0 ? `${altPct}%` : '—'}</strong>
-        </div>
-      </div>
-
-      {cb.calibration_note && (
-        <p className="text-[11px] text-ink/75 leading-relaxed">
-          {getLocalizedText(cb.calibration_note, reportLang)}
-        </p>
-      )}
-
-      {diagnosis.safety_guardrail_notes && diagnosis.safety_guardrail_notes.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 space-y-1 text-red-900">
-          <div className="font-black text-[11px] flex items-center gap-1">
-            <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
-            <span>
-              {reportLang === 'en' ? 'Pesticide Safety Filter Applied' : 'زرعی زہروں کا حفاظتی فلٹر'}
-            </span>
-          </div>
-          {diagnosis.safety_guardrail_notes.map((n, i) => (
-            <p key={i} className="text-[11px] leading-snug">
-              {getLocalizedText(n, reportLang)}
-            </p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function ExtendedAgronomyCards({
-  diagnosis,
-  reportLang,
-}: {
-  diagnosis: CropDiagnosis;
-  reportLang: 'en' | 'ur';
-}) {
   const handleDownloadReport = () => {
     const content = buildStructuredAgronomyReportText(diagnosis, reportLang);
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -254,180 +148,8 @@ export function ExtendedAgronomyCards({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  return (
-    <div className="space-y-3 pt-1">
-      {/* Disease Development, Yield & Quality Impact Grid */}
-      {(diagnosis.disease_development_conditions || diagnosis.yield_impact || diagnosis.quality_risk) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-          {diagnosis.disease_development_conditions && (
-            <div className="bg-sky-50/70 p-3 rounded-2xl border border-sky-200 space-y-1">
-              <span className="text-[10px] font-black text-sky-900 uppercase block">
-                {reportLang === 'en' ? 'Disease Development Conditions' : 'بیماری بڑھنے کے موسمی حالات'}
-              </span>
-              <p className="text-ink/85 leading-relaxed">
-                {getLocalizedText(diagnosis.disease_development_conditions, reportLang)}
-              </p>
-            </div>
-          )}
-          {(diagnosis.yield_impact || diagnosis.quality_risk) && (
-            <div className="bg-rose-50/60 p-3 rounded-2xl border border-rose-200 space-y-1">
-              <span className="text-[10px] font-black text-rose-900 uppercase block">
-                {reportLang === 'en' ? 'Yield & Harvest Quality Risk' : 'پیداوار اور معیار پر اثر'}
-              </span>
-              {diagnosis.yield_impact && (
-                <p className="text-ink/85 leading-relaxed">
-                  {getLocalizedText(diagnosis.yield_impact, reportLang)}
-                </p>
-              )}
-              {diagnosis.quality_risk && (
-                <p className="text-rose-950 font-semibold leading-relaxed">
-                  {getLocalizedText(diagnosis.quality_risk, reportLang)}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Possible Co-infections */}
-      {diagnosis.possible_co_infections && diagnosis.possible_co_infections.length > 0 && (
-        <div className="bg-purple-50/60 p-3 rounded-2xl border border-purple-200 text-xs space-y-1">
-          <span className="text-[10px] font-black text-purple-900 uppercase flex items-center gap-1">
-            <AlertTriangle className="w-3.5 h-3.5 text-purple-700" />
-            <span>
-              {reportLang === 'en' ? 'Possible Co-Infections / Secondary Issues' : 'ممکنہ مشترکہ بیماریاں / ثانوی حملہ'}
-            </span>
-          </span>
-          <ul className="space-y-1 text-ink/85">
-            {diagnosis.possible_co_infections.map((co, i) => (
-              <li key={i}>• {getLocalizedText(co, reportLang)}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Short-Term & Long-Term Management Pills */}
-      {diagnosis.treatment_pillars &&
-        ((diagnosis.treatment_pillars.short_term_management?.length || 0) > 0 ||
-          (diagnosis.treatment_pillars.long_term_prevention?.length || 0) > 0) && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            {diagnosis.treatment_pillars.short_term_management &&
-              diagnosis.treatment_pillars.short_term_management.length > 0 && (
-                <div className="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-200 space-y-1">
-                  <span className="text-[10px] font-black text-emerald-900 uppercase block">
-                    {reportLang === 'en' ? 'Short-Term Management (Next Few Days)' : 'قلیل مدتی انتظام (آئندہ چند دن)'}
-                  </span>
-                  {diagnosis.treatment_pillars.short_term_management.map((st, i) => (
-                    <p key={i} className="text-ink/85">• {getLocalizedText(st, reportLang)}</p>
-                  ))}
-                </div>
-              )}
-            {diagnosis.treatment_pillars.long_term_prevention &&
-              diagnosis.treatment_pillars.long_term_prevention.length > 0 && (
-                <div className="bg-amber-50/60 p-3 rounded-2xl border border-amber-200 space-y-1">
-                  <span className="text-[10px] font-black text-amber-900 uppercase block">
-                    {reportLang === 'en' ? 'Long-Term Prevention' : 'طویل مدتی بچاؤ'}
-                  </span>
-                  {diagnosis.treatment_pillars.long_term_prevention.map((lt, i) => (
-                    <p key={i} className="text-ink/85">• {getLocalizedText(lt, reportLang)}</p>
-                  ))}
-                </div>
-              )}
-          </div>
-        )}
-
-      {/* Whole Field Multi-Photo Summary */}
-      {diagnosis.field_assessment && diagnosis.field_assessment.mode === 'whole_field' && (
-        <div className="bg-emerald-900/5 p-3.5 rounded-2xl border border-emerald-700/20 text-xs space-y-1">
-          <span className="text-[10px] font-black text-emerald-900 uppercase block">
-            {reportLang === 'en'
-              ? `Whole-Field Multi-Photo Assessment (${diagnosis.field_assessment.images_analyzed} frames)`
-              : `پورے کھیت کا مجموعی جائزہ (${diagnosis.field_assessment.images_analyzed} تصاویر)`}
-          </span>
-          <p className="text-ink/85 font-medium">
-            {diagnosis.field_assessment.scope_summary
-              ? getLocalizedText(diagnosis.field_assessment.scope_summary, reportLang)
-              : diagnosis.field_assessment.distribution_pattern}
-          </p>
-        </div>
-      )}
-
-      {/* Additional Testing & Verified Sources */}
-      {diagnosis.additional_testing_required && (
-        <div className="bg-canvas/80 p-3 rounded-2xl border border-olive/15 text-xs space-y-1">
-          <span className="text-[10px] font-black text-ink/70 uppercase block">
-            {reportLang === 'en' ? 'Additional Testing Recommended' : 'مزید لیبارٹری یا فیلڈ ٹیسٹ'}
-          </span>
-          <p className="text-ink/80">{getLocalizedText(diagnosis.additional_testing_required, reportLang)}</p>
-        </div>
-      )}
-
-      {diagnosis.scientific_references && diagnosis.scientific_references.length > 0 && (
-        <div className="bg-canvas/70 p-3 rounded-2xl border border-olive/15 text-[11px] space-y-1.5">
-          <span className="font-black text-ink/75 uppercase flex items-center gap-1">
-            <BookOpen className="w-3.5 h-3.5 text-olive" />
-            <span>
-              {reportLang === 'en' ? 'Grounded Agricultural References' : 'مستند زرعی تحقیقی مراجع'}
-            </span>
-          </span>
-          <ul className="space-y-1 text-ink/80">
-            {diagnosis.scientific_references.map((ref, i) => (
-              <li key={i} className="flex items-start justify-between gap-2">
-                <span>
-                  <strong>[{ref.source}]</strong> {ref.title}
-                </span>
-                {ref.url && (
-                  <a
-                    href={ref.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-olive font-bold flex-shrink-0 inline-flex items-center gap-0.5 hover:underline"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Export 25-Point Report */}
-      <button
-        type="button"
-        onClick={handleDownloadReport}
-        className="w-full min-h-[44px] rounded-2xl bg-canvas hover:bg-olive/10 border border-olive/25 text-ink font-extrabold text-xs flex items-center justify-center gap-2 transition-all"
-      >
-        <Download className="w-4 h-4 text-olive" />
-        <FileText className="w-4 h-4 text-olive" />
-        <span>
-          {reportLang === 'en'
-            ? 'Download Full 25-Section Agronomy Report'
-            : 'مکمل 25 نکاتی زرعی رپورٹ ڈاؤن لوڈ کریں'}
-        </span>
-      </button>
-    </div>
-  );
-}
-
-export function ScanFeedbackAndModelFooter({
-  diagnosis,
-  reportLang,
-  region,
-}: {
-  diagnosis: CropDiagnosis;
-  reportLang: 'en' | 'ur';
-  region?: string;
-}) {
-  const [status, setStatus] = useState<'idle' | 'editing' | 'submitting' | 'submitted'>('idle');
-  const [correctedDisease, setCorrectedDisease] = useState('');
-  const [correctedCrop, setCorrectedCrop] = useState('');
-  const [notes, setNotes] = useState('');
-  const [consentForDataset, setConsentForDataset] = useState(false);
-  const [serverMsg, setServerMsg] = useState('');
-
   const sendFeedback = async (verdict: 'correct' | 'incorrect') => {
-    setStatus('submitting');
+    setFbStatus('submitting');
     try {
       const res = await fetch('/api/scan/feedback', {
         method: 'POST',
@@ -451,112 +173,251 @@ export function ScanFeedbackAndModelFooter({
           ? reportLang === 'en' ? data.message.en : data.message.ur
           : reportLang === 'en' ? 'Feedback recorded cleanly.' : 'آپ کی رائے محفوظ کر لی گئی ہے۔'
       );
-      setStatus('submitted');
+      setFbStatus('submitted');
     } catch {
-      setStatus('idle');
+      setFbStatus('idle');
     }
   };
 
   return (
-    <div className="space-y-3 pt-2 border-t border-olive/10 text-start">
-      <div className="bg-white rounded-2xl p-3.5 border border-olive/15 space-y-2.5 text-xs">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <span className="font-black text-ink">
-            {reportLang === 'en'
-              ? 'Help Improve Zarkhez (Expert-Verified Queue)'
-              : 'زرخیز کو بہتر بنائیں (ماہرِ زراعت کے جائزے کے لیے)'}
-          </span>
-          <span className="text-[10px] font-bold text-ink/55">
-            {diagnosis.model_version || 'zarkhez-vision-v2.4-cloud'}
-          </span>
-        </div>
-
-        {status === 'submitted' ? (
-          <div className="flex items-center gap-2 text-emerald-800 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 font-semibold">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span>{serverMsg}</span>
+    <div className="space-y-2.5 text-start">
+      {diagnosis.safety_guardrail_notes && diagnosis.safety_guardrail_notes.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-3 space-y-1 text-red-900 text-xs">
+          <div className="font-black flex items-center gap-1.5">
+            <ShieldAlert className="w-4 h-4 text-red-600" />
+            <span>{reportLang === 'en' ? 'Safety Notice' : 'حفاظتی انتباہ'}</span>
           </div>
-        ) : (
-          <>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={status === 'submitting'}
-                onClick={() => sendFeedback('correct')}
-                className="flex-1 py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 font-bold flex items-center justify-center gap-1.5"
-              >
-                <ThumbsUp className="w-3.5 h-3.5" />
-                <span>{reportLang === 'en' ? 'Accurate Match' : 'تشخیص درست ہے'}</span>
-              </button>
-              <button
-                type="button"
-                disabled={status === 'submitting'}
-                onClick={() => setStatus(status === 'editing' ? 'idle' : 'editing')}
-                className="flex-1 py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold flex items-center justify-center gap-1.5"
-              >
-                <ThumbsDown className="w-3.5 h-3.5" />
-                <span>{reportLang === 'en' ? 'Suggest Correction' : 'درستگی تجویز کریں'}</span>
-              </button>
+          {diagnosis.safety_guardrail_notes.map((n, i) => (
+            <p key={i} className="leading-snug">
+              {getLocalizedText(n, reportLang)}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full py-2.5 px-4 rounded-2xl bg-canvas hover:bg-olive/10 border border-olive/20 text-ink font-extrabold text-xs flex items-center justify-between transition-all"
+      >
+        <span className="flex items-center gap-2">
+          <FlaskConical className="w-4 h-4 text-olive" />
+          <span>
+            {reportLang === 'en'
+              ? 'More Details: Similar Diseases, Scientific Info & Feedback'
+              : 'مزید تفصیلات: ملتی جلتی بیماریاں، سائنسی معلومات اور رائے'}
+          </span>
+        </span>
+        {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+
+      {open && (
+        <div className="bg-canvas/70 rounded-2xl p-3.5 border border-olive/15 space-y-3 text-xs">
+          {/* Differential Possibilities */}
+          {diagnosis.differential_diagnoses && diagnosis.differential_diagnoses.length > 0 && (
+            <div className="space-y-2">
+              <span className="font-black text-[11px] text-ink/75 uppercase flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-olive" />
+                <span>
+                  {reportLang === 'en'
+                    ? 'Other Similar Possibilities Checked'
+                    : 'ملتی جلتی دیگر ممکنہ بیماریاں'}
+                </span>
+              </span>
+              {diagnosis.differential_diagnoses.map((diff, idx) => (
+                <div key={idx} className="bg-white p-2.5 rounded-xl border border-olive/15 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <strong className="text-ink">{diff.name}</strong>
+                    {diff.scientific_name && (
+                      <span className="text-[10px] italic text-ink/55">{diff.scientific_name}</span>
+                    )}
+                  </div>
+                  <p className="text-ink/80 leading-snug">
+                    {getLocalizedText(diff.differences, reportLang)}
+                  </p>
+                  <p className="text-[11px] text-emerald-900 font-medium flex items-start gap-1">
+                    <Sparkles className="w-3 h-3 text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <span>{getLocalizedText(diff.field_distinction_tip, reportLang)}</span>
+                  </p>
+                </div>
+              ))}
             </div>
+          )}
 
-            {status === 'editing' && (
-              <div className="space-y-2 pt-1">
-                <input
-                  type="text"
-                  value={correctedCrop}
-                  onChange={(e) => setCorrectedCrop(e.target.value)}
-                  placeholder={reportLang === 'en' ? 'Actual crop (if different)' : 'درست فصل کا نام (اگر مختلف ہو)'}
-                  className="w-full px-3 py-2 rounded-xl bg-canvas border border-olive/20 text-xs"
-                />
-                <input
-                  type="text"
-                  value={correctedDisease}
-                  onChange={(e) => setCorrectedDisease(e.target.value)}
-                  placeholder={reportLang === 'en' ? 'Confirmed disease / expert / lab finding' : 'ماہر یا لیب سے تصدیق شدہ بیماری'}
-                  className="w-full px-3 py-2 rounded-xl bg-canvas border border-olive/20 text-xs"
-                />
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  placeholder={reportLang === 'en' ? 'Additional field notes...' : 'اضافی تفصیل (اختیاری)'}
-                  className="w-full px-3 py-2 rounded-xl bg-canvas border border-olive/20 text-xs"
-                />
-                <label className="flex items-start gap-2 text-[11px] text-ink/75 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={consentForDataset}
-                    onChange={(e) => setConsentForDataset(e.target.checked)}
-                    className="mt-0.5"
-                  />
-                  <span>
-                    {reportLang === 'en'
-                      ? 'Consent to include this scan metadata for expert verification (quarantined until verified by an agronomist).'
-                      : 'ماہرِ زراعت کی تصدیق کے بعد تحقیقی بہتری کے لیے محفوظ کرنے کی اجازت ہے۔'}
-                  </span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => sendFeedback('incorrect')}
-                  className="w-full py-2 rounded-xl bg-[#062409] text-white font-black text-xs"
-                >
-                  {reportLang === 'en' ? 'Submit to Expert Review Queue' : 'ماہر کے جائزے کے لیے بھیجیں'}
-                </button>
+          {/* Clean Localized Lesion Inspection Summary */}
+          {diagnosis.visual_inspection && diagnosis.visual_inspection.lesion_detected && (
+            <div className="bg-white p-2.5 rounded-xl border border-olive/10 grid grid-cols-2 gap-2 text-[11px]">
+              <div>
+                <span className="text-ink/55 block font-bold">
+                  {reportLang === 'en' ? 'Spots Seen:' : 'دھبوں کی مقدار:'}
+                </span>
+                <strong className="text-ink">
+                  {formatVisualMetricLabel(diagnosis.visual_inspection.lesion_count, reportLang)}
+                </strong>
               </div>
-            )}
-          </>
-        )}
-      </div>
+              <div>
+                <span className="text-ink/55 block font-bold">
+                  {reportLang === 'en' ? 'Shape:' : 'دھبوں کی شکل:'}
+                </span>
+                <strong className="text-ink">
+                  {formatVisualMetricLabel(diagnosis.visual_inspection.lesion_shape, reportLang)}
+                </strong>
+              </div>
+            </div>
+          )}
 
-      {/* Explicit Scientific Limitations Footer */}
-      <div className="bg-canvas/70 rounded-2xl p-3 border border-olive/15 text-[11px] text-ink/70 flex items-start gap-2">
-        <ShieldCheck className="w-4 h-4 text-olive flex-shrink-0 mt-0.5" />
-        <p className="leading-relaxed">
-          {reportLang === 'en'
-            ? 'Scientific Limitation: Visual AI is never 100% certain. Microscopic pathogens, latent viruses, and chemical drift vs nutritional stress overlap visually and require field extension or lab testing.'
-            : 'سائنسی وضاحت: بصری اے آئی سو فیصد یقینی نہیں ہوتا۔ خوردبینی جراثیم، مٹی کی نمکیات اور کیمیائی اثرات کے فرق کی حتمی تصدیق ماہرِ زراعت یا لیب ٹیسٹ سے کروائیں۔'}
-        </p>
-      </div>
+          {/* Calibrated Certainty & Scientific Context */}
+          {cb && (
+            <div className="bg-white p-2.5 rounded-xl border border-olive/10 space-y-1 text-[11px]">
+              <div className="flex items-center justify-between flex-wrap gap-1">
+                <span className="font-bold text-ink">
+                  {reportLang === 'en'
+                    ? `Certainty: ${certaintyPct}% (Raw AI: ${modelPct}%)`
+                    : `حقیقی یقین: ${certaintyPct}% (ماڈل سکور: ${modelPct}%)`}
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200">
+                  {reportLang === 'en' ? 'Visual Check (Not Lab Proof)' : 'بصری جائزہ (لیب ٹیسٹ نہیں)'}
+                </span>
+              </div>
+              {diagnosis.explanations?.scientific && (
+                <p className="text-ink/75 leading-snug pt-1">
+                  {getLocalizedText(diagnosis.explanations.scientific, reportLang)}
+                </p>
+              )}
+              {diagnosis.yield_impact && (
+                <p className="text-ink/80 leading-snug">
+                  <strong>{reportLang === 'en' ? 'Yield Risk: ' : 'پیداوار پر اثر: '}</strong>
+                  {getLocalizedText(diagnosis.yield_impact, reportLang)}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Verified References */}
+          {diagnosis.scientific_references && diagnosis.scientific_references.length > 0 && (
+            <div className="bg-white p-2.5 rounded-xl border border-olive/10 space-y-1 text-[11px]">
+              <span className="font-bold text-ink/75 flex items-center gap-1">
+                <BookOpen className="w-3.5 h-3.5 text-olive" />
+                <span>{reportLang === 'en' ? 'Agricultural References' : 'مستند زرعی ذرائع'}</span>
+              </span>
+              {diagnosis.scientific_references.map((ref, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 text-ink/75">
+                  <span>[{ref.source}] {ref.title}</span>
+                  {ref.url && (
+                    <a href={ref.url} target="_blank" rel="noreferrer" className="text-olive flex-shrink-0">
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Download Full Report */}
+          <button
+            type="button"
+            onClick={handleDownloadReport}
+            className="w-full py-2.5 px-3 rounded-xl bg-white hover:bg-olive/5 border border-olive/25 text-ink font-bold text-xs flex items-center justify-center gap-1.5"
+          >
+            <Download className="w-3.5 h-3.5 text-olive" />
+            <FileText className="w-3.5 h-3.5 text-olive" />
+            <span>
+              {reportLang === 'en' ? 'Download Complete Report (.txt)' : 'مکمل رپورٹ ڈاؤن لوڈ کریں'}
+            </span>
+          </button>
+
+          {/* Accuracy Feedback */}
+          <div className="bg-white p-2.5 rounded-xl border border-olive/10 space-y-2">
+            <span className="font-bold text-ink block text-[11px]">
+              {reportLang === 'en'
+                ? 'Was this scan helpful and accurate?'
+                : 'کیا یہ نتیجہ درست اور مددگار تھا؟'}
+            </span>
+            {fbStatus === 'submitted' ? (
+              <div className="flex items-center gap-1.5 text-emerald-800 font-semibold text-[11px]">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{serverMsg}</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={fbStatus === 'submitting'}
+                    onClick={() => sendFeedback('correct')}
+                    className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold text-[11px] flex items-center justify-center gap-1"
+                  >
+                    <ThumbsUp className="w-3 h-3" />
+                    <span>{reportLang === 'en' ? 'Yes, Accurate' : 'جی درست ہے'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={fbStatus === 'submitting'}
+                    onClick={() => setFbStatus(fbStatus === 'editing' ? 'idle' : 'editing')}
+                    className="flex-1 py-1.5 px-2 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 font-bold text-[11px] flex items-center justify-center gap-1"
+                  >
+                    <ThumbsDown className="w-3 h-3" />
+                    <span>{reportLang === 'en' ? 'Needs Correction' : 'درستگی بتائیں'}</span>
+                  </button>
+                </div>
+                {fbStatus === 'editing' && (
+                  <div className="space-y-1.5 pt-1">
+                    <input
+                      type="text"
+                      value={correctedCrop}
+                      onChange={(e) => setCorrectedCrop(e.target.value)}
+                      placeholder={reportLang === 'en' ? 'Correct crop name' : 'درست فصل کا نام'}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-canvas border border-olive/20 text-xs"
+                    />
+                    <input
+                      type="text"
+                      value={correctedDisease}
+                      onChange={(e) => setCorrectedDisease(e.target.value)}
+                      placeholder={reportLang === 'en' ? 'Confirmed disease name' : 'درست بیماری کا نام'}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-canvas border border-olive/20 text-xs"
+                    />
+                    <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={2}
+                      placeholder={reportLang === 'en' ? 'Extra notes...' : 'اضافی بات (اختیاری)'}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-canvas border border-olive/20 text-xs"
+                    />
+                    <label className="flex items-start gap-1.5 text-[10px] text-ink/75">
+                      <input
+                        type="checkbox"
+                        checked={consentForDataset}
+                        onChange={(e) => setConsentForDataset(e.target.checked)}
+                      />
+                      <span>
+                        {reportLang === 'en'
+                          ? 'Save for expert review (never changes AI automatically without verification).'
+                          : 'ماہر کے جائزے کے لیے محفوظ کریں۔'}
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => sendFeedback('incorrect')}
+                      className="w-full py-1.5 rounded-lg bg-[#062409] text-white font-bold text-xs"
+                    >
+                      {reportLang === 'en' ? 'Send Feedback' : 'بھیجیں'}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="flex items-start gap-1.5 text-[10px] text-ink/65">
+            <ShieldCheck className="w-3.5 h-3.5 text-olive flex-shrink-0 mt-0.5" />
+            <span>
+              {reportLang === 'en'
+                ? 'Visual screening cannot guarantee 100% accuracy. Confirm serious outbreaks with your agriculture officer or lab.'
+                : 'بصری جائزہ 100 فیصد حتمی نہیں ہوتا؛ شدید مسئلے میں مقامی زرعی ماہر سے تصدیق ضرور کروائیں۔'}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
