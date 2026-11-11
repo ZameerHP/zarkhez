@@ -425,6 +425,10 @@ async function runTests() {
     assert.equal(cleaned.includes('diagnosis_status'), false);
     assert.equal(cleaned.includes('**'), false);
 
+    const mixedHindiLeak = cleanTechnicalMetadataForSpeech('چاول کے پتوں پر دھब्बों کے لیے اسپرے کریں۔');
+    assert.equal(/[\u0900-\u097F]/.test(mixedHindiLeak), false, 'Must repair stray Devanagari characters inside Urdu');
+    assert.ok(mixedHindiLeak.includes('دھبوں'));
+
     const romanUr = 'Gandum ko pehla pani 20 din baad lagayein aur yurea khad dein.';
     assert.equal(looksLikeRomanUrdu(romanUr), true);
     const converted = transliterateCommonRomanUrduToUrdu(romanUr);

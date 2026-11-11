@@ -82,12 +82,41 @@ const ROMAN_URDU_TO_URDU_WORDS: ReadonlyArray<[RegExp, string]> = [
 ];
 
 /**
+ * Repairs stray Devanagari syllables accidentally emitted by an LLM inside Urdu text
+ * (e.g., "دھब्बों" -> "دھبوں") so Pakistani Urdu TTS engines never choke on mixed scripts.
+ */
+export function repairStrayDevanagariInUrdu(text: string): string {
+  if (!/[\u0900-\u097F]/.test(text)) return text;
+  const charMap: Record<string, string> = {
+    'अ': 'ا', 'आ': 'آ', 'इ': 'ا', 'ई': 'ی', 'उ': 'ا', 'ऊ': 'و', 'ए': 'ے', 'ओ': 'و',
+    'क': 'ک', 'ख': 'کھ', 'ग': 'گ', 'घ': 'گھ', 'च': 'چ', 'छ': 'چھ', 'ज': 'ج', 'झ': 'جھ',
+    'ट': 'ٹ', 'ठ': 'ٹھ', 'ड': 'ڈ', 'ढ': 'ڈھ', 'त': 'ت', 'थ': 'تھ', 'द': 'د', 'ध': 'دھ',
+    'न': 'ن', 'प': 'پ', 'फ': 'پھ', 'ब': 'ب', 'भ': 'بھ', 'म': 'م', 'य': 'ی', 'र': 'ر',
+    'ल': 'ل', 'व': 'و', 'श': 'ش', 'स': 'س', 'ह': 'ہ', 'ड़': 'ڑ', 'ज़': 'ز', 'फ़': 'ف',
+    'क़': 'ق', 'ख़': 'خ', 'ग़': 'غ', 'ा': 'ا', 'ि': 'ِ', 'ी': 'ی', 'ु': 'ُ', 'ू': 'و',
+    'े': 'ے', 'ो': 'و', 'ं': 'ں', 'ँ': 'ں', '्': '',
+  };
+  let out = '';
+  for (const ch of text) {
+    if (ch in charMap) {
+      out += charMap[ch];
+    } else if (/[\u0900-\u097F]/.test(ch)) {
+      out += '';
+    } else {
+      out += ch;
+    }
+  }
+  // Collapse unintended doubled consonant before Urdu plural endings (e.g., ب ب و -> ب و)
+  return out.replace(/([\u0620-\u065F])\1+(?=وں|ے|ی)/g, '$1').replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Strips internal JSON, technical metadata labels, IDs, and Markdown noise
  * while preserving genuine agricultural/scientific names cleanly.
  */
 export function cleanTechnicalMetadataForSpeech(raw: string): string {
   if (!raw) return '';
-  let out = raw;
+  let out = repairStrayDevanagariInUrdu(raw);
 
   // Strip JSON wrapper keys if LLM leaked raw JSON tokens
   out = out.replace(/"(?:screen_text|spoken_text|language|diagnosis_status|confidence_category|error_code|request_id|farmerId)"\s*:\s*/gi, ' ');
