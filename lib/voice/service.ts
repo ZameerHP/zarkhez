@@ -13,6 +13,11 @@ import {
   resolveExplicitLocale,
 } from './script-guard';
 import { toSpokenText } from './spoken-normalizer';
+import {
+  cleanTechnicalMetadataForSpeech,
+  looksLikeRomanUrdu,
+  transliterateCommonRomanUrduToUrdu,
+} from './speech-prep';
 import { buildVoiceSsml, resolveSpeakingRate } from './ssml-builder';
 import { loadHotPronunciationLexicon, readServerEnv } from './server-lexicon';
 import { redactSecrets } from '../error-sanitizer';
@@ -88,23 +93,23 @@ export const VOICE_PROFILES: Record<VoiceLang, Record<VoiceGender, VoiceProfileS
   en: {
     female: {
       id: 'en-pk-female-calm',
-      label: 'Ayesha (Clear English)',
+      label: 'Ava (Natural Agricultural Advisor)',
       gender: 'female',
       geminiVoice: 'Kore',
-      azureVoice: 'en-US-JennyNeural',
+      azureVoice: 'en-US-AvaMultilingualNeural',
       elevenLabsDefaultVoice: 'EXAVITQu4vr4xnSDxMaL',
       toneInstruction:
-        'Speak in clear, warm, calm Pakistani English suitable for agricultural guidance. Unhurried pacing.',
+        'Speak in clear, warm, natural English suitable for a knowledgeable agricultural advisor.',
     },
     male: {
       id: 'en-pk-male-calm',
-      label: 'Bilal (Clear English)',
+      label: 'Andrew (Natural Agricultural Advisor)',
       gender: 'male',
       geminiVoice: 'Orus',
-      azureVoice: 'en-US-GuyNeural',
+      azureVoice: 'en-US-AndrewMultilingualNeural',
       elevenLabsDefaultVoice: 'pNInz6obpgDQGcFmaJgB',
       toneInstruction:
-        'Speak in calm, reassuring, clear English male voice for rural farmers.',
+        'Speak in calm, reassuring, natural English male voice for farmers.',
     },
   },
 };
@@ -116,9 +121,7 @@ export function getProviderPriorityChain(
   const baseChain: VoiceProviderId[] =
     lang === 'sd'
       ? ['elevenlabs-v3', 'gemini-tts', 'mms-sindhi', 'google-cloud-tts']
-      : lang === 'ur'
-      ? ['elevenlabs-v3', 'gemini-tts', 'azure-neural', 'google-cloud-tts']
-      : ['gemini-tts', 'elevenlabs-v3', 'azure-neural', 'google-cloud-tts'];
+      : ['azure-neural', 'gemini-tts', 'elevenlabs-v3', 'google-cloud-tts'];
 
   const filtered = baseChain.filter((p) => isProviderAllowedForLanguage(p, lang));
   if (preferProvider && isProviderAllowedForLanguage(preferProvider, lang)) {
@@ -363,6 +366,102 @@ async function synthesizeWithElevenLabs(params: {
   return null;
 }
 
+const AZURE_VOICE_CATALOG_TTL_MS = 60 * 60 * 1000;
+const azureVoiceCatalogCache = new Map<string, { voices: Set<string>; fetchedAt: number }>();
+
+async function resolveVerifiedAzureVoice(params: {
+  azureKey: string;
+  azureRegion: string;
+  lang: VoiceLang;
+  preferredVoice: string;
+}): Promise<string> {
+  if (params.lang === 'sd') return params.preferredVoice;
+
+  const candidates =
+    params.lang === 'ur'
+      ? [params.preferredVoice, 'ur-PK-UzmaNeural', 'ur-PK-AsadNeural']
+      : [
+          params.preferredVoice,
+          'en-US-AvaMultilingualNeural',
+          'en-US-AndrewMultilingualNeural',
+          'en-US-JennyNeural',
+        ];
+
+  const cacheKey = `${params.azureRegion}:${params.azureKey.slice(-6)}`;
+  let catalog = azureVoiceCatalogCache.get(cacheKey);
+  if (!catalog || Date.now() - catalog.fetchedAt > AZURE_VOICE_CATALOG_TTL_MS) {
+    try {
+      const res = await fetch(
+        `https://${params.azureRegion}.tts.speech.microsoft.com/cognitiveservices/voices/list`,
+        {
+          headers: { 'Ocp-Apim-Subscription-Key': params.azureKey },
+          signal: AbortSignal.timeout(5000),
+        }
+      );
+      if (res.ok) {
+        const list = (await res.json()) as Array<{ ShortName?: string }>;
+        if (Array.isArray(list) && list.length > 0) {
+          const names = new Set(list.map((v) => v.ShortName || '').filter(Boolean));
+          catalog = { voices: names, fetchedAt: Date.now() };
+          azureVoiceCatalogCache.set(cacheKey, catalog);
+        }
+      }
+    } catch {
+      // Offline / mock fetch environments proceed cleanly with preferred canonical neural voice
+    }
+  }
+
+  if (catalog && catalog.voices.size > 0) {
+    for (const candidate of candidates) {
+      if (catalog.voices.has(candidate)) return candidate;
+    }
+  }
+  return params.preferredVoice;
+}
+
+async function convertRomanUrduIfNeeded(text: string, lang: VoiceLang): Promise<string> {
+  const cleaned = cleanTechnicalMetadataForSpeech(text);
+  if (lang !== 'ur' || !looksLikeRomanUrdu(cleaned)) return cleaned;
+
+  const apiKey = readServerEnv(['GEMINI_API_KEY', 'GOOGLE_API_KEY']);
+  if (apiKey) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  {
+                    text: `Convert this Roman Urdu farming text cleanly into natural Pakistani Urdu (Nastaliq script). Keep scientific names, crop varieties, chemical active ingredients (e.g. NPK, DAP, Tricyclazole, Alternaria solani), and numbers accurate without translating meanings away. Output ONLY pure Urdu script:\n\n${cleaned}`,
+                  },
+                ],
+              },
+            ],
+            generationConfig: { temperature: 0.1, maxOutputTokens: 600 },
+          }),
+          signal: AbortSignal.timeout(6000),
+        }
+      );
+      if (res.ok) {
+        const j = await res.json();
+        const out = String(j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+        if (out && /[\u0600-\u06FF]/.test(out) && !looksLikeRomanUrdu(out)) {
+          return cleanTechnicalMetadataForSpeech(out);
+        }
+      }
+    } catch {
+      // Fallback cleanly to deterministic phrase mapper
+    }
+  }
+
+  return transliterateCommonRomanUrduToUrdu(cleaned);
+}
+
 async function synthesizeWithAzureNeural(params: {
   spokenText: string;
   lang: VoiceLang;
@@ -372,15 +471,22 @@ async function synthesizeWithAzureNeural(params: {
   // Explicitly disallow Azure for Sindhi (sd-PK) as Azure has zero Sindhi TTS voices
   if (params.lang === 'sd' || !params.profile.azureVoice) return null;
 
-  const azureKey = process.env.AZURE_SPEECH_KEY?.trim();
+  const azureKey = readServerEnv(['AZURE_SPEECH_KEY', 'AZURE_TTS_KEY']);
   if (!azureKey) return null;
-  const azureRegion = process.env.AZURE_SPEECH_REGION?.trim() || 'eastus';
+  const azureRegion = readServerEnv(['AZURE_SPEECH_REGION', 'AZURE_TTS_REGION']) || 'eastus';
+
+  const voiceName = await resolveVerifiedAzureVoice({
+    azureKey,
+    azureRegion,
+    lang: params.lang,
+    preferredVoice: params.profile.azureVoice,
+  });
 
   const lexiconEntries = loadHotPronunciationLexicon();
   const ssml = buildVoiceSsml({
     text: params.spokenText,
     lang: params.lang,
-    voiceName: params.profile.azureVoice,
+    voiceName,
     speedRate: params.speedRate,
     lexiconEntries,
   });
@@ -393,11 +499,11 @@ async function synthesizeWithAzureNeural(params: {
         headers: {
           'Ocp-Apim-Subscription-Key': azureKey,
           'Content-Type': 'application/ssml+xml',
-          'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+          'X-Microsoft-OutputFormat': 'audio-24khz-96kbitrate-mono-mp3',
           'User-Agent': 'Zarkhez-VoiceService',
         },
         body: ssml,
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(12000),
       }
     );
     if (!res.ok) return null;
@@ -488,9 +594,10 @@ export async function synthesizeVoiceSpeech(req: TTSRequest): Promise<TTSResult>
   const localeCode = resolveExplicitLocale(lang);
   const profile = VOICE_PROFILES[lang][gender];
 
-  // Hot-reloadable lexicon + full spoken-form normalization (digits, times, units, symbols)
+  // Hot-reloadable lexicon + clean speech preparation + Roman Urdu -> Urdu script rescue
   const lexiconEntries = loadHotPronunciationLexicon();
-  const normalized = toSpokenText(req.text, lang, { lexiconEntries });
+  const preparedBase = await convertRomanUrduIfNeeded(req.text, lang);
+  const normalized = toSpokenText(preparedBase, lang, { lexiconEntries });
   const spokenText = normalized.spokenText;
 
   if (!spokenText) {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Volume2, Square, Pause, Play, Turtle } from 'lucide-react';
+import { Volume2, Square, Pause, Play, Turtle, RotateCcw } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   getSavedVoiceSpeed,
@@ -40,6 +40,7 @@ export function ReadAloudButton({
   const [paused, setPaused] = useState(false);
   const [phase, setPhase] = useState<VoicePhase>('idle');
   const [speedMode, setSpeedMode] = useState<VoiceSpeedMode>('normal');
+  const [hasPlayed, setHasPlayed] = useState(false);
   const [voiceFailed, setVoiceFailed] = useState(false);
 
   useEffect(() => {
@@ -72,6 +73,7 @@ export function ReadAloudButton({
       onStart: () => {
         setSpeaking(true);
         setPaused(false);
+        setHasPlayed(true);
       },
       onEnd: () => {
         setSpeaking(false);
@@ -105,9 +107,14 @@ export function ReadAloudButton({
   };
 
   const handleRepeatSlowly = () => {
-    setSavedVoiceSpeed('slow');
-    setSpeedMode('slow');
-    startPlayback('slow');
+    const nextMode: VoiceSpeedMode = speedMode === 'slow' ? 'normal' : 'slow';
+    setSavedVoiceSpeed(nextMode);
+    setSpeedMode(nextMode);
+    startPlayback(nextMode);
+  };
+
+  const handleReplay = () => {
+    startPlayback(speedMode);
   };
 
   const listenLabel =
@@ -170,24 +177,36 @@ export function ReadAloudButton({
           </button>
         )}
 
+        {!compact && (hasPlayed || speaking || voiceFailed) && (
+          <button
+            type="button"
+            onClick={handleReplay}
+            className="min-h-[38px] px-3 rounded-full bg-white border border-olive/25 text-ink text-xs font-bold inline-flex items-center gap-1 hover:bg-olive/10"
+            title={targetLang === 'en' ? 'Replay' : 'دوبارہ سنیں'}
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>{targetLang === 'en' ? 'Replay' : 'دوبارہ'}</span>
+          </button>
+        )}
+
         {!compact && (
           <button
             type="button"
             onClick={handleRepeatSlowly}
             className={`min-h-[38px] px-3 rounded-full border text-xs font-bold inline-flex items-center gap-1 transition-all ${
-              speedMode === 'slow' && speaking
+              speedMode === 'slow'
                 ? 'bg-olive text-white border-olive'
                 : 'bg-white border-olive/25 text-ink/85 hover:bg-olive/10'
             }`}
-            title="Repeat slowly"
+            title="Toggle slow/normal speed"
           >
             <Turtle className="w-3.5 h-3.5" />
             <span>
               {targetLang === 'sd'
                 ? 'آهستي ٻڌو'
                 : targetLang === 'ur'
-                ? 'آہستہ سنیں'
-                : 'Slow'}
+                ? speedMode === 'slow' ? 'عام رفتار' : 'آہستہ سنیں'
+                : speedMode === 'slow' ? 'Normal' : 'Slow'}
             </span>
           </button>
         )}

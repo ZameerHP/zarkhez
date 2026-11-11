@@ -14,15 +14,16 @@ function escapeXml(text: string): string {
 
 export function resolveSpeakingRate(speedMode?: VoiceSpeedMode, numericSpeed?: number): number {
   if (typeof numericSpeed === 'number' && Number.isFinite(numericSpeed)) {
-    return Math.min(1.25, Math.max(0.65, numericSpeed));
+    return Math.min(1.25, Math.max(0.7, numericSpeed));
   }
-  return speedMode === 'slow' ? 0.75 : 0.9;
+  return speedMode === 'slow' ? 0.82 : 1.0;
 }
 
 /**
- * Generates W3C SSML 1.0 markup with explicit language tag, calm ~0.90 rate
- * (or ~0.75 slow repeat rate), short pauses between sentences, subtle pauses
- * around numeric/unit words, and <phoneme>/<sub alias> tags from the lexicon.
+ * Generates clean W3C SSML 1.0 markup optimized for Azure Neural natural human speech:
+ * explicit locale xml:lang, natural speaking rate (0% normal, -18% slow repeat),
+ * natural unshifted pitch (0%), natural sentence continuity without forced mid-phrase pauses,
+ * and selective <phoneme> cues only for foreign loanwords/brands needing phonetic guidance.
  */
 export function buildVoiceSsml(params: {
   text: string;
@@ -33,18 +34,27 @@ export function buildVoiceSsml(params: {
   lexiconEntries?: LexiconEntry[];
 }): string {
   const locale = resolveExplicitLocale(params.lang);
+  const ssmlLocale = params.voiceName.startsWith('en-US-') ? 'en-US' : locale;
   const rate = resolveSpeakingRate(params.speedMode, params.speedRate);
-  const ratePct = `${Math.round((rate - 1) * 100)}%`;
+  const rateDelta = Math.round((rate - 1) * 100);
+  const ratePct = rateDelta === 0 ? '0%' : `${rateDelta > 0 ? '+' : ''}${rateDelta}%`;
 
   const normalized = toSpokenText(params.text, params.lang, {
     lexiconEntries: params.lexiconEntries,
   });
 
-  // Insert short pause cues around number/unit markers where applicable
-  const sentenceNodes = normalized.sentences.map((sentence) => {
+  const sentenceNodes = normalized.sentences.map((sentence, idx) => {
     let body = escapeXml(sentence);
     if (params.lexiconEntries) {
       for (const entry of params.lexiconEntries) {
+        // Apply explicit IPA phoneme overrides only to foreign brand/loanword/pesticide terms;
+        // native Urdu/English vocabulary flows far more naturally via Azure's own neural lexicon.
+        const needsPhonemeOverride =
+          entry.category === 'pesticide' ||
+          entry.category === 'brand' ||
+          entry.category === 'loanword';
+        if (!needsPhonemeOverride) continue;
+
         const spoken = getLexiconReplacement(entry, params.lang);
         const ipa = params.lang === 'sd' ? entry.ipaSd : entry.ipaUr;
         if (spoken && ipa && body.includes(escapeXml(spoken))) {
@@ -56,18 +66,14 @@ export function buildVoiceSsml(params: {
         }
       }
     }
-    // Slight breathing break before unit words so numbers are never rushed
-    body = body.replace(
-      /(ڈگری سینٹی گریڈ|فیصد|میٹر فی سیکنڈ|کلو فی ایکڑ|ڊگري سينٽي گريڊ|سيڪڙو|ميٽر في سيڪنڊ|ڪلو في ايڪڙ)/g,
-      '<break time="75ms"/>$1'
-    );
-    return `<s>${body}</s><break time="220ms"/>`;
+    const isLast = idx === normalized.sentences.length - 1;
+    return isLast ? `<s>${body}</s>` : `<s>${body}</s><break time="120ms"/>`;
   });
 
-  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${locale}">
-  <voice xml:lang="${locale}" name="${escapeXml(params.voiceName)}">
-    <prosody rate="${ratePct}" pitch="-2%">
-      ${sentenceNodes.join('\n      ')}
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${ssmlLocale}">
+  <voice xml:lang="${ssmlLocale}" name="${escapeXml(params.voiceName)}">
+    <prosody rate="${ratePct}" pitch="0%">
+      <p>${sentenceNodes.join('\n      ')}</p>
     </prosody>
   </voice>
 </speak>`;

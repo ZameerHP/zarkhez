@@ -32,23 +32,23 @@ function parseSpeed(rawSpeed?: string | number | null, rawMode?: string | null):
   speedMode: VoiceSpeedMode;
   speedRate?: number;
 } {
-  if (rawMode === 'slow') return { speedMode: 'slow', speedRate: 0.75 };
+  if (rawMode === 'slow') return { speedMode: 'slow', speedRate: 0.82 };
   if (typeof rawSpeed === 'number' && Number.isFinite(rawSpeed)) {
     return {
-      speedMode: rawSpeed <= 0.8 ? 'slow' : 'normal',
-      speedRate: Math.min(1.2, Math.max(0.7, rawSpeed)),
+      speedMode: rawSpeed <= 0.85 ? 'slow' : 'normal',
+      speedRate: Math.min(1.25, Math.max(0.7, rawSpeed)),
     };
   }
   if (typeof rawSpeed === 'string' && rawSpeed.trim()) {
     const num = Number(rawSpeed);
     if (Number.isFinite(num)) {
       return {
-        speedMode: num <= 0.8 ? 'slow' : 'normal',
-        speedRate: Math.min(1.2, Math.max(0.7, num)),
+        speedMode: num <= 0.85 ? 'slow' : 'normal',
+        speedRate: Math.min(1.25, Math.max(0.7, num)),
       };
     }
   }
-  return { speedMode: 'normal', speedRate: 0.9 };
+  return { speedMode: 'normal', speedRate: 1.0 };
 }
 
 async function handleTtsSynthesis(params: {
@@ -73,7 +73,7 @@ async function handleTtsSynthesis(params: {
 
   try {
     const result = await synthesizeVoiceSpeech({
-      text: params.text.trim().slice(0, 1400),
+      text: params.text.trim().slice(0, 1800),
       lang: params.lang,
       gender: params.gender,
       speedMode: params.speedMode,

@@ -1,0 +1,341 @@
+import { CropDiagnosis, getLocalizedText } from '../schemas';
+import { toSpokenText } from './spoken-normalizer';
+import type { VoiceLang } from './types';
+
+const ROMAN_URDU_HINT_WORDS =
+  /\b(?:hai|hain|nahi|nhi|aur|ke|ki|ka|ko|mein|me|par|pe|se|kar(?:ein|en|o)?|lagay(?:ein|en)|dein|lein|rakh(?:ein|en)|fasal|gandum|dhan|kapas|kamad|makai|tamatar|aloo|mirch|pani|khad|patta|patte|dhabbe|bimari|ilaj|spray|subah|shaam|barish|hawa|mausam|zameen|aap|hum|apni|bohat|zyada|kam|abhi|baad|pehle|zaroor)\b/gi;
+
+const ROMAN_URDU_TO_URDU_WORDS: ReadonlyArray<[RegExp, string]> = [
+  [/\baap\s+ki\s+fasal\b/gi, 'آپ کی فصل'],
+  [/\baap\s+ke\b/gi, 'آپ کے'],
+  [/\baap\s+ki\b/gi, 'آپ کی'],
+  [/\baap\s+ko\b/gi, 'آپ کو'],
+  [/\bkisan\s+bhai\b/gi, 'کسان بھائی'],
+  [/\bassalam\s+o\s+alaikum\b/gi, 'السلام علیکم'],
+  [/\bgandum\b/gi, 'گندم'],
+  [/\bdhan\b/gi, 'دھان'],
+  [/\bchawal\b/gi, 'چاول'],
+  [/\bkapas\b/gi, 'کپاس'],
+  [/\bkamad\b/gi, 'کماد'],
+  [/\bganna\b/gi, 'گنا'],
+  [/\bmakai\b/gi, 'مکئی'],
+  [/\btamatar\b/gi, 'ٹماٹر'],
+  [/\baloo\b/gi, 'آلو'],
+  [/\bmirch\b/gi, 'مرچ'],
+  [/\bpani\b/gi, 'پانی'],
+  [/\baabpashi\b/gi, 'آبپاشی'],
+  [/\bkhad\b/gi, 'کھاد'],
+  [/\byurea\b|\burea\b/gi, 'یوریا'],
+  [/\bzameen\b/gi, 'زمین'],
+  [/\bfasal\b/gi, 'فصل'],
+  [/\bpatta\b/gi, 'پتا'],
+  [/\bpatte\b|\bpatton\b/gi, 'پتے'],
+  [/\bpoda\b/gi, 'پودا'],
+  [/\bpoday\b|\bpodon\b/gi, 'پودے'],
+  [/\bdhabbe\b|\bdhabbay\b/gi, 'دھبے'],
+  [/\bbimari\b|\bbeemari\b/gi, 'بیماری'],
+  [/\bilaj\b/gi, 'علاج'],
+  [/\bjhulsao\b/gi, 'جھلساؤ'],
+  [/\bkangi\b/gi, 'کنگی'],
+  [/\btela\b/gi, 'تیلہ'],
+  [/\bsafaid\s+makhi\b/gi, 'سفید مکھی'],
+  [/\bkeera\b|\bkeeron\b/gi, 'کیڑا'],
+  [/\bspray\b/gi, 'سپرے'],
+  [/\bbarish\b/gi, 'بارش'],
+  [/\bmausam\b/gi, 'موسم'],
+  [/\bhawa\b/gi, 'ہوا'],
+  [/\bsubah\b/gi, 'صبح'],
+  [/\bshaam\b/gi, 'شام'],
+  [/\bsehatmand\b|\btandrust\b/gi, 'تندرست'],
+  [/\bshiddat\b/gi, 'شدت'],
+  [/\balamat\b|\balamaat\b/gi, 'علامات'],
+  [/\bmuaina\b/gi, 'معائنہ'],
+  [/\bmashwara\b/gi, 'مشورہ'],
+  [/\bzaria\s+afsar\b/gi, 'زرعی افسر'],
+  [/\bkhet\b/gi, 'کھیت'],
+  [/\bbijai\b|\bbawai\b/gi, 'بوائی'],
+  [/\bpehle\b/gi, 'پہلے'],
+  [/\bbaad\b/gi, 'بعد'],
+  [/\bzyada\b/gi, 'زیادہ'],
+  [/\bmunasib\b/gi, 'مناسب'],
+  [/\bforan\b/gi, 'فوراً'],
+  [/\bzaroori\b|\bzaroor\b/gi, 'ضرور'],
+  [/\bhargiz\b/gi, 'ہرگز'],
+  [/\bnahi\b|\bnhi\b/gi, 'نہیں'],
+  [/\bkarein\b|\bkaren\b/gi, 'کریں'],
+  [/\blagayein\b|\blagayen\b/gi, 'لگائیں'],
+  [/\bdein\b/gi, 'دیں'],
+  [/\blein\b/gi, 'لیں'],
+  [/\brakhein\b|\brakhen\b/gi, 'رکھیں'],
+  [/\bhota\b/gi, 'ہوتا'],
+  [/\bhoti\b/gi, 'ہوتی'],
+  [/\bhain\b/gi, 'ہیں'],
+  [/\bhai\b/gi, 'ہے'],
+  [/\baur\b/gi, 'اور'],
+  [/\bmein\b/gi, 'میں'],
+  [/\bpar\b/gi, 'پر'],
+  [/\bse\b/gi, 'سے'],
+  [/\bko\b/gi, 'کو'],
+  [/\bka\b/gi, 'کا'],
+  [/\bki\b/gi, 'کی'],
+  [/\bke\b/gi, 'کے'],
+];
+
+/**
+ * Strips internal JSON, technical metadata labels, IDs, and Markdown noise
+ * while preserving genuine agricultural/scientific names cleanly.
+ */
+export function cleanTechnicalMetadataForSpeech(raw: string): string {
+  if (!raw) return '';
+  let out = raw;
+
+  // Strip JSON wrapper keys if LLM leaked raw JSON tokens
+  out = out.replace(/"(?:screen_text|spoken_text|language|diagnosis_status|confidence_category|error_code|request_id|farmerId)"\s*:\s*/gi, ' ');
+  // Remove technical UUIDs and internal ZRK-PK-... tokens from spoken narration
+  out = out.replace(/\bZRK-PK-[A-Z0-9]+\b/gi, '');
+  out = out.replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '');
+  // Strip code blocks, URLs, and markdown markers
+  out = out.replace(/```[\s\S]*?```/g, ' ');
+  out = out.replace(/https?:\/\/\S+|www\.\S+/gi, ' ');
+  out = out.replace(/[#*_~`>|•◦▪▫●○]/g, ' ');
+  // Normalize duplicated punctuation (avoid TTS spelling out multiple dots)
+  out = out.replace(/\.{2,}/g, '.').replace(/۔{2,}/g, '۔');
+  // Replace bare heading colons mid-line with gentle phrasing pause commas
+  out = out.replace(/:\s*\n+/g, '، ').replace(/\s*\n+\s*/g, ' ');
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Detects whether a response intended for Urdu TTS was accidentally emitted in Roman Urdu.
+ */
+export function looksLikeRomanUrdu(text: string): boolean {
+  if (!text || !text.trim()) return false;
+  const arabicChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
+  const latinChars = (text.match(/[A-Za-z]/g) || []).length;
+  if (latinChars < 12) return false;
+  if (arabicChars > latinChars) return false;
+  const matches = text.match(ROMAN_URDU_HINT_WORDS) || [];
+  return matches.length >= 2;
+}
+
+/**
+ * Deterministic fast Roman-Urdu -> Urdu script fallback mapper
+ * preserving scientific binomials and medicine names cleanly.
+ */
+export function transliterateCommonRomanUrduToUrdu(text: string): string {
+  let out = text;
+  for (const [rx, ur] of ROMAN_URDU_TO_URDU_WORDS) {
+    out = out.replace(rx, ur);
+  }
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Full deterministic speech-preparation pipeline before sending to Azure/Gemini TTS.
+ */
+export function prepareSpeechText(rawText: string, lang: VoiceLang): string {
+  const cleaned = cleanTechnicalMetadataForSpeech(rawText);
+  if (!cleaned) return '';
+
+  const scriptReady =
+    lang === 'ur' && looksLikeRomanUrdu(cleaned)
+      ? transliterateCommonRomanUrduToUrdu(cleaned)
+      : cleaned;
+
+  const normalized = toSpokenText(scriptReady, lang);
+  return normalized.spokenText;
+}
+
+/**
+ * Splits long passages strictly at natural sentence boundaries so chunked streaming
+ * never breaks mid-word or introduces choppy mid-clause pauses.
+ */
+export function splitSpeechIntoChunks(
+  spokenText: string,
+  lang: VoiceLang,
+  maxChars = 620
+): string[] {
+  const clean = cleanPreserveSpaces(spokenText);
+  if (!clean) return [];
+  if (clean.length <= maxChars) return [clean];
+
+  const delimiter = lang === 'en' ? '.' : '۔';
+  const sentences = clean
+    .split(/(?<=[۔.!?؟])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const sentence of sentences) {
+    const candidate = current ? `${current} ${sentence}` : sentence;
+    if (candidate.length <= maxChars) {
+      current = candidate;
+      continue;
+    }
+
+    if (current) {
+      chunks.push(current);
+      current = '';
+    }
+
+    if (sentence.length <= maxChars) {
+      current = sentence;
+    } else {
+      // Fallback split on comma boundaries before hard word boundary
+      const words = sentence.split(/\s+/);
+      let piece = '';
+      for (const word of words) {
+        const nextPiece = piece ? `${piece} ${word}` : word;
+        if (nextPiece.length <= maxChars - 1) {
+          piece = nextPiece;
+        } else {
+          if (piece) chunks.push(`${piece.replace(/[۔.!?؟]+$/, '')}${delimiter}`);
+          piece = word;
+        }
+      }
+      if (piece) current = piece;
+    }
+  }
+
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+function cleanPreserveSpaces(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function formatSeverityPhrase(
+  severity: CropDiagnosis['severity'],
+  lang: 'en' | 'ur'
+): string {
+  if (lang === 'en') {
+    if (severity === 'high') return 'high severity';
+    if (severity === 'medium') return 'medium severity';
+    if (severity === 'low') return 'low severity';
+    return '';
+  }
+  if (severity === 'high') return 'شدید نوعیت';
+  if (severity === 'medium') return 'درمیانی نوعیت';
+  if (severity === 'low') return 'ہلکی نوعیت';
+  return '';
+}
+
+/**
+ * Builds a complete, natural conversational human advisor summary for any Scan result
+ * using ONLY grounded fields from the diagnosis object (zero hallucinated facts).
+ */
+export function buildScanVoiceNarration(
+  diagnosis: CropDiagnosis,
+  lang: 'en' | 'ur'
+): string {
+  if (!diagnosis) return '';
+
+  if (
+    diagnosis.diagnosis_status === 'invalid_image' ||
+    diagnosis.diagnosis_status === 'crop_mismatch' ||
+    diagnosis.requires_retake
+  ) {
+    const msg = getLocalizedText(diagnosis.message, lang);
+    const retakeTip =
+      lang === 'en'
+        ? 'Please take a clear close-up photo in natural daylight and scan again.'
+        : 'براہ کرم دن کی صاف روشنی میں پتے کی واضح تصویر لے کر دوبارہ اسکین کریں۔';
+    return cleanPreserveSpaces(msg || retakeTip);
+  }
+
+  const cropName =
+    lang === 'en'
+      ? diagnosis.detected_crop || diagnosis.selected_crop || 'crop'
+      : diagnosis.detected_crop_ur || diagnosis.detected_crop || 'فصل';
+  const partName =
+    lang === 'en'
+      ? (diagnosis.detected_plant_part || 'plant').toLowerCase()
+      : diagnosis.detected_plant_part_ur || diagnosis.detected_plant_part || 'پتے';
+  const conditionName = getLocalizedText(diagnosis.problem_name, lang);
+  const confPct = Math.round((diagnosis.identification_confidence || 0) * 100);
+  const severityText = formatSeverityPhrase(diagnosis.severity, lang);
+
+  const firstSymptom =
+    diagnosis.observed_symptoms && diagnosis.observed_symptoms.length > 0
+      ? getLocalizedText(diagnosis.observed_symptoms[0], lang)
+      : '';
+  const secondSymptom =
+    diagnosis.observed_symptoms && diagnosis.observed_symptoms.length > 1
+      ? getLocalizedText(diagnosis.observed_symptoms[1], lang)
+      : '';
+  const observation = getLocalizedText(diagnosis.why_suspected, lang);
+
+  const immediateActions = diagnosis.treatment_pillars?.immediate_actions || [];
+  const primarySteps =
+    immediateActions.length > 0
+      ? immediateActions.slice(0, 2).map((s) => getLocalizedText(s, lang)).filter(Boolean)
+      : (diagnosis.recommendations || [])
+          .slice(0, 2)
+          .map((s) => getLocalizedText(s, lang))
+          .filter(Boolean);
+
+  if (diagnosis.diagnosis_status === 'healthy_no_symptoms') {
+    if (lang === 'en') {
+      const parts = [
+        `Good news. Your ${cropName} ${partName} appears healthy, with ${confPct}% confidence and no signs of infection or disease.`,
+        observation ? observation.replace(/\.+$/, '') + '.' : '',
+        primarySteps.length > 0
+          ? `Keep following routine care: ${primarySteps.join(' ')}`
+          : 'Continue regular monitoring and avoid unnecessary sprays.',
+      ];
+      return cleanPreserveSpaces(parts.filter(Boolean).join(' '));
+    }
+
+    const partsUr = [
+      `خوشخبری کسان بھائی۔ آپ کی ${cropName} کے ${partName} بالکل تندرست نظر آ رہے ہیں اور ${confPct}% اعتماد کے ساتھ کسی بیماری یا انفیکشن کی علامت نہیں پائی گئی۔`,
+      observation ? observation.replace(/[۔.]+$/, '') + '۔' : '',
+      primarySteps.length > 0
+        ? `معمول کی دیکھ بھال جاری رکھیں، ${primarySteps.join(' ')}`
+        : 'باقاعدہ معائنہ جاری رکھیں اور غیر ضروری سپرے سے پرہیز کریں۔',
+    ];
+    return cleanPreserveSpaces(partsUr.filter(Boolean).join(' '));
+  }
+
+  if (lang === 'en') {
+    const severityClause = severityText ? `, with ${severityText}` : '';
+    const confClause = confPct > 0 ? ` and ${confPct}% confidence` : '';
+    const intro = `Your ${cropName} ${partName} appears to be affected by ${conditionName}${severityClause}${confClause}.`;
+
+    const symptomItems = [firstSymptom, secondSymptom].filter(Boolean);
+    const symptomSentence =
+      symptomItems.length > 0
+        ? `The scan observed ${symptomItems.join(' and ').replace(/\.+$/, '')}.`
+        : observation
+        ? `${observation.replace(/\.+$/, '')}.`
+        : '';
+
+    const actionSentence =
+      primarySteps.length > 0
+        ? `For best protection, ${primarySteps.join(' ')}`
+        : getLocalizedText(diagnosis.when_to_consult_expert, 'en');
+
+    return cleanPreserveSpaces([intro, symptomSentence, actionSentence].filter(Boolean).join(' '));
+  }
+
+  const severityUr = severityText ? `، جس کی نوعیت ${severityText}` : '';
+  const confUr = confPct > 0 ? ` اور تشخیصی اعتماد ${confPct}% ہے` : ' ہے';
+  const introUr = `آپ کی ${cropName} کے ${partName} میں ${conditionName} کی علامات پائی گئی ہیں${severityUr}${confUr}۔`;
+
+  const symptomUrItems = [firstSymptom, secondSymptom].filter(Boolean);
+  const symptomUr =
+    symptomUrItems.length > 0
+      ? `تصویر میں ${symptomUrItems.join(' اور ').replace(/[۔.]+$/, '')} نمایاں ہیں۔`
+      : observation
+      ? `${observation.replace(/[۔.]+$/, '')}۔`
+      : '';
+
+  const actionUr =
+    primarySteps.length > 0
+      ? `فوری حفاظتی اقدامات کے طور پر ${primarySteps.join(' ')}`
+      : getLocalizedText(diagnosis.when_to_consult_expert, 'ur');
+
+  return cleanPreserveSpaces([introUr, symptomUr, actionUr].filter(Boolean).join(' '));
+}

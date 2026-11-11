@@ -13,7 +13,16 @@ import {
   isProviderAllowedForLanguage,
 } from '../lib/voice/script-guard';
 import { toSpokenText } from '../lib/voice/spoken-normalizer';
+import {
+  buildScanVoiceNarration,
+  cleanTechnicalMetadataForSpeech,
+  looksLikeRomanUrdu,
+  prepareSpeechText,
+  splitSpeechIntoChunks,
+  transliterateCommonRomanUrduToUrdu,
+} from '../lib/voice/speech-prep';
 import { buildVoiceSsml, buildPlsDocument } from '../lib/voice/ssml-builder';
+import { CropDiagnosisSchema } from '../lib/schemas';
 import { getProviderPriorityChain, VOICE_PROFILES } from '../lib/voice/service';
 import {
   clearLexiconHotCacheForTests,
@@ -98,19 +107,22 @@ async function runTests() {
     assert.equal('azureVoice' in VOICE_PROFILES.sd.female, false);
   });
 
-  await testCase('5. SSML builder sets explicit language tag, calm 0.9x & 0.75x rates, pauses, and generates PLS XML', () => {
+  await testCase('5. SSML builder sets explicit language tag, natural 1.0x / 0.82x rates, pitch 0%, clean paragraphs, and selective foreign phonemes', () => {
     const lexicon = loadHotPronunciationLexicon();
     const ssmlNormal = buildVoiceSsml({
-      text: 'آج حیدرآباد میں درجہ حرارت 27°C ہے۔',
+      text: 'آج حیدرآباد میں Ridomil کا درجہ حرارت 27°C ہے۔ اگلی سطر سنیں۔',
       lang: 'ur',
       voiceName: 'ur-PK-UzmaNeural',
       speedMode: 'normal',
       lexiconEntries: lexicon,
     });
     assert.ok(ssmlNormal.includes('xml:lang="ur-PK"'));
-    assert.ok(ssmlNormal.includes('rate="-10%"'));
-    assert.ok(ssmlNormal.includes('<break time="220ms"/>'));
+    assert.ok(ssmlNormal.includes('rate="0%"'));
+    assert.ok(ssmlNormal.includes('pitch="0%"'));
+    assert.ok(ssmlNormal.includes('<p><s>'));
+    assert.ok(ssmlNormal.includes('<break time="120ms"/>'));
     assert.ok(ssmlNormal.includes('<phoneme'));
+    assert.equal(ssmlNormal.includes('<break time="75ms"/>'), false, 'Must not inject choppy breaks mid-phrase before units');
 
     const ssmlSlow = buildVoiceSsml({
       text: 'اڄ حيدرآباد ۾ گرمي پد 27°C آهي.',
@@ -120,7 +132,7 @@ async function runTests() {
       lexiconEntries: lexicon,
     });
     assert.ok(ssmlSlow.includes('xml:lang="sd-PK"'));
-    assert.ok(ssmlSlow.includes('rate="-25%"'));
+    assert.ok(ssmlSlow.includes('rate="-18%"'));
 
     const pls = buildPlsDocument('sd', lexicon.slice(0, 4));
     assert.ok(pls.includes('<lexicon version="1.0"'));
@@ -326,6 +338,157 @@ async function runTests() {
         else fs.writeFileSync(fbPath, `${lines.join('\n')}\n`, 'utf8');
       }
     }
+  });
+
+  await testCase('11. Azure Speech is primary TTS engine for English (Ava/Andrew) & Urdu (Uzma/Asad) with resource verification & Roman Urdu rescue', async () => {
+    assert.equal(getProviderPriorityChain('ur')[0], 'azure-neural');
+    assert.equal(getProviderPriorityChain('en')[0], 'azure-neural');
+    assert.equal(VOICE_PROFILES.ur.female.azureVoice, 'ur-PK-UzmaNeural');
+    assert.equal(VOICE_PROFILES.ur.male.azureVoice, 'ur-PK-AsadNeural');
+    assert.equal(VOICE_PROFILES.en.female.azureVoice, 'en-US-AvaMultilingualNeural');
+    assert.equal(VOICE_PROFILES.en.male.azureVoice, 'en-US-AndrewMultilingualNeural');
+
+    const origFetch = globalThis.fetch;
+    const origAzureKey = process.env.AZURE_SPEECH_KEY;
+    const origAzureRegion = process.env.AZURE_SPEECH_REGION;
+    process.env.AZURE_SPEECH_KEY = 'azure-mock-test-key-123456';
+    process.env.AZURE_SPEECH_REGION = 'eastus';
+
+    const capturedSsml: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/cognitiveservices/voices/list')) {
+        return new Response(
+          JSON.stringify([
+            { ShortName: 'ur-PK-UzmaNeural' },
+            { ShortName: 'ur-PK-AsadNeural' },
+            { ShortName: 'en-US-AvaMultilingualNeural' },
+            { ShortName: 'en-US-AndrewMultilingualNeural' },
+          ]),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      if (url.includes('/cognitiveservices/v1')) {
+        capturedSsml.push(String(init?.body || ''));
+        return new Response(new Uint8Array(256).fill(1), {
+          status: 200,
+          headers: { 'content-type': 'audio/mpeg' },
+        });
+      }
+      throw new Error(`Unexpected URL in Azure mock test: ${url}`);
+    }) as typeof fetch;
+
+    try {
+      const reqUr = new NextRequest('http://localhost/api/tts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          text: 'آپ کے چاول کے پودے میں بلاسٹ بیماری کی علامات نظر آ رہی ہیں۔ پتوں پر لمبے اور نوکیلے دھبے موجود ہیں۔ متاثرہ پودوں کی نگرانی کریں اور مناسب حفاظتی اقدامات اختیار کریں۔',
+          lang: 'ur',
+          skipCache: true,
+        }),
+      });
+      const resUr = await ttsRoutePost(reqUr);
+      assert.equal(resUr.status, 200);
+      assert.equal(resUr.headers.get('X-Voice-Provider'), 'azure-neural');
+      assert.equal(resUr.headers.get('X-Voice-Locale'), 'ur-PK');
+      assert.ok(capturedSsml[0].includes('ur-PK-UzmaNeural'));
+
+      const reqEn = new NextRequest('http://localhost/api/tts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          text: 'Your rice plant is showing symptoms of rice blast disease. The affected leaves have spindle-shaped lesions. Monitor the crop and follow appropriate management practices.',
+          lang: 'en',
+          skipCache: true,
+        }),
+      });
+      const resEn = await ttsRoutePost(reqEn);
+      assert.equal(resEn.status, 200);
+      assert.equal(resEn.headers.get('X-Voice-Provider'), 'azure-neural');
+      assert.equal(resEn.headers.get('X-Voice-Locale'), 'en-PK');
+      assert.ok(capturedSsml[1].includes('en-US-AvaMultilingualNeural'));
+      assert.ok(capturedSsml[1].includes('xml:lang="en-US"'));
+    } finally {
+      globalThis.fetch = origFetch;
+      if (origAzureKey === undefined) delete process.env.AZURE_SPEECH_KEY;
+      else process.env.AZURE_SPEECH_KEY = origAzureKey;
+      if (origAzureRegion === undefined) delete process.env.AZURE_SPEECH_REGION;
+      else process.env.AZURE_SPEECH_REGION = origAzureRegion;
+    }
+  });
+
+  await testCase('12. Speech preparation cleans metadata, converts Roman Urdu cleanly, and splits long replies at sentence boundaries', () => {
+    const rawDirty = '**Rice Blast** {"diagnosis_status": "possible_disease"} ID ZRK-PK-123456: Inspect leaves at **85%** severity.';
+    const cleaned = cleanTechnicalMetadataForSpeech(rawDirty);
+    assert.equal(cleaned.includes('ZRK-PK-123456'), false);
+    assert.equal(cleaned.includes('diagnosis_status'), false);
+    assert.equal(cleaned.includes('**'), false);
+
+    const romanUr = 'Gandum ko pehla pani 20 din baad lagayein aur yurea khad dein.';
+    assert.equal(looksLikeRomanUrdu(romanUr), true);
+    const converted = transliterateCommonRomanUrduToUrdu(romanUr);
+    assert.ok(converted.includes('گندم') && converted.includes('پانی') && converted.includes('یوریا'));
+    assert.equal(looksLikeRomanUrdu('Your rice plant is showing signs of disease.'), false);
+
+    const enPhrase = 'Your rice plant is showing symptoms of rice blast disease. The affected leaves have spindle-shaped lesions. Monitor the crop and follow appropriate management practices.';
+    const urPhrase = 'آپ کے چاول کے پودے میں بلاسٹ بیماری کی علامات نظر آ رہی ہیں۔ پتوں پر لمبے اور نوکیلے دھبے موجود ہیں۔ متاثرہ پودوں کی نگرانی کریں اور مناسب حفاظتی اقدامات اختیار کریں۔';
+    assert.ok(prepareSpeechText(enPhrase, 'en').includes('spindle-shaped lesions'));
+    assert.ok(prepareSpeechText(urPhrase, 'ur').includes('بلاسٹ بیماری'));
+
+    const longText = Array.from({ length: 12 }, (_, i) => `Sentence number ${i + 1} gives practical guidance for crop care.`).join(' ');
+    const chunks = splitSpeechIntoChunks(longText, 'en', 220);
+    assert.ok(chunks.length >= 2);
+    assert.ok(chunks.every((c) => c.endsWith('.') && c.length <= 220));
+  });
+
+  await testCase('13. buildScanVoiceNarration builds accurate conversational advisor summaries for both diseased and healthy scans', () => {
+    const diseased = CropDiagnosisSchema.parse({
+      image_valid: true,
+      detected_crop: 'Rice',
+      detected_crop_ur: 'دھان',
+      selected_crop: 'rice',
+      crop_match: true,
+      detected_plant_part: 'Leaf',
+      detected_plant_part_ur: 'پتا',
+      growth_stage: 'Tillering',
+      growth_stage_ur: 'شگوفے',
+      identification_confidence: 0.88,
+      diagnosis_status: 'possible_disease',
+      plant_condition: 'Infected',
+      plant_condition_ur: 'متاثرہ',
+      problem_name: { en: 'Rice Blast', ur: 'دھان کا بلاسٹ' },
+      observed_symptoms: [{ en: 'spindle-shaped grey lesions on leaf', ur: 'پتے پر تکلا نما سرمئی دھبے' }],
+      why_suspected: { en: 'Characteristic diamond spots with brown borders are visible', ur: 'بھورے کناروں والے تکلا نما دھبے نمایاں ہیں' },
+      severity: 'medium',
+      treatment_pillars: {
+        immediate_actions: [{ en: 'scout neighboring tillers and pause extra urea', ur: 'ساتھ والے پودے چیک کریں اور اضافی یوریا روکیں' }],
+      },
+      requires_retake: false,
+      requires_expert_review: true,
+      message: { en: 'Rice blast detected', ur: 'بلاسٹ کی تصدیق ہوئی' },
+    });
+
+    const enNarration = buildScanVoiceNarration(diseased, 'en');
+    assert.ok(enNarration.includes('Rice') && enNarration.includes('Rice Blast') && enNarration.includes('medium severity') && enNarration.includes('88%'));
+    assert.ok(enNarration.includes('spindle-shaped grey lesions'));
+
+    const urNarration = buildScanVoiceNarration(diseased, 'ur');
+    assert.ok(urNarration.includes('دھان') && urNarration.includes('دھان کا بلاسٹ') && urNarration.includes('88%'));
+
+    const healthy = CropDiagnosisSchema.parse({
+      ...diseased,
+      diagnosis_status: 'healthy_no_symptoms',
+      severity: 'low',
+      problem_name: { en: 'Healthy Rice Leaf', ur: 'تندرست دھان کا پتا' },
+      observed_symptoms: [],
+      why_suspected: { en: 'Leaf blades look uniformly green without lesions', ur: 'پتا یکساں سرسبز اور صاف ہے' },
+      treatment_pillars: { immediate_actions: [] },
+      recommendations: [{ en: 'Continue regular morning field scouting', ur: 'صبح کے وقت باقاعدہ معائنہ جاری رکھیں' }],
+      requires_expert_review: false,
+    });
+    const healthyEn = buildScanVoiceNarration(healthy, 'en');
+    assert.ok(healthyEn.includes('appears healthy') && healthyEn.includes('no signs of infection'));
   });
 
   console.log(`\nVoice Pipeline Summary: ${passed} passed, ${failed} failed\n`);

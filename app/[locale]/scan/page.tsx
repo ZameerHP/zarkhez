@@ -49,6 +49,7 @@ import {
 } from '@/lib/customer-messages';
 import { getSavedProfile, saveScanRecord } from '@/lib/supabase/client';
 import { speakText, stopSpeaking, unlockAudio } from '@/lib/voice';
+import { buildScanVoiceNarration } from '@/lib/voice/speech-prep';
 import { GuestPromptSheet } from '@/components/auth/GuestPromptSheet';
 import {
   compressAndAssessLeafImage,
@@ -308,23 +309,10 @@ export default function ScanPage() {
     const profile = getSavedProfile();
     if (profile.autoSpeakVoice === false) return;
 
-    let speechText = '';
-    if (diagData.diagnosis_status === 'crop_mismatch' || diagData.diagnosis_status === 'invalid_image') {
-      speechText = getLocalizedText(diagData.message, reportLang);
-    } else if (diagData.voice_script && getLocalizedText(diagData.voice_script, reportLang)) {
-      speechText = getLocalizedText(diagData.voice_script, reportLang);
-    } else {
-      const prob = getLocalizedText(diagData.problem_name, reportLang);
-      const why = getLocalizedText(diagData.why_suspected, reportLang);
-      const recs = diagData.recommendations || [];
-      const stepsIntro =
-        recs.length > 0
-          ? reportLang === 'en'
-            ? `Recommended steps: ${recs.map((r, i) => `${i + 1}. ${getLocalizedText(r, reportLang)}`).join(' ')}`
-            : `سفارشات: ${recs.map((r, i) => `${i + 1}۔ ${getLocalizedText(r, reportLang)}`).join(' ')}`
-          : '';
-      speechText = `${prob}۔ ${why}۔ ${stepsIntro}`;
-    }
+    const speechText = buildScanVoiceNarration(
+      diagData,
+      reportLang === 'en' ? 'en' : 'ur'
+    );
 
     if (!speechText.trim()) return;
     setTimeout(() => {
@@ -333,13 +321,14 @@ export default function ScanPage() {
         reportLang === 'en' ? 'en' : 'ur',
         {
           onError: () => {
-          setVoiceErrorMsg(
-            locale === 'ur'
-              ? 'آواز سنانے میں عارضی مسئلہ آیا، لیکن مکمل تحریری رپورٹ نیچے موجود ہے۔'
-              : 'Voice summary unavailable right now; full text report is ready below.'
-          );
-        },
-      });
+            setVoiceErrorMsg(
+              locale === 'ur'
+                ? 'آواز سنانے میں عارضی مسئلہ آیا، لیکن مکمل تحریری رپورٹ نیچے موجود ہے۔'
+                : 'Voice summary unavailable right now; full text report is ready below.'
+            );
+          },
+        }
+      );
     }, 150);
   };
 
@@ -684,16 +673,7 @@ export default function ScanPage() {
   };
 
   const spokenDiagnosisText = diagnosis
-    ? diagnosis.diagnosis_status === 'crop_mismatch' || diagnosis.diagnosis_status === 'invalid_image'
-      ? getLocalizedText(diagnosis.message, reportLang)
-      : diagnosis.voice_script && getLocalizedText(diagnosis.voice_script, reportLang)
-      ? getLocalizedText(diagnosis.voice_script, reportLang)
-      : `${getLocalizedText(diagnosis.problem_name, reportLang)}۔ ${getLocalizedText(
-          diagnosis.why_suspected,
-          reportLang
-        )}۔ ${(diagnosis.recommendations || [])
-          .map((r, i) => `${i + 1}۔ ${getLocalizedText(r, reportLang)}`)
-          .join(' ')}`
+    ? buildScanVoiceNarration(diagnosis, reportLang === 'en' ? 'en' : 'ur')
     : '';
 
   return (

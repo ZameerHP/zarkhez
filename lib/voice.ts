@@ -9,6 +9,12 @@
  */
 
 import { toSpokenText } from './voice/spoken-normalizer';
+import {
+  cleanTechnicalMetadataForSpeech,
+  looksLikeRomanUrdu,
+  splitSpeechIntoChunks,
+  transliterateCommonRomanUrduToUrdu,
+} from './voice/speech-prep';
 import type {
   VoiceGender,
   VoiceLang,
@@ -133,6 +139,7 @@ let lastPlaybackArgs: {
   lang: VoiceLang;
   callbacks?: SpeakCallbacks;
 } | null = null;
+const activeAbortControllers = new Set<AbortController>();
 
 function clearTimers(): void {
   if (activeFallbackTimer) {
@@ -249,7 +256,7 @@ async function fetchTtsBlob(params: {
       lang: params.lang,
       gender: params.gender,
       speedMode: params.speedMode,
-      speed: params.speedMode === 'slow' ? 0.75 : 0.9,
+      speed: params.speedMode === 'slow' ? 0.82 : 1.0,
       clipId: params.clipId,
     }),
     signal: params.signal,
@@ -314,6 +321,7 @@ export async function preloadSpeechAudio(
         if (firstKey) preloadedBlobs.delete(firstKey);
       }
       preloadedBlobs.set(key, result);
+      void writePersistentAudioCache(key, result);
     }
   } catch {
     // background preload fails quietly without disturbing user
@@ -469,6 +477,12 @@ export function repeatLastSlowly(): void {
   speakText(text, lang, { ...callbacks, speedMode: 'slow' });
 }
 
+export function replayLast(): void {
+  if (!lastPlaybackArgs) return;
+  const { text, lang, callbacks } = lastPlaybackArgs;
+  speakText(text, lang, callbacks);
+}
+
 export async function speakText(
   text: string,
   rawLang: VoiceLang | string,
@@ -481,11 +495,15 @@ export async function speakText(
   const lang = normalizeVoiceLang(rawLang);
   const gender: VoiceGender = 'female';
   const speedMode = callbacks?.speedMode || getSavedVoiceSpeed();
-  const targetRate = speedMode === 'slow' ? 0.75 : 0.9;
 
   lastPlaybackArgs = { text, lang, callbacks };
 
-  const normalized = toSpokenText(text, lang);
+  const cleanedRaw = cleanTechnicalMetadataForSpeech(text);
+  const scriptAligned =
+    lang === 'ur' && looksLikeRomanUrdu(cleanedRaw)
+      ? transliterateCommonRomanUrduToUrdu(cleanedRaw)
+      : cleanedRaw;
+  const normalized = toSpokenText(scriptAligned, lang);
   if (!normalized.spokenText) {
     callbacks?.onPhaseChange?.('idle');
     callbacks?.onEnd?.();
@@ -506,12 +524,55 @@ export async function speakText(
 
   callbacks?.onPhaseChange?.('thinking');
 
-  const preloadKey = buildClientPreloadKey(spokenText, lang, gender, speedMode);
-  const cachedEntry = preloadedBlobs.get(preloadKey);
+  const resolveChunkAudio = async (
+    chunkText: string,
+    clipId?: string
+  ): Promise<{ blob: Blob; meta: VoiceAudioMeta } | null> => {
+    const key = buildClientPreloadKey(chunkText, lang, gender, speedMode);
+    const memHit = preloadedBlobs.get(key);
+    if (memHit) return memHit;
 
-  const playBlobWithHighlight = async (
+    const persistentHit = await readPersistentAudioCache(key);
+    if (persistentHit) {
+      preloadedBlobs.set(key, persistentHit);
+      return persistentHit;
+    }
+
+    const controller = new AbortController();
+    activeAbortControllers.add(controller);
+    const fetchTimer = setTimeout(() => controller.abort(), 24000);
+
+    try {
+      const fetched = await fetchTtsBlob({
+        text: chunkText,
+        lang,
+        gender,
+        speedMode,
+        clipId,
+        signal: controller.signal,
+      });
+      if (!fetched) return null;
+      if (preloadedBlobs.size >= PRELOAD_CACHE_MAX) {
+        const firstKey = preloadedBlobs.keys().next().value;
+        if (firstKey) preloadedBlobs.delete(firstKey);
+      }
+      preloadedBlobs.set(key, fetched);
+      void writePersistentAudioCache(key, fetched);
+      return fetched;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(fetchTimer);
+      activeAbortControllers.delete(controller);
+    }
+  };
+
+  const playChunkBlob = async (
     blob: Blob,
-    meta: VoiceAudioMeta
+    meta: VoiceAudioMeta,
+    isFirstChunk: boolean,
+    chunkWordOffset: number,
+    chunkWordCount: number
   ): Promise<boolean> => {
     if (sessionId !== currentVoiceSession) return true;
     const audio = getSharedAudio() || new Audio();
@@ -519,7 +580,9 @@ export async function speakText(
     const objUrl = URL.createObjectURL(blob);
     activeObjectUrl = objUrl;
     audio.volume = 1;
-    audio.playbackRate = targetRate <= 0.8 ? 0.85 : 1.0;
+    // Azure Neural & ElevenLabs synthesize natively at natural target speed; avoid double-slowing audio.
+    const needsClientSlowdown = meta.provider === 'gemini-tts' && speedMode === 'slow';
+    audio.playbackRate = needsClientSlowdown ? 0.88 : 1.0;
     try {
       (audio as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = true;
     } catch {
@@ -532,9 +595,6 @@ export async function speakText(
         if (resolved) return;
         resolved = true;
         clearTimers();
-        if (sessionId === currentVoiceSession) {
-          callbacks?.onWordHighlight?.(-1, words, meta.spokenText);
-        }
         resolve(ok);
       };
 
@@ -554,15 +614,21 @@ export async function speakText(
         callbacks?.onMeta?.(meta);
         callbacks?.onPhaseChange?.('speaking');
         callbacks?.onPauseChange?.(false);
-        callbacks?.onStart?.(true);
+        if (isFirstChunk) {
+          callbacks?.onStart?.(true);
+        }
 
-        if (words.length > 0) {
+        if (chunkWordCount > 0 && words.length > 0) {
           const updateHighlight = () => {
             if (!audio || audio.paused || sessionId !== currentVoiceSession) return;
-            const dur = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : Math.max(2, words.length * 0.42);
+            const dur =
+              Number.isFinite(audio.duration) && audio.duration > 0
+                ? audio.duration
+                : Math.max(2, chunkWordCount * 0.38);
             const ratio = Math.min(0.999, Math.max(0, audio.currentTime / dur));
-            const idx = Math.min(words.length - 1, Math.floor(ratio * words.length));
-            callbacks?.onWordHighlight?.(idx, words, meta.spokenText);
+            const localIdx = Math.floor(ratio * chunkWordCount);
+            const globalIdx = Math.min(words.length - 1, chunkWordOffset + localIdx);
+            callbacks?.onWordHighlight?.(globalIdx, words, spokenText);
           };
           updateHighlight();
           activeWordTimer = setInterval(updateHighlight, 110);
@@ -575,13 +641,8 @@ export async function speakText(
         }
       };
 
-      audio.onended = () => {
-        done(true);
-      };
-
-      audio.onerror = () => {
-        done(false);
-      };
+      audio.onended = () => done(true);
+      audio.onerror = () => done(false);
 
       audio.src = objUrl;
       const playPromise = audio.play();
@@ -592,60 +653,62 @@ export async function speakText(
   };
 
   try {
-    const persistentHit = cachedEntry || (await readPersistentAudioCache(preloadKey));
-    if (persistentHit) {
-      if (!cachedEntry) preloadedBlobs.set(preloadKey, persistentHit);
-      const ok = await playBlobWithHighlight(persistentHit.blob, {
-        ...persistentHit.meta,
-        spokenText,
-      });
-      if (sessionId === currentVoiceSession) {
-        if (ok) {
-          callbacks?.onPhaseChange?.('idle');
-          callbacks?.onEnd?.();
-        } else {
-          speakWithOfflineFallback(spokenText, lang, sessionId, speedMode, callbacks);
-        }
+    // Split long explanations strictly along natural sentence boundaries; never truncate or pause awkwardly mid-thought.
+    const chunks = splitSpeechIntoChunks(spokenText, lang, 620);
+    if (chunks.length === 0) {
+      callbacks?.onPhaseChange?.('idle');
+      callbacks?.onEnd?.();
+      return;
+    }
+
+    let nextChunkPromise: Promise<{ blob: Blob; meta: VoiceAudioMeta } | null> = resolveChunkAudio(
+      chunks[0],
+      chunks.length === 1 ? callbacks?.clipId : undefined
+    );
+
+    let wordOffset = 0;
+
+    for (let i = 0; i < chunks.length; i++) {
+      if (sessionId !== currentVoiceSession) return;
+
+      const chunkResult = await nextChunkPromise;
+      if (sessionId !== currentVoiceSession) return;
+
+      if (!chunkResult) {
+        const remainingText = chunks.slice(i).join(' ');
+        speakWithOfflineFallback(remainingText, lang, sessionId, speedMode, callbacks);
+        return;
       }
-      return;
-    }
 
-    // Fetch ONE seamless cohesive audio clip for the whole reply so the voice never splits or switches mid-answer
-    const controller = new AbortController();
-    const firstTimeout = setTimeout(() => controller.abort(), 24000);
-    const singleResult = await fetchTtsBlob({
-      text: spokenText.slice(0, 1100),
-      lang,
-      gender,
-      speedMode,
-      clipId: callbacks?.clipId,
-      signal: controller.signal,
-    }).finally(() => clearTimeout(firstTimeout));
+      // Immediately prefetch next sentence chunk in background while current chunk plays seamlessly
+      if (i + 1 < chunks.length) {
+        nextChunkPromise = resolveChunkAudio(chunks[i + 1]);
+      }
 
-    if (sessionId !== currentVoiceSession) return;
+      const chunkWords = chunks[i]
+        .replace(/[۔.!?؟،,؛;:]/g, '')
+        .split(/\s+/)
+        .filter(Boolean).length;
 
-    if (!singleResult) {
-      speakWithOfflineFallback(spokenText, lang, sessionId, speedMode, callbacks);
-      return;
-    }
+      const playedOk = await playChunkBlob(
+        chunkResult.blob,
+        { ...chunkResult.meta, spokenText },
+        i === 0,
+        wordOffset,
+        chunkWords
+      );
 
-    if (preloadedBlobs.size >= PRELOAD_CACHE_MAX) {
-      const firstKey = preloadedBlobs.keys().next().value;
-      if (firstKey) preloadedBlobs.delete(firstKey);
-    }
-    preloadedBlobs.set(preloadKey, singleResult);
-    writePersistentAudioCache(preloadKey, singleResult);
-
-    const playedOk = await playBlobWithHighlight(singleResult.blob, {
-      ...singleResult.meta,
-      spokenText,
-    });
-    if (!playedOk) {
-      speakWithOfflineFallback(spokenText, lang, sessionId, speedMode, callbacks);
-      return;
+      if (sessionId !== currentVoiceSession) return;
+      if (!playedOk) {
+        const remainingText = chunks.slice(i).join(' ');
+        speakWithOfflineFallback(remainingText, lang, sessionId, speedMode, callbacks);
+        return;
+      }
+      wordOffset += chunkWords;
     }
 
     if (sessionId === currentVoiceSession) {
+      callbacks?.onWordHighlight?.(-1, words, spokenText);
       callbacks?.onPhaseChange?.('idle');
       callbacks?.onEnd?.();
     }
@@ -660,6 +723,10 @@ export function stopSpeaking(): void {
   if (typeof window === 'undefined') return;
   currentVoiceSession++;
   clearTimers();
+  activeAbortControllers.forEach((controller) => {
+    try { controller.abort(); } catch {}
+  });
+  activeAbortControllers.clear();
   revokeActiveUrl();
 
   if (sharedAudio) {
