@@ -248,10 +248,10 @@ export async function compressAndAssessLeafImage(
       };
     };
 
-    // 1. High-Res Compressed (Max 1500px, 0.82 quality), staying safely under 3.4 MB for serverless limits
-    let highRes = renderCanvas(1500, 0.82);
+    // 1. High-Res Compressed (Max 1024px, 0.82 quality), keeping leaf detail crisp while halving upload & vision latency
+    let highRes = renderCanvas(1024, 0.82);
     if (highRes.dataUrl.length > 3_400_000) {
-      highRes = renderCanvas(1100, 0.72);
+      highRes = renderCanvas(800, 0.72);
     }
 
     // 2. Thumbnail (Max 400px, 0.78 quality)

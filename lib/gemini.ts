@@ -829,16 +829,23 @@ export class GeminiVisionError extends Error {
  * Call Google Gemini REST API directly using standard fetch.
  * Implements strict error classification, secret protection, and verified model fallback.
  */
+const DEPRECATED_OR_STALLED_MODELS = new Set([
+  'gemini-3.1-flash-lite',
+  'gemini-3.1-flash-lite-preview',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+]);
+
 function resolvePreferredModel(kind: 'fast' | 'vision'): string {
   const configured = readEnvLocalValue(
     kind === 'vision'
       ? ['GEMINI_MODEL_DETAIL', 'GEMINI_MODEL_FAST']
       : ['GEMINI_MODEL_FAST', 'GEMINI_MODEL_DETAIL']
   );
-  if (configured && !configured.includes('-latest')) {
+  if (configured && !DEPRECATED_OR_STALLED_MODELS.has(configured)) {
     return configured;
   }
-  return 'gemini-3.1-flash-lite';
+  return kind === 'vision' ? 'gemini-3-flash-preview' : 'gemini-3.5-flash-lite';
 }
 
 /**
@@ -852,6 +859,7 @@ async function callGeminiApi({
   temperature = 0.15,
   maxOutputTokens = 4096,
   responseSchema,
+  timeoutMs = 14000,
 }: {
   model: string;
   systemInstruction?: string;
@@ -865,6 +873,7 @@ async function callGeminiApi({
   temperature?: number;
   maxOutputTokens?: number;
   responseSchema?: Record<string, unknown>;
+  timeoutMs?: number;
 }): Promise<{ text: string; modelUsed: string }> {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
@@ -883,22 +892,25 @@ async function callGeminiApi({
   const envFast = readEnvLocalValue(['GEMINI_MODEL_FAST']);
   const envDetail = readEnvLocalValue(['GEMINI_MODEL_DETAIL']);
 
-  // Verified live high-availability Gemini model priority list: put explicit caller model
-  // and fast 3.5-flash-lite ahead of -latest so transient 503 on -latest never slows chat down
+  // Live-verified fast multimodal priority chain (omits broken gemini-3.1-flash-lite timeouts)
   const modelsToTry = Array.from(
-    new Set([
-      model,
-      'gemini-3.1-flash-lite',
-      'gemini-3.5-flash-lite',
-      'gemini-3.6-flash',
-      envFast,
-      envDetail,
-    ])
-  )
-    .filter(Boolean)
-    .slice(0, 4) as string[];
+    new Set(
+      [
+        model,
+        envDetail,
+        envFast,
+        'gemini-3.5-flash-lite',
+        'gemini-flash-lite-latest',
+        'gemini-3-flash-preview',
+        'gemini-3.6-flash',
+        'gemini-3.7-flash',
+      ]
+        .filter((m): m is string => Boolean(m))
+        .filter((m) => !DEPRECATED_OR_STALLED_MODELS.has(m))
+    )
+  ).slice(0, 5);
 
-  const overallDeadlineMs = Date.now() + 45000;
+  const overallDeadlineMs = Date.now() + 48000;
   let lastError: GeminiVisionError | null = null;
 
   for (let i = 0; i < modelsToTry.length; i++) {
@@ -932,7 +944,8 @@ async function callGeminiApi({
     }
 
     try {
-      const attemptTimeoutMs = Math.min(9000, remainingBudgetMs);
+      const modelBudgetMs = candidateModel.includes('-lite') ? Math.min(timeoutMs, 10000) : timeoutMs;
+      const attemptTimeoutMs = Math.min(modelBudgetMs, remainingBudgetMs);
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -983,13 +996,13 @@ async function callGeminiApi({
         // Rate limit or Quota (429): distinguish daily quota from per-minute spike
         if (response.status === 429) {
           const isQuotaExhausted = /quota|billing|exceeded your current quota/i.test(errorText);
-          if (!isQuotaExhausted && i < modelsToTry.length - 1) {
-            console.warn(`[Cloud Vision API] Model ${candidateModel} rate-limited (429). Trying next model...`);
+          if ((!isQuotaExhausted || (i > 0 && lastError?.code !== 'QUOTA_EXHAUSTED')) && i < modelsToTry.length - 1) {
+            console.warn(`[Cloud Vision API] Model ${candidateModel} returned 429. Trying next model...`);
             lastError = new GeminiVisionError(
               `Cloud Vision API rate limited [429]`,
               429,
-              'RATE_LIMITED',
-              { errorCategory: 'rate_limited', retryable: true }
+              isQuotaExhausted ? 'QUOTA_EXHAUSTED' : 'RATE_LIMITED',
+              { errorCategory: isQuotaExhausted ? 'quota_exhausted' : 'rate_limited', retryable: true }
             );
             continue;
           }
@@ -1662,8 +1675,8 @@ CRITICAL RULES FOR ACCURACY & SIMPLE CLARITY:
    - Never assume brown/yellow spots are automatically fungal! Classify accurately across fungal, bacterial, viral, insect_pest, nematode_root, nutrient_deficiency, nutrient_toxicity, water_stress, heat_stress, cold_frost_damage, sunburn, chemical_herbicide_injury, soil_salinity, environmental_stress, or post_harvest_storage.
    - For maize cobs/kernels compare Fusarium vs Diplodia vs Gibberella ear rot; for curled leaves check Begomovirus vs herbicide drift vs thrips/mites; for burnt margins check salinity/fertilizer burn vs blight. When uncertain or photo cannot separate look-alikes, state honestly and lower confidence.
 4. SIMPLE, CLEAN, NON-REPETITIVE FARMER LANGUAGE (MOST IMPORTANT):
-   - Populate EVERY localized field cleanly: pure natural English in ".en" and simple everyday Pakistani Urdu in ".ur" (NO English words, underscores, or technical jargon inside ".ur" strings!).
-   - Keep observed_symptoms (2-4 sharp visible clues), possible_causes (1-2 clear drivers), explanations.farmer_friendly (1-2 clear sentences telling the farmer plainly what happened), and treatment_pillars.immediate_actions (2-3 crisp numbered steps the farmer can act on today without repeating prevention points).
+   - Populate EVERY localized field cleanly: pure natural English in ".en" and simple everyday Pakistani Urdu in ".ur" (NO English words, underscores, or technical jargon inside ".ur" strings!). Keep every value concise (1 short phrase/sentence per bullet, max 2 items per list) so responses stay crisp.
+   - Keep observed_symptoms (1-3 sharp visible clues), possible_causes (1-2 clear drivers), explanations.farmer_friendly (1-2 clear sentences telling the farmer plainly what happened), and treatment_pillars.immediate_actions (2-3 crisp numbered steps the farmer can act on today without repeating prevention points).
    - Recommend ONLY registered active ingredient classes with safety/PHI notes; NEVER invent commercial doses or banned WHO Class Ia/Ib chemicals (Monocrotophos, Endosulfan, Carbofuran, DDT). Never mention "Gemini" or "Google" (refer only to "Zarkhez Cloud Vision").`;
 
   const regionalHint = buildCropReferenceHint(selectedCrop, scanOptions?.region);
@@ -1686,9 +1699,9 @@ Return valid JSON matching the bilingual English & Urdu schema with clear, conci
     const attemptModel =
       attempt === 0
         ? primaryModel
-        : primaryModel === 'gemini-3.1-flash-lite'
-        ? 'gemini-3.6-flash'
-        : 'gemini-3.1-flash-lite';
+        : primaryModel === 'gemini-3-flash-preview'
+        ? 'gemini-3.5-flash-lite'
+        : 'gemini-3-flash-preview';
 
     const promptForAttempt = retryFeedbackHint
       ? `${basePromptText}\n\nIMPORTANT CORRECTION REQUIRED ON RETRY:\n${retryFeedbackHint}`
@@ -1714,7 +1727,8 @@ Return valid JSON matching the bilingual English & Urdu schema with clear, conci
         },
       ],
       temperature: attempt === 0 ? 0.1 : 0.05,
-      maxOutputTokens: 6144,
+      maxOutputTokens: 3072,
+      timeoutMs: 16000,
       responseSchema: GEMINI_DIAGNOSIS_RESPONSE_SCHEMA,
     });
 

@@ -372,7 +372,7 @@ export default function ScanPage() {
     const timeoutId = setTimeout(() => {
       timedOut = true;
       controller.abort();
-    }, 48000);
+    }, 55000);
 
     try {
       let fullDataUrl: string;

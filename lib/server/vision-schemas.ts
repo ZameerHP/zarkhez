@@ -93,17 +93,13 @@ export const GEMINI_DIAGNOSIS_RESPONSE_SCHEMA: Record<string, unknown> = {
       type: 'STRING',
       enum: ['high', 'moderate', 'low', 'uncertain'],
     },
-    confidence_limitations: GEMINI_LOCALIZED_SCHEMA,
     visual_inspection: {
       type: 'OBJECT',
       properties: {
         lesion_detected: { type: 'BOOLEAN' },
         lesion_count: { type: 'STRING' },
         lesion_shape: { type: 'STRING' },
-        lesion_size_est: { type: 'STRING' },
         lesion_colors: { type: 'ARRAY', items: { type: 'STRING' } },
-        lesion_margins: { type: 'STRING' },
-        lesion_distribution: { type: 'STRING' },
         tissue_damage: { type: 'STRING' },
         chlorosis_detected: { type: 'BOOLEAN' },
         necrosis_detected: { type: 'BOOLEAN' },
@@ -173,7 +169,6 @@ export const GEMINI_DIAGNOSIS_RESPONSE_SCHEMA: Record<string, unknown> = {
         required: ['name', 'similarities', 'differences', 'likelihood', 'field_distinction_tip'],
       },
     },
-    why_suspected: GEMINI_LOCALIZED_SCHEMA,
     observed_symptoms: { type: 'ARRAY', items: GEMINI_LOCALIZED_SCHEMA },
     possible_causes: { type: 'ARRAY', items: GEMINI_LOCALIZED_SCHEMA },
     severity: { type: 'STRING', enum: ['low', 'medium', 'high', 'not_assessed'] },
@@ -181,7 +176,6 @@ export const GEMINI_DIAGNOSIS_RESPONSE_SCHEMA: Record<string, unknown> = {
       type: 'STRING',
       enum: ['healthy_none', 'low', 'medium', 'high', 'critical', 'unable_to_determine'],
     },
-    severity_explanation: GEMINI_LOCALIZED_SCHEMA,
     severity_scope: {
       type: 'OBJECT',
       properties: {
@@ -194,10 +188,7 @@ export const GEMINI_DIAGNOSIS_RESPONSE_SCHEMA: Record<string, unknown> = {
       type: 'OBJECT',
       properties: {
         immediate_actions: { type: 'ARRAY', items: GEMINI_LOCALIZED_SCHEMA },
-        short_term_management: { type: 'ARRAY', items: GEMINI_LOCALIZED_SCHEMA },
         cultural_management: { type: 'ARRAY', items: GEMINI_LOCALIZED_SCHEMA },
-        biological_management: { type: 'ARRAY', items: GEMINI_LOCALIZED_SCHEMA },
-        long_term_prevention: { type: 'ARRAY', items: GEMINI_LOCALIZED_SCHEMA },
         chemical_management: {
           type: 'ARRAY',
           items: {
@@ -212,24 +203,6 @@ export const GEMINI_DIAGNOSIS_RESPONSE_SCHEMA: Record<string, unknown> = {
         },
       },
     },
-    disease_development_conditions: GEMINI_LOCALIZED_SCHEMA,
-    possible_co_infections: { type: 'ARRAY', items: GEMINI_LOCALIZED_SCHEMA },
-    yield_impact: GEMINI_LOCALIZED_SCHEMA,
-    quality_risk: GEMINI_LOCALIZED_SCHEMA,
-    additional_testing_required: GEMINI_LOCALIZED_SCHEMA,
-    field_assessment: {
-      type: 'OBJECT',
-      properties: {
-        mode: { type: 'STRING', enum: ['single_plant', 'whole_field'] },
-        images_analyzed: { type: 'NUMBER' },
-        countable_affected_plants: { type: 'STRING' },
-        distribution_pattern: { type: 'STRING' },
-        estimated_field_spread_pct: { type: 'NUMBER' },
-        scope_summary: GEMINI_LOCALIZED_SCHEMA,
-      },
-    },
-    recommendations: { type: 'ARRAY', items: GEMINI_LOCALIZED_SCHEMA },
-    prevention: { type: 'ARRAY', items: GEMINI_LOCALIZED_SCHEMA },
     when_to_consult_expert: GEMINI_LOCALIZED_SCHEMA,
     explanations: {
       type: 'OBJECT',
