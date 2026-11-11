@@ -56,6 +56,13 @@ import {
   ImageQualityReport,
 } from '@/lib/image-quality';
 import { buildOfflinePreliminaryAssessment } from '@/lib/offline-assessment';
+import {
+  ConfidenceCalibrationPanel,
+  ExtendedAgronomyCards,
+  ScanFeedbackAndModelFooter,
+  ScanModeAndFieldContextPanel,
+} from '@/components/scan/VisionInsightsAndFeedback';
+import { SUPPORTED_AGRICULTURAL_CROPS } from '@/lib/vision/knowledge-base';
 
 type ScanStage =
   | 'idle'
@@ -108,6 +115,10 @@ export default function ScanPage() {
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
   const [viewMode, setViewMode] = useState<'annotated' | 'original'>('annotated');
   const [explanationMode, setExplanationMode] = useState<'farmer' | 'scientific'>('farmer');
+  const [scanMode, setScanMode] = useState<'single_plant' | 'whole_field'>('single_plant');
+  const [region, setRegion] = useState<string>('');
+  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
+  const [showAllCrops, setShowAllCrops] = useState(false);
 
   // Quality check state
   const [pendingQualityData, setPendingQualityData] = useState<{
@@ -124,19 +135,24 @@ export default function ScanPage() {
   const scanInFlightRef = useRef(false);
   const activeAbortRef = useRef<AbortController | null>(null);
 
-  const supportedCrops = [
-    { key: 'wheat', en: 'Wheat', ur: 'گندم' },
-    { key: 'rice', en: 'Rice', ur: 'دھان (چاول)' },
-    { key: 'cotton', en: 'Cotton', ur: 'کپاس' },
-    { key: 'maize', en: 'Maize', ur: 'مکئی' },
-    { key: 'sugarcane', en: 'Sugarcane', ur: 'کماد (گنا)' },
-    { key: 'tomato', en: 'Tomato', ur: 'ٹماٹر' },
-    { key: 'potato', en: 'Potato', ur: 'آلو' },
-    { key: 'chili', en: 'Chili', ur: 'مرچ' },
-    { key: 'mango', en: 'Mango', ur: 'آم' },
-    { key: 'citrus', en: 'Citrus', ur: 'کنو / مالٹا' },
-    { key: 'onion', en: 'Onion', ur: 'پیاز' },
-  ] as const;
+  const supportedCrops = SUPPORTED_AGRICULTURAL_CROPS.map((c) => ({
+    key: c.slug,
+    en: c.en,
+    ur: c.ur,
+  }));
+
+  useEffect(() => {
+    const p = getSavedProfile();
+    if (p?.province || p?.district) {
+      const txt = `${p.province || ''} ${p.district || ''}`.toLowerCase();
+      if (txt.includes('sindh') || txt.includes('hyderabad') || txt.includes('sukkur')) setRegion('sindh_delta');
+      else if (txt.includes('multan') || txt.includes('bahawal')) setRegion('south_punjab');
+      else if (txt.includes('punjab') || txt.includes('lahore')) setRegion('central_punjab');
+      else if (txt.includes('potohar') || txt.includes('rawalpindi') || txt.includes('chakwal')) setRegion('potohar_rainfed');
+      else if (txt.includes('kp') || txt.includes('peshawar') || txt.includes('swat')) setRegion('kp_valleys');
+      else if (txt.includes('baloch') || txt.includes('quetta')) setRegion('balochistan_arid');
+    }
+  }, []);
 
   const organGuides = [
     { icon: Leaf, ur: 'پتا', en: 'Leaf' },
@@ -420,6 +436,9 @@ export default function ScanPage() {
           selectedCrop: cropKey,
           confirmMismatchOverride,
           clientQuality: qualityReport,
+          scanMode,
+          region: region || undefined,
+          additionalImages: additionalImages.length > 0 ? additionalImages : undefined,
         }),
         signal: controller.signal,
       });
@@ -670,6 +689,7 @@ export default function ScanPage() {
     setScanError(null);
     setVoiceErrorMsg(null);
     setPendingQualityData(null);
+    setAdditionalImages([]);
   };
 
   const spokenDiagnosisText = diagnosis
@@ -730,17 +750,19 @@ export default function ScanPage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-4 gap-1.5">
-              {supportedCrops.slice(0, 8).map((c) => {
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {(showAllCrops ? supportedCrops : supportedCrops.slice(0, 8)).map((c) => {
                 const active = selectedCrop.toLowerCase() === c.key;
                 return (
                   <button
                     key={c.key}
                     type="button"
                     onClick={() => setSelectedCrop(c.key)}
-                    className={`min-h-[40px] rounded-xl font-extrabold text-xs transition-all border ${
+                    className={`min-h-[40px] px-2 rounded-xl font-extrabold text-[11px] sm:text-xs transition-all border ${
                       active
                         ? 'bg-[#062409] text-white border-[#062409] shadow-sm'
+                        : c.key === 'auto'
+                        ? 'bg-emerald-50 text-emerald-950 hover:bg-emerald-100 border-emerald-300'
                         : 'bg-canvas text-ink/80 hover:bg-olive/15 border-olive/15'
                     }`}
                   >
@@ -749,7 +771,36 @@ export default function ScanPage() {
                 );
               })}
             </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAllCrops((v) => !v)}
+                className="text-[11px] font-extrabold text-olive hover:underline"
+              >
+                {showAllCrops
+                  ? locale === 'ur'
+                    ? 'کم فصلیں دکھائیں'
+                    : 'Show fewer crops'
+                  : locale === 'ur'
+                  ? `مزید فصلیں اور باغات دیکھیں (${supportedCrops.length})`
+                  : `Show all ${supportedCrops.length} crops & orchards`}
+              </button>
+            </div>
           </motion.section>
+        )}
+
+        {!diagnosis && !analysing && (
+          <ScanModeAndFieldContextPanel
+            locale={locale}
+            scanMode={scanMode}
+            onScanModeChange={setScanMode}
+            region={region}
+            onRegionChange={setRegion}
+            additionalImages={additionalImages}
+            onAddExtraImage={(dataUrl) => setAdditionalImages((prev) => [...prev.slice(0, 2), dataUrl])}
+            onRemoveExtraImage={(idx) => setAdditionalImages((prev) => prev.filter((_, i) => i !== idx))}
+          />
         )}
 
         {/* 1-Image Primary Capture Frame */}
@@ -1007,9 +1058,37 @@ export default function ScanPage() {
                 </h2>
                 <p className="text-xs text-ink/70">
                   {locale === 'ur'
-                    ? 'فصل کی حقیقی شناخت، پودے کا حصہ اور علامات جانچی جا رہی ہیں'
-                    : 'Independently verifying crop species, plant organ & symptoms'}
+                    ? 'فصل کی حقیقی شناخت، پودے کا حصہ، دھبے، موازنہ اور حفاظتی فلٹر جانچے جا رہے ہیں'
+                    : 'Inspecting crop species, organ, symptoms, differential look-alikes & safety filters'}
                 </p>
+                <div className="flex flex-wrap justify-center gap-1.5 pt-1 text-[10px] font-bold">
+                  {(
+                    [
+                      { key: 'validating_image', en: '1. File Check', ur: '1۔ فائل جانچ' },
+                      { key: 'processing', en: '2. Clarity & Light', ur: '2۔ روشنی و صفائی' },
+                      { key: 'analyzing_cloud', en: '3. AI & Differential', ur: '3۔ اے آئی تجزیہ و تقابل' },
+                    ] as const
+                  ).map((st) => {
+                    const isCurrent = scanStage === st.key;
+                    const isDone =
+                      (scanStage === 'processing' && st.key === 'validating_image') ||
+                      (scanStage === 'analyzing_cloud' && st.key !== 'analyzing_cloud');
+                    return (
+                      <span
+                        key={st.key}
+                        className={`px-2 py-0.5 rounded-full border ${
+                          isDone
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            : isCurrent
+                            ? 'bg-[#062409] text-white border-[#062409]'
+                            : 'bg-canvas text-ink/45 border-olive/15'
+                        }`}
+                      >
+                        {locale === 'ur' ? st.ur : st.en}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
 
               <button
@@ -1626,9 +1705,18 @@ export default function ScanPage() {
                           {reportLang === 'en' ? 'Zarkhez Cloud Vision' : 'زرخیز کلاؤڈ وژن'}
                         </span>
                       )}
+
+                      {diagnosis.problem_category && (
+                        <span className="text-[10px] font-bold text-ink/75 bg-canvas px-2 py-0.5 rounded-md border border-olive/20 capitalize">
+                          {diagnosis.problem_category.replace(/_/g, ' ')}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
+
+                {/* Separated Model Score vs Calibrated Certainty & Safety Notes */}
+                <ConfidenceCalibrationPanel diagnosis={diagnosis} reportLang={reportLang} />
 
                 {/* Severity Scope Warning: Single Leaf vs. Field Spread */}
                 {diagnosis.severity_scope && (
@@ -2209,6 +2297,9 @@ export default function ScanPage() {
                   </div>
                 )}
 
+                {/* Extended 25-Point Agronomy Cards, Sources & Download Report */}
+                <ExtendedAgronomyCards diagnosis={diagnosis} reportLang={reportLang} />
+
                 {/* Actions: Save to Farm Diary & Scan Another */}
                 <div className="space-y-2 pt-2">
                   <div className="grid grid-cols-2 gap-2.5">
@@ -2253,6 +2344,13 @@ export default function ScanPage() {
                     </p>
                   )}
                 </div>
+
+                {/* Farmer Feedback (Quarantined) + Model Version & Limitations */}
+                <ScanFeedbackAndModelFooter
+                  diagnosis={diagnosis}
+                  reportLang={reportLang}
+                  region={region}
+                />
               </div>
             </motion.section>
           )}

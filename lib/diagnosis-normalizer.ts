@@ -5,12 +5,16 @@ import {
 } from './schemas';
 import type { FieldValidationIssue } from './server/vision-schemas';
 import type { ImageQualityReport } from './image-quality';
+import { applyClinicalCalibrationAndSafety } from './vision/clinical-calibrator';
 
 export interface NormalizationContext {
   selectedCrop: string;
   inspectionSource?: 'gemini_vision' | 'offline_assessment' | 'hybrid';
   geminiStatus?: 'completed' | 'partial' | 'failed' | 'not_run';
   clientQuality?: ImageQualityReport;
+  scanMode?: 'single_plant' | 'whole_field';
+  imagesCount?: number;
+  region?: string;
 }
 
 export type NormalizationResult =
@@ -428,6 +432,9 @@ export function normalizeAndValidateDiagnosis(
   // 12. Normalize optional localized arrays cleanly so minor missing optional subfields don't crash valid scans
   if (Array.isArray(d.observed_symptoms)) d.observed_symptoms = normalizeLocalizedArray(d.observed_symptoms);
   if (Array.isArray(d.possible_causes)) d.possible_causes = normalizeLocalizedArray(d.possible_causes);
+  if (Array.isArray(d.possible_co_infections)) {
+    d.possible_co_infections = normalizeLocalizedArray(d.possible_co_infections);
+  }
   if (Array.isArray(d.recommendations)) d.recommendations = normalizeLocalizedArray(d.recommendations);
   if (Array.isArray(d.what_to_do_now)) d.what_to_do_now = normalizeLocalizedArray(d.what_to_do_now);
   if (Array.isArray(d.prevention)) d.prevention = normalizeLocalizedArray(d.prevention);
@@ -436,28 +443,38 @@ export function normalizeAndValidateDiagnosis(
     const tp = d.treatment_pillars;
     d.treatment_pillars = {
       immediate_actions: normalizeLocalizedArray(tp.immediate_actions),
+      short_term_management: normalizeLocalizedArray(tp.short_term_management),
       cultural_management: normalizeLocalizedArray(tp.cultural_management),
       biological_management: normalizeLocalizedArray(tp.biological_management),
+      long_term_prevention: normalizeLocalizedArray(tp.long_term_prevention),
       chemical_management: Array.isArray(tp.chemical_management) ? tp.chemical_management : [],
     };
   }
 
-  // 13. Clean invalid optional nested objects rather than losing a complete valid diagnosis,
-  // while NEVER fabricating missing core required fields (`problem_name`, `severity`, `requires_retake`, `requires_expert_review`, `message`)!
-  if (d.confidence_limitations && !normalizeLocalizedAuxItem(d.confidence_limitations)) {
-    delete d.confidence_limitations;
+  for (const auxKey of [
+    'confidence_limitations',
+    'why_suspected',
+    'severity_explanation',
+    'when_to_consult_expert',
+    'voice_script',
+    'disease_development_conditions',
+    'yield_impact',
+    'quality_risk',
+    'additional_testing_required',
+  ] as const) {
+    if (d[auxKey] && !normalizeLocalizedAuxItem(d[auxKey])) {
+      delete d[auxKey];
+    }
   }
-  if (d.why_suspected && !normalizeLocalizedAuxItem(d.why_suspected)) {
-    delete d.why_suspected;
-  }
-  if (d.severity_explanation && !normalizeLocalizedAuxItem(d.severity_explanation)) {
-    delete d.severity_explanation;
-  }
-  if (d.when_to_consult_expert && !normalizeLocalizedAuxItem(d.when_to_consult_expert)) {
-    delete d.when_to_consult_expert;
-  }
-  if (d.voice_script && !normalizeLocalizedAuxItem(d.voice_script)) {
-    delete d.voice_script;
+
+  // Never falsely stop an Auto-Detect scan as a crop mismatch
+  if (
+    context.selectedCrop.trim().toLowerCase() === 'auto' &&
+    d.diagnosis_status === 'crop_mismatch'
+  ) {
+    d.crop_match = true;
+    d.diagnosis_status = d.image_valid === false ? 'invalid_image' : 'uncertain';
+    aliasesUsed.push('auto_crop_cleared_mismatch_gate');
   }
 
   // Handle `crop_mismatch` deterministic stop-gate defaults ONLY when Gemini explicitly flagged crop_mismatch
@@ -638,9 +655,16 @@ export function normalizeAndValidateDiagnosis(
     }
   }
 
+  const calibrated = applyClinicalCalibrationAndSafety(diagnosis, {
+    clientQuality: context.clientQuality,
+    scanMode: context.scanMode,
+    imagesCount: context.imagesCount,
+    region: context.region,
+  });
+
   return {
     ok: true,
-    data: diagnosis,
+    data: calibrated,
     normalizedAliases: aliasesUsed,
   };
 }

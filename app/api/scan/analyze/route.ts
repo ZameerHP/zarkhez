@@ -100,14 +100,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { image, selectedCrop, confirmMismatchOverride, clientQuality } = parsed.data;
+  const {
+    image,
+    selectedCrop,
+    confirmMismatchOverride,
+    clientQuality,
+    scanMode,
+    region,
+    additionalImages,
+    fieldContext,
+  } = parsed.data;
 
   try {
     const diagnosis = await analyzeCropImageWithGemini(
       image,
       selectedCrop,
       confirmMismatchOverride,
-      clientQuality
+      clientQuality,
+      {
+        scanMode,
+        region,
+        additionalImages,
+        fieldContext,
+      }
     );
 
     recordDiagnosticSuccess('vision');

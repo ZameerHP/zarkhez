@@ -1243,6 +1243,262 @@
     ],
     "see_expert": false
   },
+  "maize_diplodia_ear_rot": {
+    "crop": "maize",
+    "scientific_name": "Stenocarpella maydis",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Maize Diplodia Ear Rot", "ur": "مکئی کے بھٹے کا ڈپلوڈیا سڑاؤ (ایئر روٹ)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Dense white-to-grey fungal mycelium starting at the base of the cob and moving upward, leaving kernels greyish-brown or blackened", "ur": "بھٹے کی بنیاد سے اوپر کی طرف سفید سے سرمئی گھنی پھپھوندی اور بھورے سیاہ دانے" },
+      { "en": "Tiny black raised pycnidia fruiting specks embedded on husks and shrunken blackened cob bases", "ur": "بھٹے کے چھلکے اور بنیاد پر سیاہ باریک دانے نما نشانات" }
+    ],
+    "causes": [
+      { "en": "Dry weather before silking followed by warm rainy conditions after pollination, plus infected maize stover", "ur": "پولینیشن کے بعد گرم بارش اور کھیت میں پرانی مکئی کے ٹانڈوں کا موجود رہنا" }
+    ],
+    "summary": {
+      "en": "Starts at the ear base with thick white-grey mold turning kernels greyish-black; distinguish carefully from Fusarium starburst streaks and Gibberella pink tip rot.",
+      "ur": "بھٹے کی جڑ سے سفید سرمئی پھپھوندی شروع ہو کر دانوں کو سیاہ یا خراب کرتی ہے؛ اس کا فرق فیوزیریم اور جبریلا ایئر روٹ سے کرنا ضروری ہے۔"
+    },
+    "steps": [
+      { "en": "Segregate moldy blackened cobs cleanly during harvest so clean grain is not contaminated.", "ur": "کٹائی کے وقت پھپھوندی زدہ بھٹے الگ کر دیں تاکہ صاف دانے خراب نہ ہوں۔" },
+      { "en": "Dry shelled maize rapidly below 14% moisture before storage.", "ur": "ذخیرہ کرنے سے پہلے دانوں کو جلدی خشک کر کے نمی 14 فیصد سے کم لائیں۔" }
+    ],
+    "prevention": [
+      { "en": "Chop or bury infected maize stalks deeply and rotate with wheat or pulses.", "ur": "فصل کے بعد مکئی کی پرانی باقیات زمین میں دبا دیں اور گندم یا دالوں کا ہیر پھیر کریں۔" }
+    ],
+    "see_expert": true,
+    "expert_reason": {
+      "en": "Ear rot molds can involve mycotoxin risk in feed/grain; confirm mold species and safe feed grading before using damaged cobs.",
+      "ur": "ایئر روٹ والی مکئی میں زہریلے مادوں کا خطرہ ہو سکتا ہے، اس لیے خوراک یا چارے میں استعمال سے قبل ماہر سے مشورہ کریں۔"
+    }
+  },
+  "apple_fire_blight": {
+    "crop": "apple",
+    "scientific_name": "Erwinia amylovora",
+    "pathogen_type": "bacterial",
+    "problem_name": { "en": "Apple / Pome Fire Blight", "ur": "سیب کا فائر بلائٹ (شاخوں کا جھلساؤ)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Young green shoots blacken and bend downward at the tip into a classic shepherd's crook shape", "ur": "نئی کونپلیں سیاہ ہو کر سرے سے لاٹھی کی طرح نیچے مڑ جاتی ہیں" },
+      { "en": "Scorched brown-black leaves remain tightly attached to twigs with sticky amber bacterial ooze in damp mornings", "ur": "جلی ہوئی پتیاں شاخ سے چپکی رہتی ہیں اور نمی میں چپچپا رس نکلتا ہے" }
+    ],
+    "causes": [
+      { "en": "Warm wet spring weather during bloom spreading bacteria via rain splash, pruning tools, and bees", "ur": "پھول آنے کے وقت گرم بارش اور غیر جراثیم کش قینچی سے شاخ تراشی" }
+    ],
+    "summary": {
+      "en": "Fast-moving bacterial infection killing blossoms and shoots so branches look fire-scorched with hooked tips.",
+      "ur": "تیزی سے پھیلنے والی بیکٹیریل بیماری جو کونپلوں اور پھولوں کو جلا ہوا اور مڑا ہوا کر دیتی ہے۔"
+    },
+    "steps": [
+      { "en": "Prune 25-30 cm below visible blackened bark during dry weather, sterilizing shears in 70% alcohol between every cut.", "ur": "خشک موسم میں سیاہ حصے سے 25 سے 30 سینٹی میٹر نیچے سے شاخ کاٹیں اور ہر کٹ کے بعد قینچی صاف کریں۔" },
+      { "en": "Avoid excessive nitrogen pruning flush and consult horticulture extension before bloom sprays.", "ur": "اضافی یوریا نہ ڈالیں اور باغبانی ماہر سے حفاظتی سپرے کا مشورہ لیں۔" }
+    ],
+    "prevention": [
+      { "en": "Remove dormant winter cankers before spring bud-break.", "ur": "موسم سرما میں خشک زخموں والی شاخیں نکال کر جلا دیں۔" }
+    ],
+    "see_expert": true
+  },
+  "chickpea_ascochyta_blight": {
+    "crop": "pulses",
+    "scientific_name": "Ascochyta rabiei",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Chickpea Ascochyta Blight", "ur": "چنے کا ایسکوکائٹا جھلساؤ (بلائٹ)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Circular-to-elongated brown lesions with concentric rings of tiny black fruiting dots (pycnidia) on leaves, stems, and pods", "ur": "پتوں، تنوں اور پھلیوں پر بھورے گول دھبے جن میں سیاہ نقطوں کے دائرے نمایاں ہوتے ہیں" },
+      { "en": "Stem girdling causing sudden wilting and toppling of branches above lesions", "ur": "تنے کے گرد زخم بن کر اوپری شاخوں کا اچانک ٹوٹ کر مرجھا جانا" }
+    ],
+    "causes": [
+      { "en": "Cool rainy weather (15-25C) in Potohar and Thal chickpea belts combined with infected seed", "ur": "پوٹھوہار اور تھل میں ٹھنڈی بارشیں اور متاثرہ بیج کی بوائی" }
+    ],
+    "summary": {
+      "en": "Major fungal blight of chickpea and pulses showing concentric dark spore specks that girdle stems in wet weather.",
+      "ur": "بارانی چنے کی اہم بیماری جو ٹھنڈے بارش والے موسم میں پتوں اور تنوں پر حلقے دار دھبے بنا کر فصل گراتی ہے۔"
+    },
+    "steps": [
+      { "en": "Avoid walking through wet diseased patches to prevent spore spread.", "ur": "گیلی فصل میں چلنے سے گریز کریں تاکہ بیماری مزید نہ پھیلے۔" },
+      { "en": "Consult your agriculture officer for registered protective fungicide spray before pod infection spreads.", "ur": "پھلیوں کو بچانے کے لیے زرعی افسر کے مشورے سے منظور شدہ پھپھوندی کش سپرے کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Sow blight-tolerant varieties (e.g., Bittle/Noor series), treat clean seed, and follow a 3-year crop rotation.", "ur": "بیماری برداشت کرنے والی اقسام کا صاف بیج دوا لگا کر بوئیں اور فصلوں کا ہیر پھیر کریں۔" }
+    ],
+    "see_expert": true
+  },
+  "okra_yvmv_virus": {
+    "crop": "vegetables",
+    "scientific_name": "Bhendi yellow vein mosaic virus (Begomovirus)",
+    "pathogen_type": "viral",
+    "problem_name": { "en": "Okra Yellow Vein Mosaic Virus", "ur": "بھنڈی کا زرد رگوں والا موزیک وائرس" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Clear bright yellow network of veins contrasting against green leaf islands, followed by pale stunted fruit", "ur": "پتوں کی رگیں واضح پیلی ہو کر جال سا بنا دیتی ہیں اور بھنڈیاں زرد و چھوٹی رہ جاتی ہیں" }
+    ],
+    "causes": [
+      { "en": "Transmitted exclusively by whitefly vectors feeding on young okra shoots", "ur": "سفید مکھی کے حملے سے یہ وائرس تیزی سے ایک پودے سے دوسرے تک پھیلتا ہے" }
+    ],
+    "summary": {
+      "en": "Whitefly-borne virus turning okra leaf veins bright yellow; no chemical cures an infected plant directly.",
+      "ur": "سفید مکھی سے پھیلنے والا وائرس جو بھنڈی کی رگیں زرد کر دیتا ہے؛ اس کا کوئی براہِ راست سپرے علاج نہیں بلکہ روک تھام اہم ہے۔"
+    },
+    "steps": [
+      { "en": "Uproot and bury early infected stunted plants gently so whiteflies do not scatter.", "ur": "ابتدائی متاثرہ پودے احتیاط سے اکھاڑ کر دبا دیں تاکہ سفید مکھی آگے نہ پھیلے۔" },
+      { "en": "Use yellow sticky traps and neem-based vector control along borders.", "ur": "سفید مکھی پر قابو پانے کے لیے پیلے چپکنے والے کارڈ یا نیم کا تیل استعمال کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Plant virus-tolerant okra hybrids and clear malvaceous weeds around field bunds.", "ur": "بیماری برداشت کرنے والی اقسام بوئیں اور وٹوں کی جڑی بوٹیاں صاف رکھیں۔" }
+    ],
+    "see_expert": false
+  },
+  "herbicide_drift_injury": {
+    "crop": "unknown",
+    "scientific_name": "Abiotic Phytotoxicity (Herbicide Drift / Chemical Burn)",
+    "pathogen_type": "environmental_stress",
+    "problem_name": { "en": "Suspected Herbicide Drift / Chemical Injury", "ur": "جڑی بوٹی مار دوا کے اثر / کیمیائی جھلساؤ کا شبہ" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Twisted, cupped, or strapped narrow new leaves (hormone-type drift) OR uniform speckled necrotic droplets on windward crop rows", "ur": "اوپری نئی پتیوں کا مڑنا اور باریک ہونا یا ہوا کے رخ پر ایک جیسے جلے ہوئے چھینٹے" },
+      { "en": "Usually affects multiple weeds and neighboring crop edges simultaneously without fungal spore growth", "ur": "پھپھوندی کے بغیر کناروں کے پودوں اور جڑی بوٹیوں پر ایک ساتھ اثر" }
+    ],
+    "causes": [
+      { "en": "Spray tank contamination or wind drift during nearby broadleaf/grass herbicide application", "ur": "سپرے ٹینکی کا صاف نہ ہونا یا تیز ہوا میں قریبی کھیت سے جڑی بوٹی مار دوا کا اڑ کر آنا" }
+    ],
+    "summary": {
+      "en": "Visual distortion resembles viral leaf curl or fungal spotting, but follows spray-wind drift paths with zero pathogen fruiting.",
+      "ur": "اس کی علامات وائرس یا دھبوں سے ملتی جلتی ہوتی ہیں مگر یہ دراصل کسی قریبی سپرے کی ہوا سے اڑ کر آنے والا اثر ہوتا ہے۔"
+    },
+    "steps": [
+      { "en": "DO NOT apply fungicides—they cannot reverse chemical toxicity and stress the plant further.", "ur": "پھپھوندی کش دوا ہرگز سپرے نہ کریں، اس سے کیمیائی دباؤ مزید بڑھتا ہے۔" },
+      { "en": "Give light clean irrigation and ask an extension officer about mild amino-acid recovery after 48 hours.", "ur": "پودے کا دباؤ کم کرنے کے لیے ہلکا صاف پانی لگائیں اور 2 دن بعد زرعی ماہر سے بحالی کا مشورہ لیں۔" }
+    ],
+    "prevention": [
+      { "en": "Use separate sprayers for herbicides, clean tanks thoroughly, and never spray above 5 m/s wind.", "ur": "جڑی بوٹی مار دوا کا پمپ الگ رکھیں اور تیز ہوا میں ہرگز سپرے نہ کریں۔" }
+    ],
+    "see_expert": true
+  },
+  "soil_salinity_stress": {
+    "crop": "unknown",
+    "scientific_name": "Abiotic Salinity / Osmotic Stress",
+    "pathogen_type": "environmental_stress",
+    "problem_name": { "en": "Soil Salinity / Salt Marginal Scorch", "ur": "زمینی کلر یا نمکیات کا دباؤ" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "White salt crust along soil ridges and dry brown tip-and-margin scorch starting on older lower leaves cleanly without fungal halos", "ur": "پٹڑیوں پر سفید نمک کی تہہ اور نچلے پرانے پتوں کے سرے و کنارے کا خشک ہو کر جل جانا" }
+    ],
+    "causes": [
+      { "en": "High EC / brackish tubewell irrigation water or poor field drainage causing root-zone salt accumulation", "ur": "کھارا ٹیوب ویل پانی یا نکاسی نہ ہونے سے جڑوں کے قریب نمکیات جمع ہونا" }
+    ],
+    "summary": {
+      "en": "Tip and edge leaf burn caused by root-zone salt buildup rather than infectious disease; confirm with soil/water EC test.",
+      "ur": "یہ بیماری نہیں بلکہ نمکیات اور کلر کی وجہ سے پتوں کے کنارے جھلسنے کا مسئلہ ہے۔ اس کی تصدیق مٹی اور پانی کے ٹیسٹ سے ہوتی ہے۔"
+    },
+    "steps": [
+      { "en": "Collect a soil & tubewell water sample for EC/SAR lab testing before spending on fungicides.", "ur": "پھپھوندی کش دوا لینے کے بجائے مٹی اور پانی کا ٹیسٹ کروائیں۔" },
+      { "en": "Apply a heavy canal leaching irrigation where drainage allows and review gypsum requirement with soil lab.", "ur": "اچھی نکاسی والی زمین میں صاف نہری پانی لگائیں اور ماہر کے مشورے سے جپسم استعمال کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Add well-decomposed farmyard manure, green manure (dhaincha), and salt-tolerant varieties.", "ur": "گوبر کی کھاد، جنتر اور کلر برداشت کرنے والی اقسام کاشت کریں۔" }
+    ],
+    "see_expert": true
+  },
+  "grape_downy_mildew": {
+    "crop": "grapes",
+    "scientific_name": "Plasmopara viticola",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Grape Downy Mildew", "ur": "انگور کا ڈاؤنی ملڈیو (پتوں کے نیچے پھپھوندی)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Translucent pale-yellow oil-spot blotches on upper leaf surfaces with white cottony downy growth directly underneath", "ur": "پتے کے اوپر پیلے تیل نما دھبے اور عین نیچے سفید روئی دار پھپھوندی" }
+    ],
+    "causes": [
+      { "en": "Cool dewy nights or monsoon splashes favoring oomycete sporulation", "ur": "شبنم والی راتیں اور بارش کے چھینٹے" }
+    ],
+    "summary": {
+      "en": "Oomycete infection causing yellow oil spots above and white downy sporulation underneath leaves and berries.",
+      "ur": "انگور کے پتوں پر تیل نما دھبے اور نچلی سطح پر سفید پھپھوندی جو گچھوں کو بھی خراب کر سکتی ہے۔"
+    },
+    "steps": [
+      { "en": "Prune dense canopy shoots to improve airflow and consult horticulture extension before bloom/post-fruit-set copper sprays.", "ur": "گھنی شاخوں کی چھانٹی کریں اور ماہرِ باغبانی کے مشورے سے حفاظتی سپرے کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Clear fallen leaf litter after winter pruning and avoid overhead watering.", "ur": "سردیوں کی کٹائی کے بعد گرے ہوئے پتے صاف کریں۔" }
+    ],
+    "see_expert": true
+  },
+  "groundnut_tikka_spot": {
+    "crop": "groundnut",
+    "scientific_name": "Cercospora arachidicola / Nothopassalora personata",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Groundnut Tikka Leaf Spot", "ur": "مونگ پھلی کا ٹکا دھبہ (سرکوسپورا)" },
+    "severity": "medium",
+    "symptoms": [
+      { "en": "Dark brown to black circular spots with prominent yellow halos (early spot) or velvety dark underside tufts (late spot)", "ur": "پتوں پر سیاہ بھورے گول دھبے جن کے گرد پیلا حلقہ یا نچلی طرف مخملی دھبے ہوتے ہیں" }
+    ],
+    "causes": [
+      { "en": "Monsoon humidity and crop residue persistence in barani/Potohar groundnut belts", "ur": "بارانی علاقوں میں برسات کی نمی اور پرانی فصل کی باقیات" }
+    ],
+    "summary": {
+      "en": "Circular dark spots with yellow margins causing premature defoliation and shriveled pods.",
+      "ur": "مونگ پھلی کے پتوں پر ٹکا نما گول دھبے جو وقت سے پہلے پتے گرا کر پھلیوں کا وزن کم کر دیتے ہیں۔"
+    },
+    "steps": [
+      { "en": "Monitor lower leaflets weekly after summer rains and ask extension staff before applying registered triazole/chlorothalonil sprays.", "ur": "بارشوں کے بعد نچلے پتوں کا جائزہ لیں اور ضرورت پر زرعی افسر کے مشورے سے سپرے کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Rotate groundnut with sorghum or millet and bury old haulms after harvest.", "ur": "مونگ پھلی کے بعد جوار یا باجرہ کاشت کریں اور پرانے پودے دبا دیں۔" }
+    ],
+    "see_expert": false
+  },
+  "root_knot_nematode": {
+    "crop": "vegetables",
+    "scientific_name": "Meloidogyne spp.",
+    "pathogen_type": "pest",
+    "problem_name": { "en": "Root-Knot Nematode Damage", "ur": "جڑ گانٹھ نیماٹوڈ (جڑوں میں گانٹھیں)" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Distinct bead-like galls or knots along feeder roots paired with midday wilting despite moist soil", "ur": "جڑوں پر موتی نما سوجن یا گانٹھیں اور زمین میں وتر ہونے کے باوجود دوپہر کو پودے کا مرجھانا" }
+    ],
+    "causes": [
+      { "en": "Microscopic soil-borne nematodes multiplying in continuous solanaceous/cucurbit vegetable cultivation", "ur": "مسلسل ایک ہی زمین پر سبزیوں کی کاشت سے مٹی میں نیماٹوڈز کا بڑھ جانا" }
+    ],
+    "summary": {
+      "en": "Root galls choke water and nutrient uptake, mimicking wilts or nutrient shortages above ground.",
+      "ur": "جڑوں میں گانٹھیں بننے سے خوراک اور پانی اوپر نہیں پہنچتا، جس سے پودا تندرست مٹی میں بھی مرجھایا نظر آتا ہے۔"
+    },
+    "steps": [
+      { "en": "Dig 2 stunted plants gently and rinse roots clean to confirm galls before treating.", "ur": "کمزور پودے اکھاڑ کر جڑیں پانی سے دھو کر گانٹھوں کی تصدیق کریں۔" },
+      { "en": "Remove infested root masses cleanly after harvest—never compost knotted roots back into beds.", "ur": "متاثرہ جڑیں کھیت سے نکال کر ضائع کریں، کھاد کے ڈھیر میں نہ ڈالیں۔" }
+    ],
+    "prevention": [
+      { "en": "Practice summer soil solarization with clear polythene and rotate with marigold or cereal crops.", "ur": "گرمیوں میں زمین کو پلاسٹک شیٹ سے تپائیں اور گیندا یا اناج کی فصلوں کا ہیر پھیر کریں۔" }
+    ],
+    "see_expert": true
+  },
+  "stored_grain_mold": {
+    "crop": "unknown",
+    "scientific_name": "Aspergillus / Penicillium spp. (Post-Harvest)",
+    "pathogen_type": "fungal",
+    "problem_name": { "en": "Stored Grain Mold / Post-Harvest Deterioration", "ur": "ذخیرہ شدہ غلے میں پھپھوندی اور نمی کا نقصان" },
+    "severity": "high",
+    "symptoms": [
+      { "en": "Yellow-green, blue-green, or dusty black mold patches with caked grains and musty odor", "ur": "دانوں پر ہری، نیلی یا سیاہ بھوری پھپھوندی اور دانوں کا آپس میں جم جانا" }
+    ],
+    "causes": [
+      { "en": "Storing harvested grain above 13-14% moisture in poorly ventilated humid godowns or wet bags", "ur": "13 سے 14 فیصد سے زیادہ نمی والے دانوں کو بند اور نم گودام میں ذخیرہ کرنا" }
+    ],
+    "summary": {
+      "en": "Post-harvest storage fungi degrade seed germination and carry serious mycotoxin/aflatoxin contamination risks.",
+      "ur": "ذخیرے میں نمی سے لگنے والی پھپھوندی دانوں کو خراب کرتی ہے اور صحت کے لیے خطرناک زہریلے مادے بنا سکتی ہے۔"
+    },
+    "steps": [
+      { "en": "Separate visibly moldy caked grain immediately—do NOT mix moldy grain into human food or livestock feed without lab testing.", "ur": "پھپھوندی لگے دانے فوراً الگ کریں؛ لیبارٹری ٹیسٹ کے بغیر انہیں خوراک یا چارے میں شامل نہ کریں۔" },
+      { "en": "Sun-dry clean grain lots thoroughly on tarpaulins until crisp-dry.", "ur": "باقی صاف دانوں کو دھوپ میں ترپال پر اچھی طرح خشک کریں۔" }
+    ],
+    "prevention": [
+      { "en": "Store cooled, well-dried grain inside clean hermetic/PICS bags off bare concrete floors.", "ur": "دانوں کو مکمل خشک اور ٹھنڈا کر کے صاف ایئر ٹائٹ تھیلوں میں لکڑی کے تختوں پر رکھیں۔" }
+    ],
+    "see_expert": true
+  },
   "not_a_plant": {
     "crop": "unknown",
     "scientific_name": "",

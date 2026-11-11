@@ -189,6 +189,19 @@ export function buildOfflinePreliminaryAssessment(
     inspection_source: 'offline_assessment',
     gemini_inspection_status: 'not_run',
     scan_timestamp: new Date().toISOString(),
+    model_version: 'zarkhez-vision-v2.4-cloud',
+    problem_category: hasVisibleLesions ? 'fungal_infection' : 'unidentified_or_non_crop',
+    confidence_breakdown: {
+      model_confidence: 0,
+      diagnostic_certainty: 0,
+      visual_evidence_quality: 'insufficient',
+      alternative_top_probability: 0,
+      lab_confirmation_status: 'unconfirmed_visual_screening',
+      calibration_note: {
+        en: 'Offline screening only — Cloud AI inspection did not run, so disease certainty is 0% until analyzed online.',
+        ur: 'صرف آف لائن ابتدائی جائزہ — کلاؤڈ اے آئی معائنہ نہ ہونے کے باعث بیماری کی حتمی تصدیق 0 فیصد ہے۔',
+      },
+    },
     message: {
       en: 'Offline preliminary assessment is inconclusive (not a Cloud AI diagnosis). Please retry cloud analysis when connected.',
       ur: 'آف لائن ابتدائی جائزہ غیر حتمی ہے (یہ کلاؤڈ اے آئی تشخیص نہیں)۔ براہِ کرم دوبارہ کلاؤڈ معائنہ کریں۔',

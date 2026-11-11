@@ -15,3 +15,4 @@ playwright-report
 test-results
 public/audio/cache/
 data/voice/pronunciation-feedback.jsonl
+data/vision/*.jsonl

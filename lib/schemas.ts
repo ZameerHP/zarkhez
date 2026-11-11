@@ -85,10 +85,63 @@ export const ChemicalRecommendationSchema = z.object({
 });
 export type ChemicalRecommendation = z.infer<typeof ChemicalRecommendationSchema>;
 
+export const ProblemCategorySchema = z.enum([
+  'fungal_infection',
+  'bacterial_infection',
+  'viral_infection',
+  'insect_pest',
+  'nematode_root',
+  'nutrient_deficiency',
+  'nutrient_toxicity',
+  'water_stress',
+  'heat_stress',
+  'cold_frost_damage',
+  'sunburn',
+  'chemical_herbicide_injury',
+  'soil_salinity',
+  'environmental_stress',
+  'mechanical_physical_damage',
+  'post_harvest_storage',
+  'healthy',
+  'unidentified_or_non_crop',
+]);
+export type ProblemCategory = z.infer<typeof ProblemCategorySchema>;
+
+export const ConfidenceBreakdownSchema = z.object({
+  model_confidence: z.number().min(0).max(1),
+  diagnostic_certainty: z.number().min(0).max(1),
+  visual_evidence_quality: z.enum(['high', 'moderate', 'poor', 'insufficient']),
+  alternative_top_probability: z.number().min(0).max(1).optional().default(0),
+  lab_confirmation_status: z
+    .enum(['unconfirmed_visual_screening', 'lab_confirmed', 'expert_verified'])
+    .default('unconfirmed_visual_screening'),
+  calibration_note: LocalizedStringSchema.optional(),
+});
+export type ConfidenceBreakdown = z.infer<typeof ConfidenceBreakdownSchema>;
+
+export const ScientificReferenceSchema = z.object({
+  source: z.string(), // e.g., 'FAO', 'CABI', 'IRRI', 'CIMMYT', 'PARC/NARC', 'USDA'
+  title: z.string(),
+  url: z.string().optional(),
+});
+export type ScientificReference = z.infer<typeof ScientificReferenceSchema>;
+
+export const FieldAssessmentSchema = z.object({
+  mode: z.enum(['single_plant', 'whole_field']).default('single_plant'),
+  images_analyzed: z.number().int().min(1).max(8).default(1),
+  countable_affected_plants: z.string().optional().default('Not assessed in single-image mode'),
+  distribution_pattern: z.string().optional().default('Isolated sample only'),
+  estimated_field_spread_pct: z.number().min(0).max(100).optional(),
+  scope_summary: LocalizedStringSchema.optional(),
+});
+export type FieldAssessment = z.infer<typeof FieldAssessmentSchema>;
+
 export const TreatmentPillarsSchema = z.object({
   immediate_actions: z.array(LocalizedStringSchema).default([]),
+  short_term_management: z.array(LocalizedStringSchema).optional(),
   cultural_management: z.array(LocalizedStringSchema).default([]),
   biological_management: z.array(LocalizedStringSchema).default([]),
+  long_term_prevention: z.array(LocalizedStringSchema).optional(),
   chemical_management: z.array(ChemicalRecommendationSchema).default([]),
 });
 export type TreatmentPillars = z.infer<typeof TreatmentPillarsSchema>;
@@ -280,6 +333,17 @@ export const CropDiagnosisSchema = z.object({
     .optional()
     .default('completed'),
   scan_timestamp: z.string().optional(),
+  model_version: z.string().optional(),
+  problem_category: ProblemCategorySchema.optional(),
+  confidence_breakdown: ConfidenceBreakdownSchema.optional(),
+  disease_development_conditions: LocalizedStringSchema.optional(),
+  possible_co_infections: z.array(LocalizedStringSchema).optional(),
+  yield_impact: LocalizedStringSchema.optional(),
+  quality_risk: LocalizedStringSchema.optional(),
+  additional_testing_required: LocalizedStringSchema.optional(),
+  field_assessment: FieldAssessmentSchema.optional(),
+  scientific_references: z.array(ScientificReferenceSchema).optional(),
+  safety_guardrail_notes: z.array(LocalizedStringSchema).optional(),
 });
 
 export type CropDiagnosis = z.infer<typeof CropDiagnosisSchema>;
@@ -313,9 +377,20 @@ export type PublicScanError = z.infer<typeof PublicScanErrorSchema>;
 
 export const CropAnalysisRequestSchema = z.object({
   image: z.string().min(20).max(5_000_000),
-  selectedCrop: z.string().min(1).max(50),
+  selectedCrop: z.string().min(1).max(60),
   confirmMismatchOverride: z.boolean().optional().default(false),
   clientQuality: z.any().optional(),
+  scanMode: z.enum(['single_plant', 'whole_field']).optional().default('single_plant'),
+  region: z.string().max(120).optional(),
+  additionalImages: z.array(z.string().min(20).max(5_000_000)).max(3).optional(),
+  fieldContext: z
+    .object({
+      growthStageHint: z.string().max(80).optional(),
+      spreadObservation: z.string().max(240).optional(),
+      recentWeatherOrSpray: z.string().max(240).optional(),
+      lightingCondition: z.string().max(80).optional(),
+    })
+    .optional(),
 });
 
 export type CropAnalysisRequest = z.infer<typeof CropAnalysisRequestSchema>;
