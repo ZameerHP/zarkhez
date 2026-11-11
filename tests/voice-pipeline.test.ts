@@ -479,6 +479,7 @@ async function runTests() {
 
     const urNarration = buildScanVoiceNarration(diseased, 'ur');
     assert.ok(urNarration.includes('دھان') && urNarration.includes('دھان کا بلاسٹ') && urNarration.includes('88%'));
+    assert.ok(!urNarration.includes('نوعیت درمیانی نوعیت'), 'Must never duplicate severity wording in Urdu');
 
     const healthy = CropDiagnosisSchema.parse({
       ...diseased,
@@ -493,6 +494,33 @@ async function runTests() {
     });
     const healthyEn = buildScanVoiceNarration(healthy, 'en');
     assert.ok(healthyEn.includes('appears healthy') && healthyEn.includes('no signs of infection'));
+  });
+
+  await testCase('14. Conversational EN+UR fluency, natural transitions, comma rhythm, and warm voice selection', () => {
+    const enSteps = toSpokenText('1. Check leaves in daylight. 2. Apply urea later.', 'en');
+    assert.ok(enSteps.spokenText.includes('First,') && enSteps.spokenText.includes('Second,'));
+    assert.ok(!enSteps.spokenText.includes('Step first:'));
+
+    const urSteps = toSpokenText('1. صبح کے وقت کھیت دیکھیں۔ 2. شام کو پانی دیں۔', 'ur');
+    assert.ok(urSteps.spokenText.includes('پہلے،') && urSteps.spokenText.includes('دوسرے،'));
+
+    const longUr = toSpokenText(
+      'آپ کی گندم کی فصل میں پانی کی ہلکی کمی نظر آ رہی ہے، اس لیے آج شام زمین کا جائزہ لیں اور کل صبح ہلکی آبپاشی کر دیں تاکہ جڑوں کو وقت پر نمی مل سکے اور پتے مرجھائیں نہیں۔',
+      'ur'
+    );
+    assert.ok(longUr.spokenText.includes('،'), 'Must preserve natural Urdu comma pauses inside connected clauses');
+
+    assert.equal(VOICE_PROFILES.ur.female.geminiVoice, 'Sulafat');
+    assert.equal(VOICE_PROFILES.en.female.geminiVoice, 'Aoede');
+
+    const friendlySsml = buildVoiceSsml({
+      text: "Check your leaves carefully today, and let's keep the crop healthy.",
+      lang: 'en',
+      voiceName: 'en-US-AvaMultilingualNeural',
+      style: 'friendly',
+    });
+    assert.ok(friendlySsml.includes('xmlns:mstts="https://www.w3.org/2001/mstts"'));
+    assert.ok(friendlySsml.includes('<mstts:express-as style="friendly"'));
   });
 
   console.log(`\nVoice Pipeline Summary: ${passed} passed, ${failed} failed\n`);

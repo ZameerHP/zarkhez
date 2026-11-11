@@ -69,7 +69,6 @@ function expandUnitsAndNumbers(text: string, lang: VoiceLang): string {
           gram: 'گرام',
           liter: 'ليٽر',
           rupees: 'رپيا',
-          ordinalPrefix: 'نمبر',
         }
       : lang === 'ur'
       ? {
@@ -87,7 +86,6 @@ function expandUnitsAndNumbers(text: string, lang: VoiceLang): string {
           gram: 'گرام',
           liter: 'لیٹر',
           rupees: 'روپے',
-          ordinalPrefix: 'مرحلہ',
         }
       : {
           degC: 'degrees Celsius',
@@ -104,7 +102,6 @@ function expandUnitsAndNumbers(text: string, lang: VoiceLang): string {
           gram: 'grams',
           liter: 'liters',
           rupees: 'Rupees',
-          ordinalPrefix: 'Step',
         };
 
   let out = text;
@@ -112,10 +109,23 @@ function expandUnitsAndNumbers(text: string, lang: VoiceLang): string {
   // Normalize comma-formatted numbers inside numeric contexts (e.g. 85,000 -> 85000)
   out = out.replace(/(\d),(\d{3})\b/g, '$1$2');
 
-  // Numbered list prefixes at start or after sentence delimiter
+  // Numbered list prefixes at start or after sentence delimiter (natural spoken transitions)
   out = out.replace(/(?:^|(?<=[۔.!?]\s*))(\d{1,2})\.\s+/g, (_m, nStr) => {
     const n = Number(nStr);
-    if (lang === 'en') return `${unitLabels.ordinalPrefix} ${ordinalToWords(n, 'en')}: `;
+    if (lang === 'en') {
+      const ord = ordinalToWords(n, 'en');
+      return `${ord.charAt(0).toUpperCase()}${ord.slice(1)}, `;
+    }
+    if (lang === 'ur') {
+      const urListTransitions: Record<number, string> = {
+        1: 'پہلے',
+        2: 'دوسرے',
+        3: 'تیسرے',
+        4: 'چوتھے',
+        5: 'پانچویں',
+      };
+      return `${urListTransitions[n] || ordinalToWords(n, 'ur')}، `;
+    }
     return `${ordinalToWords(n, lang)}، `;
   });
 
@@ -221,9 +231,10 @@ function applyPronunciationLexicon(
 export function splitShortSpokenSentences(
   text: string,
   lang: VoiceLang,
-  maxWords = 32
+  maxWords = 40
 ): string[] {
   const defaultDelimiter = lang === 'en' ? '.' : '۔';
+  const clauseJoiner = lang === 'en' ? ', ' : '، ';
   const rawSentences = text
     .split(/(?<=[۔.!?؟\n])\s+/)
     .map((s) => s.trim())
@@ -249,41 +260,46 @@ export function splitShortSpokenSentences(
       continue;
     }
 
-    // Prefer splitting long sentences along commas or natural conjunctions, never chopping mid-number-phrase
+    // Preserve natural comma phrasing between clauses when packing long sentences,
+    // inserting full sentence breaks only when breath length reaches maxWords.
     const connectorSplit =
       lang === 'ur'
-        ? cleanSent.replace(/\s+(اور|کیونکہ|جبکہ|اس لیے)\s+/g, '، $1 ')
+        ? cleanSent.replace(/\s+(اور|کیونکہ|جبکہ|اس لیے|تاکہ)\s+/g, '، $1 ')
         : lang === 'sd'
         ? cleanSent.replace(/\s+(۽|ڇو ته|جڏهن ته|ان ڪري)\s+/g, '، $1 ')
         : cleanSent.replace(/\s+(and|because|while|so)\s+/gi, ', $1 ');
 
     const clauses = connectorSplit.split(/[،,؛;]+/).map((c) => c.trim()).filter(Boolean);
-    let currentWords: string[] = [];
+    let currentClauses: string[] = [];
+    let currentWordCount = 0;
 
     for (let ci = 0; ci < clauses.length; ci++) {
       const clause = clauses[ci];
       const isLastClause = ci === clauses.length - 1;
       const cWords = clause.split(/\s+/).filter(Boolean);
-      if (currentWords.length + cWords.length <= maxWords) {
-        currentWords.push(...cWords);
+      if (currentWordCount + cWords.length <= maxWords) {
+        currentClauses.push(clause);
+        currentWordCount += cWords.length;
       } else {
-        if (currentWords.length > 0) {
-          output.push(`${currentWords.join(' ')}${defaultDelimiter}`);
-          currentWords = [];
+        if (currentClauses.length > 0) {
+          output.push(`${currentClauses.join(clauseJoiner)}${defaultDelimiter}`);
+          currentClauses = [];
+          currentWordCount = 0;
         }
-        if (cWords.length <= 24) {
-          currentWords.push(...cWords);
+        if (cWords.length <= Math.max(24, maxWords - 8)) {
+          currentClauses.push(clause);
+          currentWordCount += cWords.length;
         } else {
-          for (let i = 0; i < cWords.length; i += 20) {
-            const chunk = cWords.slice(i, i + 20).join(' ');
-            const isFinal = isLastClause && i + 20 >= cWords.length;
+          for (let i = 0; i < cWords.length; i += 28) {
+            const chunk = cWords.slice(i, i + 28).join(' ');
+            const isFinal = isLastClause && i + 28 >= cWords.length;
             output.push(`${chunk}${isFinal ? preservedEnd : defaultDelimiter}`);
           }
         }
       }
     }
-    if (currentWords.length > 0) {
-      output.push(`${currentWords.join(' ')}${preservedEnd}`);
+    if (currentClauses.length > 0) {
+      output.push(`${currentClauses.join(clauseJoiner)}${preservedEnd}`);
     }
   }
 
@@ -329,7 +345,7 @@ export function toSpokenText(
   const sentences = splitShortSpokenSentences(
     lexApplied.text,
     lang,
-    options?.maxWordsPerSentence ?? 32
+    options?.maxWordsPerSentence ?? 40
   );
 
   const spokenText = cleanPreserveScript(sentences.join(' '));

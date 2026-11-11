@@ -32,12 +32,14 @@ export function buildVoiceSsml(params: {
   speedMode?: VoiceSpeedMode;
   speedRate?: number;
   lexiconEntries?: LexiconEntry[];
+  style?: 'friendly' | 'none';
 }): string {
   const locale = resolveExplicitLocale(params.lang);
   const ssmlLocale = params.voiceName.startsWith('en-US-') ? 'en-US' : locale;
   const rate = resolveSpeakingRate(params.speedMode, params.speedRate);
   const rateDelta = Math.round((rate - 1) * 100);
   const ratePct = rateDelta === 0 ? '0%' : `${rateDelta > 0 ? '+' : ''}${rateDelta}%`;
+  const useFriendlyStyle = params.style === 'friendly';
 
   const normalized = toSpokenText(params.text, params.lang, {
     lexiconEntries: params.lexiconEntries,
@@ -70,11 +72,21 @@ export function buildVoiceSsml(params: {
     return isLast ? `<s>${body}</s>` : `<s>${body}</s><break time="120ms"/>`;
   });
 
-  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${ssmlLocale}">
-  <voice xml:lang="${ssmlLocale}" name="${escapeXml(params.voiceName)}">
-    <prosody rate="${ratePct}" pitch="0%">
+  const prosodyBlock = `<prosody rate="${ratePct}" pitch="0%">
       <p>${sentenceNodes.join('\n      ')}</p>
-    </prosody>
+    </prosody>`;
+
+  const innerBody = useFriendlyStyle
+    ? `<mstts:express-as style="friendly" styledegree="0.85">
+      ${prosodyBlock}
+    </mstts:express-as>`
+    : prosodyBlock;
+
+  const msttsAttr = useFriendlyStyle ? ' xmlns:mstts="https://www.w3.org/2001/mstts"' : '';
+
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis"${msttsAttr} xml:lang="${ssmlLocale}">
+  <voice xml:lang="${ssmlLocale}" name="${escapeXml(params.voiceName)}">
+    ${innerBody}
   </voice>
 </speak>`;
 }

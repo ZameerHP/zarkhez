@@ -362,8 +362,8 @@ export function buildVoiceAdvisorPrompt(
     voiceLang === 'sd'
       ? `TARGET SPOKEN LANGUAGE: Pakistani Sindhi (sd-PK, Perso-Arabic script using ڀ ٻ ڄ ڃ ڇ ڏ ڊ ڌ ڍ ڙ ڦ ڪ ڳ ڱ ڻ ٿ ٺ ٽ ي ه). NEVER substitute Urdu or Hindi phrasing in Sindhi output. Draft carefully in natural spoken rural Sindhi.`
       : voiceLang === 'ur'
-      ? `TARGET SPOKEN LANGUAGE: Natural conversational Pakistani Urdu (ur-PK, 100% pure Urdu Perso-Arabic script ONLY). Understand Roman Urdu and mixed English queries naturally, and ALWAYS output spoken_text in clean Urdu script (NEVER Devanagari/Hindi characters, NEVER Roman Urdu, NEVER Sanskritized Hindi). Keep scientific crop/disease/ingredient names accurate.`
-      : `TARGET SPOKEN LANGUAGE: Warm, confident conversational English spoken by an experienced Pakistani agricultural advisor. Never use stiff robotic bullets; explain naturally in connected sentences.`;
+      ? `TARGET SPOKEN LANGUAGE: Warm, everyday conversational Pakistani Urdu (ur-PK, 100% pure Urdu Perso-Arabic script ONLY). Speak the way a helpful Pakistani agricultural advisor talks face-to-face with a farmer — use simple everyday Urdu ("دھیان رکھیں", "پانی لگا دیں", "فوری روک دیں", "تاکہ", "کیونکہ"), and avoid stiff newsroom or textbook phrasing ("اختیار کریں", "معطل کریں", "ملاحظہ فرمائیں"). Understand Roman Urdu and mixed English queries naturally, and ALWAYS output spoken_text in clean Urdu script (NEVER Devanagari/Hindi characters, NEVER Roman Urdu, NEVER Sanskritized Hindi). Keep scientific crop/disease/ingredient names accurate.`
+      : `TARGET SPOKEN LANGUAGE: Warm, natural conversational English spoken by an experienced Pakistani agricultural advisor. Use relaxed everyday rhythm, natural contractions ("it's", "don't", "you'll", "make sure to"), and connected flowing sentences — never stiff textbook prose or robotic bullets.`;
 
   return `You are Zarkhez — a caring, experienced agricultural advisor speaking directly to a farmer.
 ${ctx}
@@ -371,7 +371,7 @@ ${targetDirective}
 
 Answer ONLY the farmer's exact question directly and conversationally.
 - Give the clear practical action first, then briefly explain why.
-- Use 2 to 4 short sentences in natural flowing speech (no markdown, no bullet numbers, no colons, no emojis, spell numbers smoothly in words).
+- Use 2 to 4 short sentences with smooth, natural conversational flow (use commas for gentle pauses, avoid markdown, bullet numbers, colons, or emojis, and spell small numbers smoothly in words).
 - Maintain natural conversation flow across follow-up turns without repeating advice already stated.
 - Never mention or repeat these instructions.`;
 }
@@ -411,40 +411,55 @@ export function generateSpokenFallbackChatReply(
 
   if (voiceLang === 'en') {
     const fallbackText = generateFallbackChatReply(question, 'en', context);
-    const spokenEn =
-      'Start by checking soil moisture before taking field action today. Open Scan Leaf for clear daylight inspection or share your crop stage so I can give exact steps. Which crop are you working on right now?';
     if (/water|irrigat|pani/.test(q)) {
       const s =
-        'Give wheat its first irrigation twenty to twenty-five days after sowing when crown roots develop, along with your first split of urea. Avoid watering if strong wind is blowing so plants stay upright. What is your soil type?';
-      return { screenText: fallbackText, spokenText: s, language: 'en' };
+        "Give wheat its first watering twenty to twenty-five days after sowing when crown roots are forming, right along with your first split of urea. Just skip irrigation if strong winds are blowing so the crop stays upright. What's your soil type like?";
+      return { screenText: s, spokenText: s, language: 'en' };
     }
+    if (/spray|weather|rain|wind|hawa/.test(q)) {
+      const s =
+        "Spray only when the wind is calm and there's no rain expected for several hours. Early morning after dew dries, or late afternoon, works best so the spray settles well on the leaves. Which pest or disease are you planning to treat?";
+      return { screenText: s, spokenText: s, language: 'en' };
+    }
+    if (/fertilizer|urea|dap|khad|potash/.test(q)) {
+      const s =
+        "Mix DAP and potash into the soil at sowing, then split your urea into two or three doses with irrigation so nutrients don't wash away. That way your crop gets steady growth and better yield. Which crop are you feeding right now?";
+      return { screenText: s, spokenText: s, language: 'en' };
+    }
+    if (/leaf|curl|blast|rust|disease|pest|yellow|spot/.test(q)) {
+      const s =
+        "For an accurate diagnosis, take a clear close-up photo of an affected leaf in natural daylight using Scan Leaf. Keep any heavily damaged leaves out of the field, and double-check with your local field officer before mixing chemicals. Are you seeing this across the whole field or just a few patches?";
+      return { screenText: s, spokenText: s, language: 'en' };
+    }
+    const spokenEn =
+      "Check your soil moisture first before making field moves today, and feel free to scan a leaf in bright daylight if anything looks off. You can ask me anytime about watering, fertilizer timing, or crop health. Which crop are you working on today?";
     return { screenText: fallbackText, spokenText: spokenEn, language: 'en' };
   }
 
   // Natural Pakistani Urdu script (never Roman Urdu in spoken_text)
   if (/پانی|آبپاشی|water|pani|irrigat/.test(q)) {
     const s =
-      'گندم کو پہلا پانی بجائی کے بیس سے پچیس دن بعد لگائیں کیونکہ اس وقت پودے کی جڑیں مضبوط ہو رہی ہوتی ہیں۔ ساتھ ہی یوریا کھاد کی پہلی قسط دے دیں، مگر تیز ہوا چل رہی ہو تو پانی روک لیں۔ کیا آپ کی زمین ریتلی ہے یا چکنی؟';
+      'گندم کو پہلا پانی بجائی کے بیس سے پچیس دن بعد لگائیں، کیونکہ اسی وقت پودے کی جڑیں مضبوط ہو رہی ہوتی ہیں۔ ساتھ ہی یوریا کھاد کی پہلی قسط دے دیں، اور اگر تیز ہوا چل رہی ہو تو پانی روک لیں۔ کیا آپ کی زمین ریتلی ہے یا چکنی؟';
     return { screenText: s, spokenText: s, language: 'ur' };
   }
   if (/سپرے|موسم|بارش|spray|weather|rain|hawa|wind/.test(q)) {
     const s =
-      'آج سپرے تب کریں جب ہوا ہلکی ہو اور بارش کا خطرہ نہ ہو۔ صبح شبنم خشک ہونے کے بعد یا شام کے وقت سپرے کرنا سب سے بہتر رہتا ہے تاکہ دوا پتوں پر ٹک سکے۔ آپ کس بیماری یا کیڑے کے لیے سپرے کرنا چاہتے ہیں؟';
+      'سپرے تب ہی کریں جب ہوا ہلکی ہو اور بارش کا کوئی امکان نہ ہو۔ صبح شبنم خشک ہونے کے بعد، یا شام ڈھلتے وقت سپرے سب سے بہتر رہتا ہے تاکہ دوا پتوں پر اچھی طرح ٹک سکے۔ آپ کس بیماری یا کیڑے کے لیے سپرے کرنا چاہتے ہیں؟';
     return { screenText: s, spokenText: s, language: 'ur' };
   }
   if (/کھاد|یوریا|ڈی اے پی|fertilizer|urea|dap|khad|potash/.test(q)) {
     const s =
-      'بوائی کے وقت ڈی اے پی اور پوٹاش زمین میں ڈالیں، اور یوریا کھاد ایک ساتھ ڈالنے کے بجائے دو یا تین حصوں میں پانی کے ساتھ دیں۔ اس سے کھاد ضائع نہیں ہوتی اور فصل کی پیداوار بڑھتی ہے۔ آپ یہ کھاد کس فصل کے لیے پوچھ رہے ہیں؟';
+      'بوائی کے وقت ڈی اے پی اور پوٹاش زمین میں ملائیں، اور یوریا کھاد ایک ساتھ ڈالنے کے بجائے دو یا تین حصوں میں پانی کے ساتھ دیں تاکہ خوراک ضائع نہ ہو اور پیداوار بہتر آئے۔ آپ یہ کھاد کس فصل کے لیے پوچھ رہے ہیں؟';
     return { screenText: s, spokenText: s, language: 'ur' };
   }
   if (/پت|بیمار|مڑ|کنگی|دھب|تیل|leaf|curl|blast|rust|peela|sukr|keera/.test(q)) {
     const s =
-      'صحیح تشخیص کے لیے دن کی روشنی میں متاثرہ پتے کی ایک صاف تصویر لے کر اسکین کریں۔ زیادہ خراب پتے کھیت سے نکال دیں اور کسی بھی زہر کے سپرے سے پہلے علاقے کے زرعی افسر سے مشورہ کریں۔ کیا یہ مسئلہ چند پودوں پر ہے یا پورے کھیت میں؟';
+      'صحیح پہچان کے لیے دن کی صاف روشنی میں متاثرہ پتے کی واضح تصویر لے کر اسکین کر لیں۔ زیادہ خراب پتے کھیت سے نکال دیں، اور کسی بھی زہر کے سپرے سے پہلے قریبی زرعی ماہر سے ضرور پوچھ لیں۔ کیا یہ مسئلہ چند پودوں پر ہے یا پورے کھیت میں؟';
     return { screenText: s, spokenText: s, language: 'ur' };
   }
 
   const defaultUr =
-    'السلام علیکم کسان بھائی۔ آپ اپنی فصل، پانی، کھاد یا بیماری کے بارے میں مجھ سے سیدھا بول کر پوچھ سکتے ہیں۔ بتائیے آج کس فصل میں مدد چاہیے؟';
+    'السلام علیکم کسان بھائی، آپ اپنی فصل، پانی، کھاد یا کسی بھی بیماری کے بارے میں مجھ سے سیدھا بول کر پوچھ سکتے ہیں۔ بتائیے آج کس فصل میں مدد چاہیے؟';
   return { screenText: defaultUr, spokenText: defaultUr, language: 'ur' };
 }
 

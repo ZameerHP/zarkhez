@@ -52,11 +52,11 @@ export const VOICE_PROFILES: Record<VoiceLang, Record<VoiceGender, VoiceProfileS
       id: 'ur-pk-female-calm',
       label: 'عظمیٰ — وقار اور اپنائیت بھرا لہجہ',
       gender: 'female',
-      geminiVoice: 'Kore',
+      geminiVoice: 'Sulafat',
       azureVoice: 'ur-PK-UzmaNeural',
       elevenLabsDefaultVoice: 'EXAVITQu4vr4xnSDxMaL',
       toneInstruction:
-        'Speak in warm, calm, mature Pakistani Urdu (ur-PK) like a trusted senior rural agricultural advisor. Clear pronunciation, unhurried pace, no news-anchor stiffness.',
+        'Speak in warm, smooth, conversational Pakistani Urdu (ur-PK) like a trusted agricultural advisor talking gently face-to-face with a farmer. Flow naturally across commas and phrases without choppy pauses or newsreader stiffness.',
     },
     male: {
       id: 'ur-pk-male-calm',
@@ -66,7 +66,7 @@ export const VOICE_PROFILES: Record<VoiceLang, Record<VoiceGender, VoiceProfileS
       azureVoice: 'ur-PK-AsadNeural',
       elevenLabsDefaultVoice: 'pNInz6obpgDQGcFmaJgB',
       toneInstruction:
-        'Speak in warm, calm, mature Pakistani Urdu (ur-PK) male voice like an experienced local field officer speaking to a farmer brother. Natural stress and pauses.',
+        'Speak in warm, calm, conversational Pakistani Urdu (ur-PK) male voice like an experienced local field officer speaking smoothly to a farmer brother.',
     },
   },
   sd: {
@@ -95,11 +95,11 @@ export const VOICE_PROFILES: Record<VoiceLang, Record<VoiceGender, VoiceProfileS
       id: 'en-pk-female-calm',
       label: 'Ava (Natural Agricultural Advisor)',
       gender: 'female',
-      geminiVoice: 'Kore',
+      geminiVoice: 'Aoede',
       azureVoice: 'en-US-AvaMultilingualNeural',
       elevenLabsDefaultVoice: 'EXAVITQu4vr4xnSDxMaL',
       toneInstruction:
-        'Speak in clear, warm, natural English suitable for a knowledgeable agricultural advisor.',
+        'Speak in smooth, warm, natural conversational English like a friendly experienced agricultural advisor talking easily with a farmer.',
     },
     male: {
       id: 'en-pk-male-calm',
@@ -483,16 +483,19 @@ async function synthesizeWithAzureNeural(params: {
   });
 
   const lexiconEntries = loadHotPronunciationLexicon();
-  const ssml = buildVoiceSsml({
-    text: params.spokenText,
-    lang: params.lang,
-    voiceName,
-    speedRate: params.speedRate,
-    lexiconEntries,
-  });
+  const preferredStyle: 'friendly' | 'none' =
+    params.lang === 'en' && voiceName.includes('AvaMultilingual') ? 'friendly' : 'none';
 
-  try {
-    const res = await fetch(
+  const sendSsmlRequest = async (style: 'friendly' | 'none') => {
+    const ssml = buildVoiceSsml({
+      text: params.spokenText,
+      lang: params.lang,
+      voiceName,
+      speedRate: params.speedRate,
+      lexiconEntries,
+      style,
+    });
+    return fetch(
       `https://${azureRegion}.tts.speech.microsoft.com/cognitiveservices/v1`,
       {
         method: 'POST',
@@ -506,6 +509,14 @@ async function synthesizeWithAzureNeural(params: {
         signal: AbortSignal.timeout(12000),
       }
     );
+  };
+
+  try {
+    let res = await sendSsmlRequest(preferredStyle);
+    // Graceful fallback if the Azure voice resource rejects expressive style tags
+    if (!res.ok && preferredStyle !== 'none' && res.status === 400) {
+      res = await sendSsmlRequest('none');
+    }
     if (!res.ok) return null;
     const buf = await res.arrayBuffer();
     if (buf.byteLength < 128) return null;

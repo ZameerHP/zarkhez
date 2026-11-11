@@ -246,9 +246,9 @@ function formatSeverityPhrase(
     if (severity === 'low') return 'low severity';
     return '';
   }
-  if (severity === 'high') return 'شدید نوعیت';
-  if (severity === 'medium') return 'درمیانی نوعیت';
-  if (severity === 'low') return 'ہلکی نوعیت';
+  if (severity === 'high') return 'زیادہ شدید';
+  if (severity === 'medium') return 'درمیانی';
+  if (severity === 'low') return 'ہلکی';
   return '';
 }
 
@@ -309,21 +309,21 @@ export function buildScanVoiceNarration(
   if (diagnosis.diagnosis_status === 'healthy_no_symptoms') {
     if (lang === 'en') {
       const parts = [
-        `Good news. Your ${cropName} ${partName} appears healthy, with ${confPct}% confidence and no signs of infection or disease.`,
+        `Good news — your ${cropName} ${partName} appears healthy, with ${confPct}% confidence and no signs of infection.`,
         observation ? observation.replace(/\.+$/, '') + '.' : '',
         primarySteps.length > 0
-          ? `Keep following routine care: ${primarySteps.join(' ')}`
-          : 'Continue regular monitoring and avoid unnecessary sprays.',
+          ? `Keep up your regular routine care. ${primarySteps.join(' ')}`
+          : "Keep checking the field regularly, and don't spend money on unnecessary sprays.",
       ];
       return cleanPreserveSpaces(parts.filter(Boolean).join(' '));
     }
 
     const partsUr = [
-      `خوشخبری کسان بھائی۔ آپ کی ${cropName} کے ${partName} بالکل تندرست نظر آ رہے ہیں اور ${confPct}% اعتماد کے ساتھ کسی بیماری یا انفیکشن کی علامت نہیں پائی گئی۔`,
+      `خوشخبری کسان بھائی، آپ کی ${cropName} کے ${partName} بالکل تندرست لگ رہے ہیں، اور ${confPct}% اعتماد کے ساتھ کسی بیماری یا انفیکشن کی کوئی علامت نہیں ہے۔`,
       observation ? observation.replace(/[۔.]+$/, '') + '۔' : '',
       primarySteps.length > 0
         ? `معمول کی دیکھ بھال جاری رکھیں، ${primarySteps.join(' ')}`
-        : 'باقاعدہ معائنہ جاری رکھیں اور غیر ضروری سپرے سے پرہیز کریں۔',
+        : 'کھیت کا باقاعدہ چکر لگاتے رہیں اور بلاوجہ سپرے ہرگز نہ کریں۔',
     ];
     return cleanPreserveSpaces(partsUr.filter(Boolean).join(' '));
   }
@@ -336,34 +336,40 @@ export function buildScanVoiceNarration(
     const symptomItems = [firstSymptom, secondSymptom].filter(Boolean);
     const symptomSentence =
       symptomItems.length > 0
-        ? `The scan observed ${symptomItems.join(' and ').replace(/\.+$/, '')}.`
+        ? `The scan picked up ${symptomItems.join(' and ').replace(/\.+$/, '')}.`
         : observation
         ? `${observation.replace(/\.+$/, '')}.`
         : '';
 
     const actionSentence =
       primarySteps.length > 0
-        ? `For best protection, ${primarySteps.join(' ')}`
+        ? `To protect your crop right away, ${primarySteps.join(' ')}`
         : getLocalizedText(diagnosis.when_to_consult_expert, 'en');
 
     return cleanPreserveSpaces([intro, symptomSentence, actionSentence].filter(Boolean).join(' '));
   }
 
-  const severityUr = severityText ? `، جس کی نوعیت ${severityText}` : '';
-  const confUr = confPct > 0 ? ` اور تشخیصی اعتماد ${confPct}% ہے` : ' ہے';
-  const introUr = `آپ کی ${cropName} کے ${partName} میں ${conditionName} کی علامات پائی گئی ہیں${severityUr}${confUr}۔`;
+  const severityAndConfUr =
+    severityText && confPct > 0
+      ? `، جس کی شدت ${severityText} ہے اور تشخیص کا اعتماد ${confPct}% ہے`
+      : severityText
+      ? `، اور اس کی شدت ${severityText} ہے`
+      : confPct > 0
+      ? `، جس کی تصدیق کا اعتماد ${confPct}% ہے`
+      : '';
+  const introUr = `آپ کی ${cropName} کے ${partName} میں ${conditionName} کی علامات نظر آ رہی ہیں${severityAndConfUr}۔`;
 
   const symptomUrItems = [firstSymptom, secondSymptom].filter(Boolean);
   const symptomUr =
     symptomUrItems.length > 0
-      ? `تصویر میں ${symptomUrItems.join(' اور ').replace(/[۔.]+$/, '')} نمایاں ہیں۔`
+      ? `پودے پر ${symptomUrItems.join(' اور ').replace(/[۔.]+$/, '')} صاف دکھائی دے رہے ہیں۔`
       : observation
       ? `${observation.replace(/[۔.]+$/, '')}۔`
       : '';
 
   const actionUr =
     primarySteps.length > 0
-      ? `فوری حفاظتی اقدامات کے طور پر ${primarySteps.join(' ')}`
+      ? `فصل کو مزید نقصان سے بچانے کے لیے ${primarySteps.join(' ')}`
       : getLocalizedText(diagnosis.when_to_consult_expert, 'ur');
 
   return cleanPreserveSpaces([introUr, symptomUr, actionUr].filter(Boolean).join(' '));
