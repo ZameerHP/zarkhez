@@ -52,7 +52,7 @@ export const VOICE_PROFILES: Record<VoiceLang, Record<VoiceGender, VoiceProfileS
       id: 'ur-pk-female-calm',
       label: 'عظمیٰ — وقار اور اپنائیت بھرا لہجہ',
       gender: 'female',
-      geminiVoice: 'Sulafat',
+      geminiVoice: 'Aoede',
       azureVoice: 'ur-PK-UzmaNeural',
       elevenLabsDefaultVoice: 'EXAVITQu4vr4xnSDxMaL',
       toneInstruction:
@@ -142,7 +142,7 @@ export function buildAudioCacheKey(params: {
     VOICE_PROFILES[params.lang]?.[params.gender]?.azureVoice ||
     'default';
   const payload = [
-    'v3',
+    'v4',
     params.lang,
     params.gender,
     voiceSig,
@@ -239,27 +239,16 @@ function buildGeminiTtsContentText(params: {
   lang: VoiceLang;
   model: string;
 }): string {
-  // Only gemini-3.1-flash-tts-preview reliably separates structured Director's Notes
-  // from #### TRANSCRIPT without vocalizing rules; never pass style prompts to Sindhi
-  // or legacy fallback TTS models.
-  if (params.model !== 'gemini-3.1-flash-tts-preview' || params.lang === 'sd') {
+  // Compact inline [warm] tag works reliably across 3.8-flash-tts & 3.1-flash-tts-preview
+  // without adding 20s latency or leaking instruction text aloud; keep Sindhi and lite pure.
+  if (
+    params.lang === 'sd' ||
+    (params.model !== 'gemini-3.8-flash-tts' && params.model !== 'gemini-3.1-flash-tts-preview')
+  ) {
     return params.spokenText;
   }
 
-  const directorNotes =
-    params.lang === 'ur'
-      ? [
-          'Speak this in natural, fluent, native Pakistani Urdu — like a warm, real human farm advisor talking casually to a farmer friend, not a news reader or a robot.',
-          'Use relaxed conversational pacing with soft natural pauses between phrases, and the gentle rising-falling intonation of real spoken Pakistani Urdu.',
-          'Blend any English words inside the sentence smoothly into the Urdu rhythm, the way real bilingual Pakistani speakers say them — no stiff or exaggerated English accent on those words.',
-          'Sound expressive, warm, and alive, with genuine friendly concern — never flat, rushed, or monotone delivery.',
-        ].join(' ')
-      : [
-          'Speak warmly, calmly, and conversationally like a friendly Pakistani farm advisor talking naturally with a farmer friend — never flat, rushed, or robotic.',
-          'Use relaxed conversational pacing with soft pauses at commas, expressive intonation, and smooth everyday pronunciation.',
-        ].join(' ');
-
-  return `### DIRECTOR'S NOTES:\n${directorNotes}\n\n#### TRANSCRIPT:\n[warm] ${params.spokenText}`;
+  return `[warm] ${params.spokenText}`;
 }
 
 async function synthesizeWithGeminiTts(params: {
@@ -273,16 +262,15 @@ async function synthesizeWithGeminiTts(params: {
 
   const ttsInputText = params.spokenText;
 
-  // Use gemini-3.1-flash-tts-preview first consistently across all languages;
-  // keep 2.5-flash-preview-tts (ur/en) and 3.8 models cleanly ordered as fallback only.
+  // Prefer reliable fast gemini-3.8-flash-tts & lite-tts ahead of quota-limited preview models,
+  // avoiding gemini-2.5-flash-preview-tts which frequently returns finishReason:OTHER with empty audio on ur-PK.
   const modelsToTry =
     params.lang === 'sd'
-      ? ['gemini-3.1-flash-tts-preview', 'gemini-3.8-flash-lite-tts', 'gemini-3.8-flash-tts']
+      ? ['gemini-3.1-flash-tts-preview', 'gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts']
       : [
-          'gemini-3.1-flash-tts-preview',
-          'gemini-2.5-flash-preview-tts',
-          'gemini-3.8-flash-lite-tts',
           'gemini-3.8-flash-tts',
+          'gemini-3.8-flash-lite-tts',
+          'gemini-3.1-flash-tts-preview',
         ];
 
   const geminiLangCode =
@@ -313,7 +301,7 @@ async function synthesizeWithGeminiTts(params: {
                 },
               },
             }),
-            signal: AbortSignal.timeout(16000),
+            signal: AbortSignal.timeout(22000),
           }
         );
 

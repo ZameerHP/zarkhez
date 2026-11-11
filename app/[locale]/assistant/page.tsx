@@ -161,6 +161,13 @@ export default function AssistantPage() {
     const question = rawQuestion.trim();
     if (!question || streaming) return;
 
+    const effectiveVoiceLang: 'ur' | 'en' = /[\u0600-\u06FF]/.test(question)
+      ? 'ur'
+      : voiceLang;
+    if (effectiveVoiceLang !== voiceLang) {
+      setVoiceLang(effectiveVoiceLang);
+    }
+
     stopSpeaking();
     setAiSpeaking(false);
     setVoicePhase('thinking');
@@ -175,7 +182,7 @@ export default function AssistantPage() {
     const nextMessages = [...messages, userTurn];
     setMessages([
       ...nextMessages,
-      { id: assistantTurnId, role: 'assistant', content: '', voiceLang },
+      { id: assistantTurnId, role: 'assistant', content: '', voiceLang: effectiveVoiceLang },
     ]);
     setInputText('');
     setStreaming(true);
@@ -193,7 +200,7 @@ export default function AssistantPage() {
             })),
           context: contextInfo,
           lang: locale,
-          voiceLang,
+          voiceLang: effectiveVoiceLang,
           voiceMode: true,
         }),
       });
@@ -406,6 +413,10 @@ export default function AssistantPage() {
               ? voiceLang === 'ur'
                 ? 'بول رہا ہے...'
                 : 'Speaking...'
+              : voicePhase === 'error'
+              ? voiceLang === 'ur'
+                ? 'آواز دوبارہ سننے کے لیے بٹن دبائیں'
+                : 'Tap speaker icon to retry voice'
               : ''}
           </span>
         </div>

@@ -519,7 +519,7 @@ async function runTests() {
     );
     assert.ok(longUr.spokenText.includes('،'), 'Must preserve natural Urdu comma pauses inside connected clauses');
 
-    assert.equal(VOICE_PROFILES.ur.female.geminiVoice, 'Sulafat');
+    assert.equal(VOICE_PROFILES.ur.female.geminiVoice, 'Aoede');
     assert.equal(VOICE_PROFILES.en.female.geminiVoice, 'Aoede');
 
     const friendlySsml = buildVoiceSsml({
@@ -568,20 +568,22 @@ async function runTests() {
     const keyA = buildAudioCacheKey({ spokenText: 'Zarkhez', lang: 'ur', gender: 'female', speedRate: 1 });
     assert.equal(keyA.length, 24);
 
-    // Verify Gemini 3.1 TTS receives separated Director's Notes + #### TRANSCRIPT for ur-PK
+    // Verify Gemini 3.8 TTS uses Aoede + compact [warm] tag without slow multi-line English instructions
     const origFetch = globalThis.fetch;
     const origGeminiKey = process.env.GEMINI_API_KEY;
     const origAzureKey = process.env.AZURE_SPEECH_KEY;
     delete process.env.AZURE_SPEECH_KEY;
     process.env.GEMINI_API_KEY = 'AIzaSyVoicePipelineMockTestKey123456';
+    const urls: string[] = [];
     const payloads: string[] = [];
 
-    globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      urls.push(String(url));
       if (init?.body) payloads.push(String(init.body));
       const fakePcm = Buffer.alloc(600, 1);
       return new Response(
         JSON.stringify({
-          candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;rate=24000', data: fakePcm.toString('base64') } }] } }],
+          candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/wav', data: fakePcm.toString('base64') } }] } }],
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       );
@@ -601,10 +603,11 @@ async function runTests() {
       assert.equal(resUr.status, 200);
       assert.equal(resUr.headers.get('X-Voice-Provider'), 'gemini-tts');
       assert.equal(payloads.length, 1);
+      assert.ok(urls[0].includes('gemini-3.8-flash-tts'), 'Must route ur-PK to fast natural gemini-3.8-flash-tts first');
       const parsedBody = JSON.parse(payloads[0]) as { contents: Array<{ parts: Array<{ text: string }> }> };
       const ttsPrompt = parsedBody.contents[0].parts[0].text;
-      assert.ok(ttsPrompt.includes("### DIRECTOR'S NOTES:"), 'Must separate voice style directions cleanly');
-      assert.ok(ttsPrompt.includes('#### TRANSCRIPT:\n[warm] '), 'Must isolate spoken transcript under #### TRANSCRIPT:');
+      assert.equal(ttsPrompt.startsWith('[warm] '), true, 'Must use fast [warm] delivery prefix');
+      assert.equal(ttsPrompt.includes("DIRECTOR'S NOTES"), false, 'Must NOT include heavy slow English instruction blocks');
       assert.ok(ttsPrompt.includes('زَرخیز'));
     } finally {
       globalThis.fetch = origFetch;

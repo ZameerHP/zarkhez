@@ -81,7 +81,7 @@ export interface SpeakCallbacks {
 }
 
 const PRELOAD_CACHE_MAX = 40;
-const VOICE_PERSISTENT_CACHE_NAME = 'zarkhez-tts-v3';
+const VOICE_PERSISTENT_CACHE_NAME = 'zarkhez-tts-v4';
 const preloadedBlobs = new Map<
   string,
   { blob: Blob; meta: VoiceAudioMeta }
@@ -540,7 +540,7 @@ export async function speakText(
 
     const controller = new AbortController();
     activeAbortControllers.add(controller);
-    const fetchTimer = setTimeout(() => controller.abort(), 24000);
+    const fetchTimer = setTimeout(() => controller.abort(), 28000);
 
     try {
       const fetched = await fetchTtsBlob({
@@ -949,18 +949,20 @@ export function startFieldSpeechCapture(
           vadInterval = setInterval(() => {
             if (stopped) return;
             analyser.getByteFrequencyData(buf);
+            // Measure vocal spectrum bins (~200Hz-3500Hz) instead of zero-filled upper ultrasonic bins
+            const maxBin = Math.min(buf.length, 64);
             let sum = 0;
-            for (let i = 0; i < buf.length; i++) sum += buf[i];
-            const avgEnergy = sum / buf.length;
+            for (let i = 2; i < maxBin; i++) sum += buf[i];
+            const vocalEnergy = sum / Math.max(1, maxBin - 2);
             const now = Date.now();
 
-            if (avgEnergy > 28) {
+            if (vocalEnergy > 14) {
               speechFrameCount += 1;
-              if (speechFrameCount >= 4) {
+              if (speechFrameCount >= 3) {
                 hasDetectedSpeech = true;
               }
               silentSince = now;
-            } else if (hasDetectedSpeech && now - silentSince >= 900) {
+            } else if (hasDetectedSpeech && now - silentSince >= 1200) {
               stopCapture();
             } else if (now - startedAt > 18000) {
               stopCapture();
