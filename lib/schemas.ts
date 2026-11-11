@@ -381,6 +381,7 @@ export const CropAnalysisRequestSchema = z.object({
   confirmMismatchOverride: z.boolean().optional().default(false),
   clientQuality: z.any().optional(),
   region: z.string().max(120).optional(),
+  outputLang: z.enum(['ur', 'sd', 'en']).optional(),
 });
 
 export type CropAnalysisRequest = z.infer<typeof CropAnalysisRequestSchema>;

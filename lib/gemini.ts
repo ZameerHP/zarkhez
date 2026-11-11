@@ -1605,6 +1605,183 @@ export function getServiceUnavailableDiagnosis(selectedCrop: string): CropDiagno
  */
 export interface AnalyzeScanOptions {
   region?: string;
+  outputLang?: 'ur' | 'sd' | 'en';
+}
+
+const SIMPLE_SINDHI_PART_MAP: Record<string, string> = {
+  leaf: 'پن',
+  leaves: 'پن',
+  stem: 'ٽاري / تڻو',
+  roots: 'پاڙون',
+  root: 'پاڙ',
+  fruit: 'ميوو',
+  flower: 'گل',
+  'whole plant': 'سڄو ٻوٽو',
+  seed: 'ٻج',
+  tuber: 'گڏي',
+};
+
+export async function translateDiagnosisToSimpleSindhi(
+  diagnosis: CropDiagnosis
+): Promise<CropDiagnosis> {
+  if (
+    diagnosis.problem_name?.sd &&
+    diagnosis.explanations?.farmer_friendly?.sd &&
+    diagnosis.message?.sd &&
+    diagnosis.detected_crop_sd
+  ) {
+    return diagnosis;
+  }
+
+  const cropSdFallback = getLocalizedCropNames(diagnosis.detected_crop).sd || diagnosis.detected_crop_sd || diagnosis.detected_crop_ur;
+  const partKey = (diagnosis.detected_plant_part || 'leaf').trim().toLowerCase();
+  const partSdFallback = SIMPLE_SINDHI_PART_MAP[partKey] || diagnosis.detected_plant_part_sd || diagnosis.detected_plant_part_ur || 'پن';
+
+  const applyFallback = (): CropDiagnosis => ({
+    ...diagnosis,
+    detected_crop_sd: diagnosis.detected_crop_sd || cropSdFallback,
+    detected_plant_part_sd: diagnosis.detected_plant_part_sd || partSdFallback,
+  });
+
+  if (!getGeminiApiKey()) return applyFallback();
+
+  const stepsSource =
+    diagnosis.treatment_pillars?.immediate_actions?.length
+      ? diagnosis.treatment_pillars.immediate_actions
+      : diagnosis.recommendations || [];
+  const careSource = diagnosis.treatment_pillars?.cultural_management || [];
+  const chemSource = diagnosis.treatment_pillars?.chemical_management || [];
+
+  const sourcePayload = {
+    detected_crop: diagnosis.detected_crop,
+    detected_plant_part: diagnosis.detected_plant_part,
+    problem_name: diagnosis.problem_name?.en || '',
+    farmer_friendly: diagnosis.explanations?.farmer_friendly?.en || diagnosis.plant_condition || '',
+    message: diagnosis.message?.en || '',
+    observed_symptoms: (diagnosis.observed_symptoms || []).map((s) => s.en),
+    possible_causes: (diagnosis.possible_causes || []).map((c) => c.en),
+    immediate_actions: stepsSource.map((a) => a.en),
+    cultural_care: careSource.map((c) => c.en),
+    chemical_purpose: chemSource.map((c) => c.purpose.en),
+    chemical_safety: chemSource.map((c) => c.safety_precautions.en),
+    when_to_consult_expert: diagnosis.when_to_consult_expert?.en || '',
+  };
+
+  try {
+    const model = resolvePreferredModel('fast');
+    const { text } = await callGeminiApi({
+      model,
+      systemInstruction:
+        'You translate crop scan reports into VERY SIMPLE, everyday rural Pakistani Sindhi (سنڌي Perso-Arabic script using ڀ ٻ ڄ ڃ ڇ ڏ ڊ ڌ ڍ ڙ ڦ ڪ ڳ ڱ ڻ ٿ ٺ ٽ). Use plain village words a farmer understands immediately ("پن، پاڙون، پاڻي، داغ، ڀاڻ، ڪيڙا، دوا"). Keep sentences short and clear. NO hard textbook or Urdu/Hindi words.',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `Translate EVERY text field and EVERY list item 1:1 (preserving exact array lengths for every *_sd array) into simple Sindhi JSON:\n${JSON.stringify(sourcePayload)}`,
+            },
+          ],
+        },
+      ],
+      temperature: 0.15,
+      maxOutputTokens: 1400,
+      timeoutMs: 10000,
+      responseSchema: {
+        type: 'OBJECT',
+        properties: {
+          detected_crop_sd: { type: 'STRING' },
+          detected_plant_part_sd: { type: 'STRING' },
+          problem_name_sd: { type: 'STRING' },
+          farmer_friendly_sd: { type: 'STRING' },
+          message_sd: { type: 'STRING' },
+          observed_symptoms_sd: { type: 'ARRAY', items: { type: 'STRING' } },
+          possible_causes_sd: { type: 'ARRAY', items: { type: 'STRING' } },
+          immediate_actions_sd: { type: 'ARRAY', items: { type: 'STRING' } },
+          cultural_care_sd: { type: 'ARRAY', items: { type: 'STRING' } },
+          chemical_purpose_sd: { type: 'ARRAY', items: { type: 'STRING' } },
+          chemical_safety_sd: { type: 'ARRAY', items: { type: 'STRING' } },
+          when_to_consult_expert_sd: { type: 'STRING' },
+        },
+        required: ['detected_crop_sd', 'detected_plant_part_sd', 'problem_name_sd', 'farmer_friendly_sd', 'message_sd'],
+      },
+    });
+
+    const parsed = extractAndParseJson(text);
+    if (!parsed.ok || !parsed.data || typeof parsed.data !== 'object') {
+      return applyFallback();
+    }
+
+    const sd = parsed.data as Record<string, unknown>;
+    const pickStr = (k: string, fb?: string) =>
+      typeof sd[k] === 'string' && (sd[k] as string).trim() ? (sd[k] as string).trim() : fb;
+    const pickArr = (k: string) =>
+      Array.isArray(sd[k]) ? (sd[k] as unknown[]).map((x) => (typeof x === 'string' ? x.trim() : '')) : [];
+
+    const symSd = pickArr('observed_symptoms_sd');
+    const causeSd = pickArr('possible_causes_sd');
+    const actSd = pickArr('immediate_actions_sd');
+    const careSd = pickArr('cultural_care_sd');
+    const chemPurpSd = pickArr('chemical_purpose_sd');
+    const chemSafeSd = pickArr('chemical_safety_sd');
+
+    const mapLocalizedList = (arr: CropDiagnosis['observed_symptoms'], sdList: string[]) =>
+      arr.map((item, idx) => (sdList[idx] ? { ...item, sd: sdList[idx] } : item));
+
+    const farmerSd = pickStr('farmer_friendly_sd', diagnosis.explanations?.farmer_friendly?.sd);
+
+    return {
+      ...diagnosis,
+      detected_crop_sd: pickStr('detected_crop_sd', cropSdFallback) || cropSdFallback,
+      detected_plant_part_sd: pickStr('detected_plant_part_sd', partSdFallback) || partSdFallback,
+      plant_condition_sd: farmerSd || diagnosis.plant_condition_sd,
+      problem_name: {
+        ...diagnosis.problem_name,
+        ...(pickStr('problem_name_sd') ? { sd: pickStr('problem_name_sd') } : {}),
+      },
+      message: {
+        ...diagnosis.message,
+        ...(pickStr('message_sd') ? { sd: pickStr('message_sd') } : {}),
+      },
+      explanations: {
+        ...diagnosis.explanations,
+        farmer_friendly: {
+          ...diagnosis.explanations.farmer_friendly,
+          ...(farmerSd ? { sd: farmerSd } : {}),
+        },
+      },
+      observed_symptoms: mapLocalizedList(diagnosis.observed_symptoms || [], symSd),
+      possible_causes: mapLocalizedList(diagnosis.possible_causes || [], causeSd),
+      recommendations: mapLocalizedList(diagnosis.recommendations || [], actSd),
+      treatment_pillars: {
+        ...diagnosis.treatment_pillars,
+        immediate_actions: mapLocalizedList(
+          diagnosis.treatment_pillars.immediate_actions || [],
+          actSd
+        ),
+        cultural_management: mapLocalizedList(
+          diagnosis.treatment_pillars.cultural_management || [],
+          careSd
+        ),
+        chemical_management: (diagnosis.treatment_pillars.chemical_management || []).map(
+          (ch, idx) => ({
+            ...ch,
+            purpose: chemPurpSd[idx] ? { ...ch.purpose, sd: chemPurpSd[idx] } : ch.purpose,
+            safety_precautions: chemSafeSd[idx]
+              ? { ...ch.safety_precautions, sd: chemSafeSd[idx] }
+              : ch.safety_precautions,
+          })
+        ),
+      },
+      when_to_consult_expert: {
+        ...diagnosis.when_to_consult_expert,
+        ...(pickStr('when_to_consult_expert_sd')
+          ? { sd: pickStr('when_to_consult_expert_sd') }
+          : {}),
+      },
+    };
+  } catch {
+    return applyFallback();
+  }
 }
 
 export async function analyzeCropImageWithGemini(
@@ -1759,6 +1936,9 @@ Return crisp bilingual JSON.`;
       throw lastValidationError;
     }
 
+    if (scanOptions?.outputLang === 'sd') {
+      return await translateDiagnosisToSimpleSindhi(normalized.data);
+    }
     return normalized.data;
   }
 

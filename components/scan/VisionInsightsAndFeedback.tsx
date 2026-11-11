@@ -22,64 +22,65 @@ import { CropDiagnosis, getLocalizedText } from '@/lib/schemas';
 import { PAKISTAN_REGION_PROFILES } from '@/lib/vision/knowledge-base';
 import { buildStructuredAgronomyReportText } from '@/lib/vision/report-formatter';
 
-const CATEGORY_LABELS: Record<string, { en: string; ur: string }> = {
-  fungal_infection: { en: 'Fungal Disease', ur: 'پھپھوندی کی بیماری' },
-  bacterial_infection: { en: 'Bacterial Infection', ur: 'بیکٹیریل بیماری' },
-  viral_infection: { en: 'Viral Disease', ur: 'وائرس کی بیماری' },
-  insect_pest: { en: 'Insect / Pest', ur: 'کیڑوں کا حملہ' },
-  nematode_root: { en: 'Root Nematode', ur: 'جڑوں کا کیڑا (نیماٹوڈ)' },
-  nutrient_deficiency: { en: 'Nutrient Deficiency', ur: 'غذائی کمی' },
-  nutrient_toxicity: { en: 'Nutrient Excess', ur: 'کھاد یا نمکیات کی زیادتی' },
-  water_stress: { en: 'Water Stress', ur: 'پانی کی کمی یا زیادتی' },
-  heat_stress: { en: 'Heat Stress', ur: 'شدید گرمی کا اثر' },
-  cold_frost_damage: { en: 'Frost / Cold', ur: 'کہر / سردی کا اثر' },
-  sunburn: { en: 'Sunburn', ur: 'تیز دھوپ کا جھلساؤ' },
-  chemical_herbicide_injury: { en: 'Spray / Herbicide Burn', ur: 'دوا یا سپرے کا اثر' },
-  soil_salinity: { en: 'Soil Salinity', ur: 'زمینی کلر / نمکیات' },
-  environmental_stress: { en: 'Weather Stress', ur: 'موسمی دباؤ' },
-  mechanical_physical_damage: { en: 'Physical Damage', ur: 'ظاہری چوٹ / ہوا کا نقصان' },
-  post_harvest_storage: { en: 'Storage Issue', ur: 'ذخیرے میں خرابی' },
-  healthy: { en: 'Healthy Crop', ur: 'تندرست پودا' },
-  unidentified_or_non_crop: { en: 'Unclear / Other', ur: 'غیر واضح تصویر' },
+const CATEGORY_LABELS: Record<string, { en: string; ur: string; sd: string }> = {
+  fungal_infection: { en: 'Fungal Disease', ur: 'پھپھوندی کی بیماری', sd: 'ڦڦوندي جي بيماري' },
+  bacterial_infection: { en: 'Bacterial Infection', ur: 'بیکٹیریل بیماری', sd: 'جراثيمي بيماري' },
+  viral_infection: { en: 'Viral Disease', ur: 'وائرس کی بیماری', sd: 'وائرس جي بيماري' },
+  insect_pest: { en: 'Insect / Pest', ur: 'کیڑوں کا حملہ', sd: 'ڪيڙن جو حملو' },
+  nematode_root: { en: 'Root Nematode', ur: 'جڑوں کا کیڑا (نیماٹوڈ)', sd: 'پاڙن جو ڪيڙو' },
+  nutrient_deficiency: { en: 'Nutrient Deficiency', ur: 'غذائی کمی', sd: 'خوراڪ / ڀاڻ جي کوٽ' },
+  nutrient_toxicity: { en: 'Nutrient Excess', ur: 'کھاد یا نمکیات کی زیادتی', sd: 'ڀاڻ يا لوڻ جي زيادتي' },
+  water_stress: { en: 'Water Stress', ur: 'پانی کی کمی یا زیادتی', sd: 'پاڻي جي کوٽ يا زيادتي' },
+  heat_stress: { en: 'Heat Stress', ur: 'شدید گرمی کا اثر', sd: 'تيز گرمي جو اثر' },
+  cold_frost_damage: { en: 'Frost / Cold', ur: 'کہر / سردی کا اثر', sd: 'سيءَ / پاري جو اثر' },
+  sunburn: { en: 'Sunburn', ur: 'تیز دھوپ کا جھلساؤ', sd: 'تيز اُس جو سڙڻ' },
+  chemical_herbicide_injury: { en: 'Spray / Herbicide Burn', ur: 'دوا یا سپرے کا اثر', sd: 'دوا يا اسپري جو اثر' },
+  soil_salinity: { en: 'Soil Salinity', ur: 'زمینی کلر / نمکیات', sd: 'زمين جو ڪلر' },
+  environmental_stress: { en: 'Weather Stress', ur: 'موسمی دباؤ', sd: 'موسم جو اثر' },
+  mechanical_physical_damage: { en: 'Physical Damage', ur: 'ظاہری چوٹ / ہوا کا نقصان', sd: 'هوا يا ٻاهرين ڌڪ جو نقصان' },
+  post_harvest_storage: { en: 'Storage Issue', ur: 'ذخیرے میں خرابی', sd: 'گودام ۾ خرابي' },
+  healthy: { en: 'Healthy Crop', ur: 'تندرست پودا', sd: 'تندرست ٻوٽو' },
+  unidentified_or_non_crop: { en: 'Unclear / Other', ur: 'غیر واضح تصویر', sd: 'اڻ چٽي تصوير' },
 };
 
-const VISUAL_VALUE_MAP: Record<string, { en: string; ur: string }> = {
-  none: { en: 'None', ur: 'کوئی نہیں' },
-  zero: { en: 'None', ur: 'کوئی نہیں' },
-  few: { en: 'A few spots', ur: 'چند دھبے' },
-  several: { en: 'Several spots', ur: 'کئی دھبے' },
-  many: { en: 'Many spots', ur: 'کافی زیادہ دھبے' },
-  widespread: { en: 'Widespread', ur: 'پوری سطح پر پھیلے ہوئے' },
-  unassessed: { en: 'Not checked', ur: 'جانچ نہیں ہوئی' },
-  spindle_shaped: { en: 'Spindle / diamond shaped', ur: 'نوکیلے / لمبوترے' },
-  circular_oval: { en: 'Round / oval spots', ur: 'گول / بیضوی' },
-  irregular: { en: 'Irregular patches', ur: 'بے ترتیب دھبے' },
-  streaks: { en: 'Long stripes / streaks', ur: 'لمبی لکیریں' },
-  well_defined: { en: 'Clear borders', ur: 'واضح کنارے' },
-  diffuse: { en: 'Faded borders', ur: 'دھندلے کنارے' },
-  water_soaked: { en: 'Water-soaked edges', ur: 'گیلے کنارے' },
+const VISUAL_VALUE_MAP: Record<string, { en: string; ur: string; sd: string }> = {
+  none: { en: 'None', ur: 'کوئی نہیں', sd: 'ڪوبه ناهي' },
+  zero: { en: 'None', ur: 'کوئی نہیں', sd: 'ڪوبه ناهي' },
+  few: { en: 'A few spots', ur: 'چند دھبے', sd: 'ٿورا داغ' },
+  several: { en: 'Several spots', ur: 'کئی دھبے', sd: 'ڪيترائي داغ' },
+  many: { en: 'Many spots', ur: 'کافی زیادہ دھبے', sd: 'گهڻا داغ' },
+  widespread: { en: 'Widespread', ur: 'پوری سطح پر پھیلے ہوئے', sd: 'پوري پن تي پکڙيل' },
+  unassessed: { en: 'Not checked', ur: 'جانچ نہیں ہوئی', sd: 'جاچ نه ٿي' },
+  spindle_shaped: { en: 'Spindle / diamond shaped', ur: 'نوکیلے / لمبوترے', sd: 'نوڪدار داغ' },
+  circular_oval: { en: 'Round / oval spots', ur: 'گول / بیضوی', sd: 'گول داغ' },
+  irregular: { en: 'Irregular patches', ur: 'بے ترتیب دھبے', sd: 'بي ترتيب داغ' },
+  streaks: { en: 'Long stripes / streaks', ur: 'لمبی لکیریں', sd: 'ڊگهيون ليڪون' },
+  well_defined: { en: 'Clear borders', ur: 'واضح کنارے', sd: 'صاف ڪنارا' },
+  diffuse: { en: 'Faded borders', ur: 'دھندلے کنارے', sd: 'ڌنڌلا ڪنارا' },
+  water_soaked: { en: 'Water-soaked edges', ur: 'گیلے کنارے', sd: 'آلا ڪنارا' },
 };
 
 export function formatProblemCategoryLabel(
   category: string | undefined,
-  lang: 'en' | 'ur'
+  lang: 'en' | 'ur' | 'sd'
 ): string {
   if (!category) return '';
   const hit = CATEGORY_LABELS[category];
   if (hit) return hit[lang];
-  return lang === 'en' ? category.replace(/_/g, ' ') : 'زرعی کیفیت';
+  if (lang === 'en') return category.replace(/_/g, ' ');
+  return lang === 'sd' ? 'فصل جي حالت' : 'زرعی کیفیت';
 }
 
 export function formatVisualMetricLabel(
   raw: string | undefined,
-  lang: 'en' | 'ur'
+  lang: 'en' | 'ur' | 'sd'
 ): string {
-  if (!raw) return lang === 'en' ? 'None' : 'کوئی نہیں';
+  if (!raw) return lang === 'en' ? 'None' : lang === 'sd' ? 'ڪوبه ناهي' : 'کوئی نہیں';
   const key = raw.trim().toLowerCase().replace(/[\s-]+/g, '_');
   const hit = VISUAL_VALUE_MAP[key];
   if (hit) return hit[lang];
   if (lang === 'en') return raw.replace(/_/g, ' ');
-  return /[a-z_]/i.test(raw) ? 'دھبے موجود' : raw;
+  return /[a-z_]/i.test(raw) ? (lang === 'sd' ? 'داغ موجود' : 'دھبے موجود') : raw;
 }
 
 export function RegionSelectorBar({
@@ -119,7 +120,7 @@ export function TechnicalDetailsDrawer({
   region,
 }: {
   diagnosis: CropDiagnosis;
-  reportLang: 'en' | 'ur';
+  reportLang: 'en' | 'ur' | 'sd';
   region?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -135,7 +136,7 @@ export function TechnicalDetailsDrawer({
   const certaintyPct = Math.round((cb?.diagnostic_certainty ?? diagnosis.identification_confidence ?? 0) * 100);
 
   const handleDownloadReport = () => {
-    const content = buildStructuredAgronomyReportText(diagnosis, reportLang);
+    const content = buildStructuredAgronomyReportText(diagnosis, reportLang === 'en' ? 'en' : 'ur');
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

@@ -1,4 +1,4 @@
-import { CropDiagnosis, getLocalizedText } from '../schemas';
+import { CropDiagnosis, LocalizedString, getLocalizedText } from '../schemas';
 import { toSpokenText } from './spoken-normalizer';
 import type { VoiceLang } from './types';
 
@@ -238,12 +238,18 @@ function cleanPreserveSpaces(text: string): string {
 
 function formatSeverityPhrase(
   severity: CropDiagnosis['severity'],
-  lang: 'en' | 'ur'
+  lang: 'en' | 'ur' | 'sd'
 ): string {
   if (lang === 'en') {
     if (severity === 'high') return 'high severity';
     if (severity === 'medium') return 'medium severity';
     if (severity === 'low') return 'low severity';
+    return '';
+  }
+  if (lang === 'sd') {
+    if (severity === 'high') return 'وڌيڪ';
+    if (severity === 'medium') return 'وچولي';
+    if (severity === 'low') return 'هلڪي';
     return '';
   }
   if (severity === 'high') return 'زیادہ شدید';
@@ -258,7 +264,7 @@ function formatSeverityPhrase(
  */
 export function buildScanVoiceNarration(
   diagnosis: CropDiagnosis,
-  lang: 'en' | 'ur'
+  lang: 'en' | 'ur' | 'sd'
 ): string {
   if (!diagnosis) return '';
 
@@ -271,6 +277,8 @@ export function buildScanVoiceNarration(
     const retakeTip =
       lang === 'en'
         ? 'Please take a clear close-up photo in natural daylight and scan again.'
+        : lang === 'sd'
+        ? 'مهرباني ڪري ڏينهن جي صاف روشنيءَ ۾ پن جي ويجهي فوٽو ڪڍي ٻيهر اسڪين ڪريو.'
         : 'براہ کرم دن کی صاف روشنی میں پتے کی واضح تصویر لے کر دوبارہ اسکین کریں۔';
     return cleanPreserveSpaces(msg || retakeTip);
   }
@@ -278,32 +286,42 @@ export function buildScanVoiceNarration(
   const cropName =
     lang === 'en'
       ? diagnosis.detected_crop || diagnosis.selected_crop || 'crop'
+      : lang === 'sd'
+      ? diagnosis.detected_crop_sd || diagnosis.detected_crop_ur || diagnosis.detected_crop || 'فصل'
       : diagnosis.detected_crop_ur || diagnosis.detected_crop || 'فصل';
   const partName =
     lang === 'en'
       ? (diagnosis.detected_plant_part || 'plant').toLowerCase()
+      : lang === 'sd'
+      ? diagnosis.detected_plant_part_sd || diagnosis.detected_plant_part_ur || diagnosis.detected_plant_part || 'پن'
       : diagnosis.detected_plant_part_ur || diagnosis.detected_plant_part || 'پتے';
-  const conditionName = getLocalizedText(diagnosis.problem_name, lang);
+  const readField = (item: LocalizedString | undefined | null) => {
+    if (!item) return '';
+    if (lang === 'sd') return item.sd?.trim() || '';
+    return getLocalizedText(item, lang);
+  };
+
+  const conditionName = readField(diagnosis.problem_name) || getLocalizedText(diagnosis.problem_name, lang);
   const confPct = Math.round((diagnosis.identification_confidence || 0) * 100);
   const severityText = formatSeverityPhrase(diagnosis.severity, lang);
 
   const firstSymptom =
     diagnosis.observed_symptoms && diagnosis.observed_symptoms.length > 0
-      ? getLocalizedText(diagnosis.observed_symptoms[0], lang)
+      ? readField(diagnosis.observed_symptoms[0])
       : '';
   const secondSymptom =
     diagnosis.observed_symptoms && diagnosis.observed_symptoms.length > 1
-      ? getLocalizedText(diagnosis.observed_symptoms[1], lang)
+      ? readField(diagnosis.observed_symptoms[1])
       : '';
-  const observation = getLocalizedText(diagnosis.why_suspected, lang);
+  const observation = readField(diagnosis.why_suspected);
 
   const immediateActions = diagnosis.treatment_pillars?.immediate_actions || [];
   const primarySteps =
     immediateActions.length > 0
-      ? immediateActions.slice(0, 2).map((s) => getLocalizedText(s, lang)).filter(Boolean)
+      ? immediateActions.slice(0, 2).map((s) => readField(s)).filter(Boolean)
       : (diagnosis.recommendations || [])
           .slice(0, 2)
-          .map((s) => getLocalizedText(s, lang))
+          .map((s) => readField(s))
           .filter(Boolean);
 
   if (diagnosis.diagnosis_status === 'healthy_no_symptoms') {
@@ -316,6 +334,16 @@ export function buildScanVoiceNarration(
           : "Keep checking the field regularly, and don't spend money on unnecessary sprays.",
       ];
       return cleanPreserveSpaces(parts.filter(Boolean).join(' '));
+    }
+
+    if (lang === 'sd') {
+      const partsSd = [
+        `خوشخبري هاري ڀاءُ، اوهان جي ${cropName} جو ${partName} بلڪل تندرست نظر اچي ٿو، ۽ ڪنهن به بيماريءَ جو نشان ناهي.`,
+        primarySteps.length > 0
+          ? `معمول جي سنڀال جاري رکو، ${primarySteps.join(' ')}`
+          : 'ٻنيءَ جو روز چڪر لڳائيندا رهو ۽ اجايو اسپري نه ڪريو.',
+      ];
+      return cleanPreserveSpaces(partsSd.filter(Boolean).join(' '));
     }
 
     const partsUr = [
@@ -347,6 +375,21 @@ export function buildScanVoiceNarration(
         : getLocalizedText(diagnosis.when_to_consult_expert, 'en');
 
     return cleanPreserveSpaces([intro, symptomSentence, actionSentence].filter(Boolean).join(' '));
+  }
+
+  if (lang === 'sd') {
+    const severitySd = severityText ? `، ان جي شدت ${severityText} آهي` : '';
+    const introSd = `هاري ڀاءُ، اوهان جي ${cropName} جي ${partName} تي ${conditionName} جون نشانيون نظر آيون آهن${severitySd}.`;
+    const symptomSdItems = [firstSymptom, secondSymptom].filter(Boolean);
+    const symptomSd =
+      symptomSdItems.length > 0
+        ? `ٻوٽي تي ${symptomSdItems.join(' ۽ ').replace(/[۔.]+$/, '')} صاف نظر اچي رهيو آهي.`
+        : '';
+    const actionSd =
+      primarySteps.length > 0
+        ? `فصل کي بچائڻ لاءِ هاڻي ${primarySteps.join(' ')}`
+        : readField(diagnosis.when_to_consult_expert) || 'وڌيڪ رهنمائي لاءِ پنهنجي علائقي جي زرعي ماهر کان پڇو.';
+    return cleanPreserveSpaces([introSd, symptomSd, actionSd].filter(Boolean).join(' '));
   }
 
   const severityAndConfUr =

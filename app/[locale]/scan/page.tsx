@@ -103,7 +103,8 @@ export default function ScanPage() {
   const [scanStage, setScanStage] = useState<ScanStage>('idle');
   const [analysing, setAnalysing] = useState(false);
   const [diagnosis, setDiagnosis] = useState<CropDiagnosis | null>(null);
-  const [reportLang, setReportLang] = useState<'en' | 'ur'>(locale === 'en' ? 'en' : 'ur');
+  const [reportLang, setReportLang] = useState<'en' | 'ur' | 'sd'>(locale === 'en' ? 'en' : 'ur');
+  const [sdTranslating, setSdTranslating] = useState(false);
   const [savedToDiary, setSavedToDiary] = useState(false);
   const [savingToDiary, setSavingToDiary] = useState(false);
   const [diarySaveNote, setDiarySaveNote] = useState<string | null>(null);
@@ -111,6 +112,12 @@ export default function ScanPage() {
   const [voiceErrorMsg, setVoiceErrorMsg] = useState<string | null>(null);
   const [showGuestPrompt, setShowGuestPrompt] = useState(false);
   const [viewMode, setViewMode] = useState<'annotated' | 'original'>('annotated');
+
+  const uiLang: 'en' | 'ur' | 'sd' = reportLang === 'sd' ? 'sd' : locale;
+  const pickUi = (en: string, ur: string, sd: string) =>
+    uiLang === 'sd' ? sd : uiLang === 'en' ? en : ur;
+  const pickReport = (en: string, ur: string, sd: string) =>
+    reportLang === 'sd' ? sd : reportLang === 'en' ? en : ur;
 
   // Quality check state
   const [pendingQualityData, setPendingQualityData] = useState<{
@@ -128,22 +135,22 @@ export default function ScanPage() {
   const activeAbortRef = useRef<AbortController | null>(null);
 
   const supportedCrops = [
-    { key: 'wheat', en: 'Wheat', ur: 'گندم' },
-    { key: 'rice', en: 'Rice', ur: 'دھان' },
-    { key: 'cotton', en: 'Cotton', ur: 'کپاس' },
-    { key: 'maize', en: 'Maize', ur: 'مکئی' },
-    { key: 'sugarcane', en: 'Sugarcane', ur: 'کماد' },
-    { key: 'tomato', en: 'Tomato', ur: 'ٹماٹر' },
-    { key: 'potato', en: 'Potato', ur: 'آلو' },
-    { key: 'chili', en: 'Chili', ur: 'مرچ' },
+    { key: 'wheat', en: 'Wheat', ur: 'گندم', sd: 'ڪڻڪ' },
+    { key: 'rice', en: 'Rice', ur: 'دھان', sd: 'چانور' },
+    { key: 'cotton', en: 'Cotton', ur: 'کپاس', sd: 'وونئڻ' },
+    { key: 'maize', en: 'Maize', ur: 'مکئی', sd: 'مڪئي' },
+    { key: 'sugarcane', en: 'Sugarcane', ur: 'کماد', sd: 'ڪمند' },
+    { key: 'tomato', en: 'Tomato', ur: 'ٹماٹر', sd: 'ٽماٽو' },
+    { key: 'potato', en: 'Potato', ur: 'آلو', sd: 'پٽاٽو' },
+    { key: 'chili', en: 'Chili', ur: 'مرچ', sd: 'مرچ' },
   ] as const;
 
   const organGuides = [
-    { icon: Leaf, ur: 'پتا', en: 'Leaf' },
-    { icon: Sprout, ur: 'تنا یا شاخ', en: 'Stem' },
-    { icon: CircleDot, ur: 'جڑیں', en: 'Roots' },
-    { icon: Apple, ur: 'پھل / پھول', en: 'Fruit/Flower' },
-    { icon: Layers, ur: 'پورا پودا', en: 'Whole plant' },
+    { icon: Leaf, ur: 'پتا', en: 'Leaf', sd: 'پن' },
+    { icon: Sprout, ur: 'تنا یا شاخ', en: 'Stem', sd: 'ٽاري' },
+    { icon: CircleDot, ur: 'جڑیں', en: 'Roots', sd: 'پاڙون' },
+    { icon: Apple, ur: 'پھل / پھول', en: 'Fruit/Flower', sd: 'ميوو / گل' },
+    { icon: Layers, ur: 'پورا پودا', en: 'Whole plant', sd: 'سڄو ٻوٽو' },
   ];
 
   const stopCameraStream = () => {
@@ -305,24 +312,54 @@ export default function ScanPage() {
     }
   };
 
+  const handleSelectReportLang = async (nextLang: 'en' | 'ur' | 'sd') => {
+    unlockAudio();
+    setReportLang(nextLang);
+    if (
+      nextLang === 'sd' &&
+      diagnosis &&
+      !diagnosis.problem_name?.sd &&
+      !sdTranslating
+    ) {
+      setSdTranslating(true);
+      try {
+        const res = await fetch('/api/scan/translate-sd', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ diagnosis }),
+        });
+        if (res.ok) {
+          const payload = (await res.json()) as { diagnosis?: CropDiagnosis };
+          if (payload?.diagnosis) {
+            setDiagnosis(payload.diagnosis);
+          }
+        }
+      } catch {
+        // Fallback stays safe with localized fields
+      } finally {
+        setSdTranslating(false);
+      }
+    }
+  };
+
   const triggerSpokenDiagnosis = (diagData: CropDiagnosis) => {
     const profile = getSavedProfile();
     if (profile.autoSpeakVoice === false) return;
 
-    const speechText = buildScanVoiceNarration(
-      diagData,
-      reportLang === 'en' ? 'en' : 'ur'
-    );
+    const targetLang = reportLang;
+    const speechText = buildScanVoiceNarration(diagData, targetLang);
 
     if (!speechText.trim()) return;
     setTimeout(() => {
       speakText(
         speechText,
-        reportLang === 'en' ? 'en' : 'ur',
+        targetLang,
         {
           onError: () => {
             setVoiceErrorMsg(
-              locale === 'ur'
+              targetLang === 'sd'
+                ? 'آواز هلي نه سگهي، پر مڪمل لکيل رپورٽ هيٺ موجود آهي.'
+                : targetLang === 'ur'
                 ? 'آواز سنانے میں عارضی مسئلہ آیا، لیکن مکمل تحریری رپورٹ نیچے موجود ہے۔'
                 : 'Voice summary unavailable right now; full text report is ready below.'
             );
@@ -420,6 +457,7 @@ export default function ScanPage() {
           selectedCrop: cropKey,
           confirmMismatchOverride,
           clientQuality: qualityReport,
+          outputLang: reportLang,
         }),
         signal: controller.signal,
       });
@@ -669,11 +707,12 @@ export default function ScanPage() {
     setDiarySaveNote(null);
     setScanError(null);
     setVoiceErrorMsg(null);
+    setSdTranslating(false);
     setPendingQualityData(null);
   };
 
   const spokenDiagnosisText = diagnosis
-    ? buildScanVoiceNarration(diagnosis, reportLang === 'en' ? 'en' : 'ur')
+    ? buildScanVoiceNarration(diagnosis, reportLang)
     : '';
 
   return (
@@ -696,15 +735,45 @@ export default function ScanPage() {
 
         <div className="mt-3.5">
           <h1 className="font-extrabold text-xl sm:text-2xl text-white">
-            {locale === 'ur'
-              ? 'فصل کا اے آئی ڈاکٹر (خودکار شناخت)'
-              : 'Smart Crop Scanner'}
+            {pickUi(
+              'Smart Crop Scanner',
+              'فصل کا اے آئی ڈاکٹر (خودکار شناخت)',
+              'فصل جو اسڪينر (سولو معائنو)'
+            )}
           </h1>
           <p className="text-xs text-cream font-medium mt-0.5">
-            {locale === 'ur'
-              ? 'پتا، تنا، جڑ، پھل یا پورا پودا — اے آئی خود فصل اور حصے کی درست شناخت کرے گی'
-              : 'Two-stage vision: Independently detects crop, plant part, and symptoms'}
+            {pickUi(
+              'Two-stage vision: Independently detects crop, plant part, and symptoms',
+              'پتا، تنا، جڑ، پھل یا پورا پودا — اے آئی خود فصل اور حصے کی درست شناخت کرے گی',
+              'پن، ٽاري، پاڙون، ميوو يا سڄو ٻوٽو — اي آءِ پاڻ فصل ۽ بيماري ٻڌائيندي'
+            )}
           </p>
+        </div>
+
+        {/* Scan & Voice Output Language Selector (Urdu | Sindhi | EN) */}
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <div className="inline-flex items-center gap-1 rounded-full bg-white/10 p-1">
+            {(
+              [
+                { id: 'ur', label: 'اردو' },
+                { id: 'sd', label: 'سنڌي' },
+                { id: 'en', label: 'EN' },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => handleSelectReportLang(opt.id)}
+                className={`px-3 py-1 rounded-full text-xs font-extrabold transition-all ${
+                  reportLang === opt.id
+                    ? 'bg-emerald-400 text-[#062409]'
+                    : 'text-white/85 hover:bg-white/10'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -720,13 +789,15 @@ export default function ScanPage() {
               <label className="font-extrabold text-xs text-ink flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 text-olive" />
                 <span>
-                  {locale === 'ur'
-                    ? '1۔ آپ کی منتخب کردہ فصل:'
-                    : '1. Your Selected Crop:'}
+                  {pickUi(
+                    '1. Your Selected Crop:',
+                    '1۔ آپ کی منتخب کردہ فصل:',
+                    '1. پنهنجو فصل چونڊيو:'
+                  )}
                 </span>
               </label>
               <span className="text-[10px] font-bold text-ink/55 bg-canvas px-2 py-0.5 rounded-full">
-                {locale === 'ur' ? 'کسان کا انتخاب' : 'Farmer input'}
+                {pickUi('Farmer input', 'کسان کا انتخاب', 'هاريءَ جي چونڊ')}
               </span>
             </div>
 
@@ -744,7 +815,7 @@ export default function ScanPage() {
                         : 'bg-canvas text-ink/80 hover:bg-olive/15 border-olive/15'
                     }`}
                   >
-                    <span>{c[locale]}</span>
+                    <span>{c[uiLang]}</span>
                   </button>
                 );
               })}
@@ -792,7 +863,7 @@ export default function ScanPage() {
                     >
                       <Camera className="w-4 h-4" />
                       <span>
-                        {locale === 'ur' ? 'تصویر کھینچیں' : 'Capture Photo'}
+                        {pickUi('Capture Photo', 'تصویر کھینچیں', 'فوٽو ڪڍو')}
                       </span>
                     </motion.button>
                   </div>
@@ -810,14 +881,18 @@ export default function ScanPage() {
                       <Sparkles className="w-8 h-8 text-emerald-400" />
                     </div>
                     <p className="font-black text-sm text-white">
-                      {locale === 'ur'
-                        ? 'کسی بھی ایک حصے کی 1 واضح تصویر لیں'
-                        : 'Take 1 Clear Plant Photo'}
+                      {pickUi(
+                        'Take 1 Clear Plant Photo',
+                        'کسی بھی ایک حصے کی 1 واضح تصویر لیں',
+                        'ٻوٽي جي هڪ صاف تصوير ڪڍو'
+                      )}
                     </p>
                     <p className="text-xs text-cream/80 max-w-[260px] mx-auto leading-relaxed">
-                      {locale === 'ur'
-                        ? 'پتا، تنا، جڑیں، پھل یا پورا پودا — اے آئی خود فصل اور حصے کی درست شناخت کرے گی'
-                        : 'Leaf, stem, roots, fruit or whole plant — AI will independently identify crop & part'}
+                      {pickUi(
+                        'Leaf, stem, roots, fruit or whole plant — AI will independently identify crop & part',
+                        'پتا، تنا، جڑیں، پھل یا پورا پودا — اے آئی خود فصل اور حصے کی درست شناخت کرے گی',
+                        'پن، ٽاري، پاڙون يا ميوو — اي آءِ پاڻ سڃاڻي ٻڌائيندي'
+                      )}
                     </p>
                   </div>
                 </>
@@ -827,7 +902,7 @@ export default function ScanPage() {
             {/* Supported Organ Chips */}
             <div className="space-y-1.5">
               <span className="text-[11px] font-extrabold text-ink/65 uppercase tracking-wider block">
-                {locale === 'ur' ? 'قابل قبول حصے:' : 'Acceptable plant parts:'}
+                {pickUi('Acceptable plant parts:', 'قابل قبول حصے:', 'تصوير لاءِ حصا:')}
               </span>
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-bold text-ink/80">
                 {organGuides.map((item, idx) => {
@@ -838,7 +913,7 @@ export default function ScanPage() {
                       className="px-2.5 py-1 rounded-full bg-canvas border border-olive/20 flex items-center gap-1.5 flex-shrink-0"
                     >
                       <Icon className="w-3.5 h-3.5 text-olive" />
-                      <span>{locale === 'ur' ? item.ur : item.en}</span>
+                      <span>{item[uiLang]}</span>
                     </div>
                   );
                 })}
@@ -872,7 +947,7 @@ export default function ScanPage() {
               >
                 <Camera className="w-5 h-5 text-emerald-400" />
                 <span>
-                  {locale === 'ur' ? 'کیمرے سے تصویر لیں' : 'Take Plant Photo'}
+                  {pickUi('Take Plant Photo', 'کیمرے سے تصویر لیں', 'ڪئميرا سان فوٽو ڪڍو')}
                 </span>
               </motion.button>
 
@@ -887,9 +962,11 @@ export default function ScanPage() {
               >
                 <Upload className="w-5 h-5 text-white" />
                 <span>
-                  {locale === 'ur'
-                    ? 'گیلری سے تصویر منتخب کریں'
-                    : 'Upload From Gallery'}
+                  {pickUi(
+                    'Upload From Gallery',
+                    'گیلری سے تصویر منتخب کریں',
+                    'گيلري مان فوٽو چونڊيو'
+                  )}
                 </span>
               </motion.button>
             </div>
@@ -994,28 +1071,36 @@ export default function ScanPage() {
               <div className="space-y-1.5">
                 <h2 className="font-black text-lg text-ink">
                   {scanStage === 'validating_image'
-                    ? locale === 'ur'
-                      ? 'تصویر کی جانچ کی جا رہی ہے...'
-                      : 'Validating image file...'
+                    ? pickUi(
+                        'Validating image file...',
+                        'تصویر کی جانچ کی جا رہی ہے...',
+                        'تصوير چيڪ ٿي رهي آهي...'
+                      )
                     : scanStage === 'processing'
-                    ? locale === 'ur'
-                      ? 'تصویر کا معیار اور روشنی چیک ہو رہی ہے...'
-                      : 'Checking clarity & optimizing photo...'
-                    : locale === 'ur'
-                    ? 'زرخیز کلاؤڈ وژن معائنہ جاری ہے...'
-                    : 'Zarkhez Cloud Vision analyzing plant...'}
+                    ? pickUi(
+                        'Checking clarity & optimizing photo...',
+                        'تصویر کا معیار اور روشنی چیک ہو رہی ہے...',
+                        'تصوير جي صفائي چيڪ ٿي رهي آهي...'
+                      )
+                    : pickUi(
+                        'Zarkhez Cloud Vision analyzing plant...',
+                        'زرخیز کلاؤڈ وژن معائنہ جاری ہے...',
+                        'ٻوٽي جو معائنو جاري آهي...'
+                      )}
                 </h2>
                 <p className="text-xs text-ink/70">
-                  {locale === 'ur'
-                    ? 'فصل کی حقیقی شناخت، پودے کا حصہ، دھبے، موازنہ اور حفاظتی فلٹر جانچے جا رہے ہیں'
-                    : 'Inspecting crop species, organ, symptoms, differential look-alikes & safety filters'}
+                  {pickUi(
+                    'Inspecting crop species, organ, symptoms, differential look-alikes & safety filters',
+                    'فصل کی حقیقی شناخت، پودے کا حصہ، دھبے، موازنہ اور حفاظتی فلٹر جانچے جا رہے ہیں',
+                    'فصل، پن ۽ داغ چيڪ ڪري سولي رپورٽ تيار ٿي رهي آهي'
+                  )}
                 </p>
                 <div className="flex flex-wrap justify-center gap-1.5 pt-1 text-[10px] font-bold">
                   {(
                     [
-                      { key: 'validating_image', en: '1. File Check', ur: '1۔ فائل جانچ' },
-                      { key: 'processing', en: '2. Clarity & Light', ur: '2۔ روشنی و صفائی' },
-                      { key: 'analyzing_cloud', en: '3. AI & Differential', ur: '3۔ اے آئی تجزیہ و تقابل' },
+                      { key: 'validating_image', en: '1. File Check', ur: '1۔ فائل جانچ', sd: '1. تصوير چيڪ' },
+                      { key: 'processing', en: '2. Clarity & Light', ur: '2۔ روشنی و صفائی', sd: '2. صفائي و روشني' },
+                      { key: 'analyzing_cloud', en: '3. AI & Differential', ur: '3۔ اے آئی تجزیہ و تقابل', sd: '3. بيماري جي سڃاڻپ' },
                     ] as const
                   ).map((st) => {
                     const isCurrent = scanStage === st.key;
@@ -1033,7 +1118,7 @@ export default function ScanPage() {
                             : 'bg-canvas text-ink/45 border-olive/15'
                         }`}
                       >
-                        {locale === 'ur' ? st.ur : st.en}
+                        {st[uiLang]}
                       </span>
                     );
                   })}
@@ -1045,7 +1130,7 @@ export default function ScanPage() {
                 onClick={handleCancelInFlight}
                 className="px-5 py-2 rounded-full border border-olive/25 bg-canvas hover:bg-ink/10 text-xs font-bold text-ink/75 transition-all"
               >
-                {locale === 'ur' ? 'معائنہ منسوخ کریں' : 'Cancel Scan'}
+                {pickUi('Cancel Scan', 'معائنہ منسوخ کریں', 'اسڪين بند ڪريو')}
               </button>
             </motion.section>
           )}
@@ -1083,42 +1168,40 @@ export default function ScanPage() {
                   }`}
                 >
                   {scanError.error_category === 'network_or_timeout'
-                    ? locale === 'ur'
-                      ? 'انٹرنیٹ کا مسئلہ'
-                      : 'Connection Issue'
+                    ? pickUi('Connection Issue', 'انٹرنیٹ کا مسئلہ', 'نيٽ جو مسئلو')
                     : scanError.error_category === 'rate_limited' ||
                       scanError.error_category === 'quota_exhausted'
-                    ? locale === 'ur'
-                      ? 'سروس مصروف ہے'
-                      : 'Temporarily Busy'
+                    ? pickUi('Temporarily Busy', 'سروس مصروف ہے', 'سروس مصروف آهي')
                     : scanError.error_category === 'invalid_image_input'
-                    ? locale === 'ur'
-                      ? 'دوسری تصویر لگائیں'
-                      : 'Photo Issue'
+                    ? pickUi('Photo Issue', 'دوسری تصویر لگائیں', 'تصوير جو مسئلو')
                     : scanError.error_category === 'permanent_config_error'
-                    ? locale === 'ur'
-                      ? 'سروس عارضی طور پر بند'
-                      : 'Service Unavailable'
-                    : locale === 'ur'
-                    ? 'معائنہ مکمل نہیں ہو سکا'
-                    : 'Scan Incomplete'}
+                    ? pickUi('Service Unavailable', 'سروس عارضی طور پر بند', 'سروس بند آهي')
+                    : pickUi('Scan Incomplete', 'معائنہ مکمل نہیں ہو سکا', 'اسڪين مڪمل نه ٿيو')}
                 </span>
                 <h3 className="font-black text-base sm:text-lg text-ink leading-snug">
                   {scanError.error_category === 'invalid_image_input'
-                    ? locale === 'ur'
-                      ? 'براہِ کرم پودے کی واضح تصویر منتخب کریں'
-                      : 'Please Choose Another Plant Photo'
+                    ? pickUi(
+                        'Please Choose Another Plant Photo',
+                        'براہِ کرم پودے کی واضح تصویر منتخب کریں',
+                        'مهرباني ڪري ٻوٽي جو ٻيو صاف فوٽو چونڊيو'
+                      )
                     : scanError.error_category === 'permanent_config_error'
-                    ? locale === 'ur'
-                      ? 'یہ سروس اس وقت دستیاب نہیں ہے'
-                      : 'Service Temporarily Unavailable'
+                    ? pickUi(
+                        'Service Temporarily Unavailable',
+                        'یہ سروس اس وقت دستیاب نہیں ہے',
+                        'سروس عارضي طور بند آهي'
+                      )
                     : scanError.error_category === 'rate_limited' || scanError.error_category === 'quota_exhausted'
-                    ? locale === 'ur'
-                      ? 'اس وقت بہت سے کسان استعمال کر رہے ہیں'
-                      : 'AI Scanning Is Busy Right Now'
-                    : locale === 'ur'
-                    ? 'پودے کا معائنہ مکمل نہیں ہو سکا'
-                    : 'Could Not Complete Plant Scan'}
+                    ? pickUi(
+                        'AI Scanning Is Busy Right Now',
+                        'اس وقت بہت سے کسان استعمال کر رہے ہیں',
+                        'هن وقت گهڻا ماڻهو استعمال ڪري رهيا آهن'
+                      )
+                    : pickUi(
+                        'Could Not Complete Plant Scan',
+                        'پودے کا معائنہ مکمل نہیں ہو سکا',
+                        'ٻوٽي جو اسڪين مڪمل نه ٿي سگهيو'
+                      )}
                 </h3>
               </div>
             </div>
@@ -1138,13 +1221,15 @@ export default function ScanPage() {
                   <div className="flex items-center gap-1.5 text-emerald-800 font-extrabold text-[11px]">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                     <span>
-                      {locale === 'ur' ? 'آپ کی تصویر محفوظ ہے' : 'Your photo is preserved'}
+                      {pickUi('Your photo is preserved', 'آپ کی تصویر محفوظ ہے', 'اوهان جو فوٽو محفوظ آهي')}
                     </span>
                   </div>
                   <p className="text-ink/65 text-[11px] mt-0.5 leading-tight">
-                    {locale === 'ur'
-                      ? 'دوبارہ تصویر لینے کی ضرورت نہیں؛ نیچے دیئے گئے بٹن سے دوبارہ کوشش کریں'
-                      : 'No need to retake photo; tap retry to try again'}
+                    {pickUi(
+                      'No need to retake photo; tap retry to try again',
+                      'دوبارہ تصویر لینے کی ضرورت نہیں؛ نیچے دیئے گئے بٹن سے دوبارہ کوشش کریں',
+                      'ٻيهر فوٽو ڪڍڻ جي ضرورت ناهي، هيٺيان بٽڻ دٻائي وري ڪوشش ڪريو'
+                    )}
                   </p>
                 </div>
               </div>
@@ -1152,7 +1237,7 @@ export default function ScanPage() {
 
             {/* Friendly Localized Message */}
             <p className="text-xs sm:text-sm text-ink/85 leading-relaxed bg-canvas p-3.5 rounded-2xl border border-olive/15 font-medium">
-              {getLocalizedText(scanError.user_message, locale)}
+              {getLocalizedText(scanError.user_message, uiLang)}
             </p>
 
             {/* Primary Recovery Actions */}
@@ -1166,9 +1251,11 @@ export default function ScanPage() {
                 >
                   <RotateCcw className={`w-4 h-4 ${analysing ? 'animate-spin' : ''}`} />
                   <span>
-                    {locale === 'ur'
-                      ? 'دوبارہ کوشش کریں (تصویر محفوظ ہے)'
-                      : 'Try Again (Photo Preserved)'}
+                    {pickUi(
+                      'Try Again (Photo Preserved)',
+                      'دوبارہ کوشش کریں (تصویر محفوظ ہے)',
+                      'ٻيهر ڪوشش ڪريو (فوٽو محفوظ آهي)'
+                    )}
                   </span>
                 </button>
               )}
@@ -1183,9 +1270,11 @@ export default function ScanPage() {
                   >
                     <Eye className="w-4 h-4 text-amber-700" />
                     <span>
-                      {locale === 'ur'
-                        ? 'ابتدائی آف لائن تصویر چیک دیکھیں (غیر حتمی)'
-                        : 'View Offline Preliminary Check'}
+                      {pickUi(
+                        'View Offline Preliminary Check',
+                        'ابتدائی آف لائن تصویر چیک دیکھیں (غیر حتمی)',
+                        'آف لائن شروعاتي چڪاس ڏسو'
+                      )}
                     </span>
                   </button>
                 )}
@@ -1198,12 +1287,16 @@ export default function ScanPage() {
                 <Camera className="w-3.5 h-3.5 text-ink/60" />
                 <span>
                   {scanError.error_category === 'invalid_image_input'
-                    ? locale === 'ur'
-                      ? 'پودے کی نئی واضح تصویر لیں'
-                      : 'Take / Choose Valid Plant Photo'
-                    : locale === 'ur'
-                    ? 'نئی تصویر لیں / کینسل کریں'
-                    : 'Take New Photo / Cancel'}
+                    ? pickUi(
+                        'Take / Choose Valid Plant Photo',
+                        'پودے کی نئی واضح تصویر لیں',
+                        'ٻوٽي جو نئون صاف فوٽو ڪڍو'
+                      )
+                    : pickUi(
+                        'Take New Photo / Cancel',
+                        'نئی تصویر لیں / کینسل کریں',
+                        'نئون فوٽو ڪڍو / بند ڪريو'
+                      )}
                 </span>
               </button>
             </div>
@@ -1223,12 +1316,14 @@ export default function ScanPage() {
               </div>
               <div>
                 <span className="text-[11px] font-black uppercase text-amber-700 bg-amber-500/10 px-2.5 py-0.5 rounded-full inline-block mb-1">
-                  {locale === 'ur' ? 'فصل کی عدم مطابقت' : 'Crop Mismatch Detected'}
+                  {pickUi('Crop Mismatch Detected', 'فصل کی عدم مطابقت', 'فصل ۾ فرق آهي')}
                 </span>
                 <h3 className="font-black text-base sm:text-lg text-ink">
-                  {locale === 'ur'
-                    ? 'منتخب کردہ فصل اور تصویر میں فرق ہے'
-                    : 'Image does not match selected crop'}
+                  {pickUi(
+                    'Image does not match selected crop',
+                    'منتخب کردہ فصل اور تصویر میں فرق ہے',
+                    'چونڊيل فصل ۽ تصوير ۾ فرق آهي'
+                  )}
                 </h3>
               </div>
             </div>
@@ -1237,7 +1332,7 @@ export default function ScanPage() {
             <div className="grid grid-cols-2 gap-2 bg-canvas p-3 rounded-2xl border border-olive/15 text-xs">
               <div className="p-2 rounded-xl bg-white/80 border border-amber-500/30">
                 <span className="text-[10px] font-bold text-ink/50 block">
-                  {locale === 'ur' ? 'آپ نے منتخب کی:' : 'You Selected:'}
+                  {pickUi('You Selected:', 'آپ نے منتخب کی:', 'اوهان چونڊيو:')}
                 </span>
                 <span className="font-extrabold text-sm text-ink block mt-0.5">
                   {diagnosis.selected_crop || selectedCrop}
@@ -1245,25 +1340,33 @@ export default function ScanPage() {
               </div>
               <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-500/40">
                 <span className="text-[10px] font-bold text-emerald-800 block">
-                  {locale === 'ur' ? 'اے آئی نے تصویر میں دیکھا:' : 'AI Detected in Photo:'}
+                  {pickUi('AI Detected in Photo:', 'اے آئی نے تصویر میں دیکھا:', 'تصوير ۾ نظر آيو:')}
                 </span>
                 <span className="font-extrabold text-sm text-emerald-900 block mt-0.5">
-                  {(locale === 'ur' ? diagnosis.detected_crop_ur : diagnosis.detected_crop) ||
-                    diagnosis.detected_crop}{' '}
-                  ({(locale === 'ur' ? diagnosis.detected_plant_part_ur : diagnosis.detected_plant_part) ||
-                    diagnosis.detected_plant_part})
+                  {(uiLang === 'sd'
+                    ? diagnosis.detected_crop_sd || diagnosis.detected_crop_ur
+                    : uiLang === 'ur'
+                    ? diagnosis.detected_crop_ur
+                    : diagnosis.detected_crop) || diagnosis.detected_crop}{' '}
+                  ({(uiLang === 'sd'
+                    ? diagnosis.detected_plant_part_sd || diagnosis.detected_plant_part_ur
+                    : uiLang === 'ur'
+                    ? diagnosis.detected_plant_part_ur
+                    : diagnosis.detected_plant_part) || diagnosis.detected_plant_part})
                 </span>
               </div>
             </div>
 
             <p className="text-xs sm:text-sm text-ink/85 leading-relaxed bg-amber-500/10 p-3 rounded-xl border border-amber-500/20 font-medium">
-              {getLocalizedText(diagnosis.message, locale)}
+              {getLocalizedText(diagnosis.message, uiLang)}
             </p>
 
             <p className="text-[11px] text-ink/65 leading-relaxed">
-              {locale === 'ur'
-                ? 'اہم حفاظتی اصول: زرخیز غلط فصل کا علاج تجویز نہیں کرتا تاکہ فصل کو نقصان نہ پہنچے۔ آپ تصویر میں نظر آنے والی فصل کی تصدیق کر کے درست معائنہ حاصل کر سکتے ہیں۔'
-                : 'Safety rule: Zarkhez prevents diagnosing one crop as another. Please confirm the detected crop to proceed.'}
+              {pickUi(
+                'Safety rule: Zarkhez prevents diagnosing one crop as another. Please confirm the detected crop to proceed.',
+                'اہم حفاظتی اصول: زرخیز غلط فصل کا علاج تجویز نہیں کرتا تاکہ فصل کو نقصان نہ پہنچے۔ آپ تصویر میں نظر آنے والی فصل کی تصدیق کر کے درست معائنہ حاصل کر سکتے ہیں۔',
+                'حفاظتي اصول: غلط فصل جو علاج نه ڏنو ويندو آهي. مھرباني ڪري صحيح فصل جي پڪ ڪريو ته معائنو اڳتي هلي.'
+              )}
             </p>
 
             {/* Decision Buttons */}
@@ -1276,9 +1379,11 @@ export default function ScanPage() {
               >
                 <Check className="w-4 h-4" />
                 <span>
-                  {locale === 'ur'
-                    ? `جی ہاں، یہ ${diagnosis.detected_crop_ur || diagnosis.detected_crop} ہے (تشخیص جاری رکھیں)`
-                    : `Yes, this is ${diagnosis.detected_crop} (Continue)`}
+                  {pickUi(
+                    `Yes, this is ${diagnosis.detected_crop} (Continue)`,
+                    `جی ہاں، یہ ${diagnosis.detected_crop_ur || diagnosis.detected_crop} ہے (تشخیص جاری رکھیں)`,
+                    `ها، هي ${diagnosis.detected_crop_sd || diagnosis.detected_crop_ur || diagnosis.detected_crop} آهي (اڳتي وڌو)`
+                  )}
                 </span>
               </button>
 
@@ -1289,9 +1394,11 @@ export default function ScanPage() {
               >
                 <RotateCcw className="w-4 h-4 text-ink/60" />
                 <span>
-                  {locale === 'ur'
-                    ? 'دوسری تصویر لیں یا فصل تبدیل کریں'
-                    : 'Retake Photo / Select Different Crop'}
+                  {pickUi(
+                    'Retake Photo / Select Different Crop',
+                    'دوسری تصویر لیں یا فصل تبدیل کریں',
+                    'ٻي تصوير ڪڍو يا فصل مٽايو'
+                  )}
                 </span>
               </button>
             </div>
@@ -1311,16 +1418,16 @@ export default function ScanPage() {
               </div>
               <div>
                 <span className="text-[11px] font-black uppercase text-red-600 bg-red-500/10 px-2.5 py-0.5 rounded-full inline-block mb-1">
-                  {locale === 'ur' ? 'غیر متعلقہ تصویر' : 'Invalid Image'}
+                  {pickUi('Invalid Image', 'غیر متعلقہ تصویر', 'غلط تصوير')}
                 </span>
                 <h3 className="font-black text-base sm:text-lg text-ink">
-                  {getLocalizedText(diagnosis.problem_name, locale, 'Invalid Plant Image')}
+                  {getLocalizedText(diagnosis.problem_name, uiLang, 'Invalid Plant Image')}
                 </h3>
               </div>
             </div>
 
             <p className="text-xs sm:text-sm text-ink/80 leading-relaxed bg-canvas p-3.5 rounded-2xl border border-olive/15">
-              {getLocalizedText(diagnosis.message, locale)}
+              {getLocalizedText(diagnosis.message, uiLang)}
             </p>
 
             <button
@@ -1330,9 +1437,11 @@ export default function ScanPage() {
             >
               <Camera className="w-4 h-4 text-emerald-400" />
               <span>
-                {locale === 'ur'
-                  ? 'اصلی پودے یا فصل کی تصویر لیں'
-                  : 'Take Photo of Real Plant'}
+                {pickUi(
+                  'Take Photo of Real Plant',
+                  'اصلی پودے یا فصل کی تصویر لیں',
+                  'اصلي ٻوٽي يا فصل جو فوٽو ڪڍو'
+                )}
               </span>
             </button>
           </motion.section>
@@ -1355,9 +1464,11 @@ export default function ScanPage() {
                     <WifiOff className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
                     <div className="text-xs space-y-1">
                       <span className="font-black text-amber-900 uppercase tracking-wide block">
-                        {reportLang === 'en'
-                          ? 'OFFLINE PRELIMINARY SCREENING (NOT CLOUD AI)'
-                          : 'آف لائن ابتدائی جائزہ (یہ کلاؤڈ اے آئی تشخیص نہیں)'}
+                        {pickReport(
+                          'OFFLINE PRELIMINARY SCREENING (NOT CLOUD AI)',
+                          'آف لائن ابتدائی جائزہ (یہ کلاؤڈ اے آئی تشخیص نہیں)',
+                          'آف لائن شروعاتي چڪاس (آن لائن اي آءِ ناهي)'
+                        )}
                       </span>
                       <p className="text-amber-950 font-medium leading-relaxed">
                         {getLocalizedText(diagnosis.confidence_limitations, reportLang)}
@@ -1372,9 +1483,11 @@ export default function ScanPage() {
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       <span>
-                        {reportLang === 'en'
-                          ? 'Retry Online Cloud Vision Analysis'
-                          : 'دوبارہ آن لائن کلاؤڈ معائنہ کریں'}
+                        {pickReport(
+                          'Retry Online Cloud Vision Analysis',
+                          'دوبارہ آن لائن کلاؤڈ معائنہ کریں',
+                          'وري آن لائن اسڪين ڪريو'
+                        )}
                       </span>
                     </button>
                   )}
@@ -1388,9 +1501,7 @@ export default function ScanPage() {
                     <Camera className="w-5 h-5 text-orange-700 flex-shrink-0 mt-0.5" />
                     <div className="text-xs">
                       <span className="font-black text-orange-950 block">
-                        {reportLang === 'en'
-                          ? 'Clearer Photo Needed'
-                          : 'واضح تصویر دوبارہ درکار ہے'}
+                        {pickReport('Clearer Photo Needed', 'واضح تصویر دوبارہ درکار ہے', 'وڌيڪ صاف تصوير گهربل آهي')}
                       </span>
                       <p className="text-orange-900/90 mt-0.5 leading-snug">
                         {getLocalizedText(diagnosis.message, reportLang)}
@@ -1402,20 +1513,26 @@ export default function ScanPage() {
                     onClick={resetScan}
                     className="px-3.5 py-2 rounded-full bg-orange-600 text-white font-black text-[11px] flex-shrink-0"
                   >
-                    {reportLang === 'en' ? 'Retake' : 'دوبارہ لیں'}
+                    {pickReport('Retake', 'دوبارہ لیں', 'ٻيهر ڪڍو')}
                   </button>
                 </div>
               )}
 
-              {/* Language Selector Bar (Urdu & English only) */}
+              {/* Language Selector Bar (Urdu | Sindhi | English) */}
               <div className="bg-white rounded-2xl p-2 shadow-soft border border-olive/15 flex items-center justify-between gap-1">
-                <span className="text-[11px] font-black text-ink/60 px-2">
-                  {reportLang === 'ur' ? 'زبان منتخب کریں:' : 'Report Language:'}
+                <span className="text-[11px] font-black text-ink/60 px-2 flex items-center gap-1.5">
+                  <span>{pickReport('Report Language:', 'زبان منتخب کریں:', 'ٻولي چونڊيو:')}</span>
+                  {sdTranslating && (
+                    <span className="text-[10px] text-emerald-700 font-bold">
+                      سنڌي ۾ لکجي رهيو آهي...
+                    </span>
+                  )}
                 </span>
                 <div className="flex items-center gap-1 overflow-x-auto">
                   {(
                     [
                       { key: 'ur', label: 'اردو' },
+                      { key: 'sd', label: 'سنڌي' },
                       { key: 'en', label: 'English' },
                     ] as const
                   ).map((langItem) => {
@@ -1424,10 +1541,7 @@ export default function ScanPage() {
                       <button
                         key={langItem.key}
                         type="button"
-                        onClick={() => {
-                          unlockAudio();
-                          setReportLang(langItem.key);
-                        }}
+                        onClick={() => handleSelectReportLang(langItem.key)}
                         className={`px-3 py-1 rounded-xl text-xs font-black transition-all ${
                           active
                             ? 'bg-[#062409] text-white shadow-sm'
@@ -1481,12 +1595,12 @@ export default function ScanPage() {
                         {viewMode === 'annotated' ? (
                           <>
                             <Eye className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>{reportLang === 'en' ? 'Hide Marks' : 'نشانات چھپائیں'}</span>
+                            <span>{pickReport('Hide Marks', 'نشانات چھپائیں', 'نشان لڪايو')}</span>
                           </>
                         ) : (
                           <>
                             <Crosshair className="w-3.5 h-3.5 text-red-400" />
-                            <span>{reportLang === 'en' ? 'Show Marks' : 'نشانات دکھائیں'}</span>
+                            <span>{pickReport('Show Marks', 'نشانات دکھائیں', 'نشان ڏيکاريو')}</span>
                           </>
                         )}
                       </button>
@@ -1496,7 +1610,7 @@ export default function ScanPage() {
                       diagnosis.visual_inspection.affected_area_pct > 0 && (
                         <div className="absolute bottom-2.5 left-2.5 rtl:left-auto rtl:right-2.5 bg-black/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-white text-xs flex items-center gap-2 z-20">
                           <span className="font-bold">
-                            {reportLang === 'en' ? 'Affected Part:' : 'متاثرہ حصہ:'}{' '}
+                            {pickReport('Affected Part:', 'متاثرہ حصہ:', 'متاثر حصو:')}{' '}
                             <strong className="text-emerald-400 font-black">
                               {diagnosis.visual_inspection.affected_area_pct}%
                             </strong>
@@ -1510,12 +1624,18 @@ export default function ScanPage() {
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300/60">
-                      {reportLang === 'en' ? diagnosis.detected_crop : diagnosis.detected_crop_ur}
+                      {reportLang === 'en'
+                        ? diagnosis.detected_crop
+                        : reportLang === 'sd'
+                        ? diagnosis.detected_crop_sd || diagnosis.detected_crop_ur
+                        : diagnosis.detected_crop_ur}
                     </span>
 
                     <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-olive/15 text-olive-dark">
                       {reportLang === 'en'
                         ? diagnosis.detected_plant_part
+                        : reportLang === 'sd'
+                        ? diagnosis.detected_plant_part_sd || diagnosis.detected_plant_part_ur
                         : diagnosis.detected_plant_part_ur}
                     </span>
 
@@ -1537,14 +1657,14 @@ export default function ScanPage() {
                       }`}
                     >
                       {diagnosis.diagnosis_status === 'healthy_no_symptoms'
-                        ? reportLang === 'en' ? 'Healthy' : 'تندرست'
+                        ? pickReport('Healthy', 'تندرست', 'تندرست')
                         : diagnosis.severity === 'high'
-                        ? reportLang === 'en' ? 'High Risk' : 'زیادہ شدت'
+                        ? pickReport('High Risk', 'زیادہ شدت', 'وڌيڪ خطرو')
                         : diagnosis.severity === 'medium'
-                        ? reportLang === 'en' ? 'Medium Risk' : 'درمیانی شدت'
+                        ? pickReport('Medium Risk', 'درمیانی شدت', 'وچولو خطرو')
                         : diagnosis.severity === 'not_assessed'
-                        ? reportLang === 'en' ? 'Needs Check' : 'معائنہ درکار'
-                        : reportLang === 'en' ? 'Low Risk' : 'ہلکی شدت'}
+                        ? pickReport('Needs Check', 'معائنہ درکار', 'جاچ گهربل')
+                        : pickReport('Low Risk', 'ہلکی شدت', 'هلڪو خطرو')}
                     </span>
 
                     {diagnosis.inspection_source !== 'offline_assessment' && (
@@ -1552,7 +1672,7 @@ export default function ScanPage() {
                         <Sparkles className="w-3 h-3 text-emerald-600" />
                         <span>
                           {Math.round((diagnosis.identification_confidence || 0) * 100)}%{' '}
-                          {reportLang === 'en' ? 'Sure' : 'یقین'}
+                          {pickReport('Sure', 'یقین', 'پڪ')}
                         </span>
                       </span>
                     )}
@@ -1578,17 +1698,17 @@ export default function ScanPage() {
                       </div>
                       <div>
                         <span className="text-xs font-black text-ink block">
-                          {reportLang === 'en' ? 'Listen to Summary' : 'آواز میں خلاصہ سنیں'}
+                          {pickReport('Listen to Summary', 'آواز میں خلاصہ سنیں', 'آواز ۾ خلاصو ٻڌو')}
                         </span>
                         <p className="text-[11px] text-ink/75 leading-tight">
-                          {reportLang === 'en' ? 'Clear spoken explanation' : 'آسان الفاظ میں مکمل رہنمائی'}
+                          {pickReport('Clear spoken explanation', 'آسان الفاظ میں مکمل رہنمائی', 'سولن لفظن ۾ پوري ڄاڻ')}
                         </p>
                       </div>
                     </div>
 
                     <ReadAloudButton
                       text={spokenDiagnosisText}
-                      lang={reportLang === 'en' ? 'en' : 'ur'}
+                      lang={reportLang}
                     />
                   </div>
                   {voiceErrorMsg && (
@@ -1607,7 +1727,7 @@ export default function ScanPage() {
                         <h3 className="font-black text-ink flex items-center gap-1.5 text-xs uppercase tracking-wide">
                           <Leaf className="w-4 h-4 text-olive" />
                           <span>
-                            {reportLang === 'en' ? 'Signs Seen on Plant:' : 'پودے پر نظر آنے والی علامات:'}
+                            {pickReport('Signs Seen on Plant:', 'پودے پر نظر آنے والی علامات:', 'ٻوٽي تي نظر ايندڙ نشانيون:')}
                           </span>
                         </h3>
                         <ul className="space-y-1 text-ink/85 font-medium">
@@ -1624,7 +1744,7 @@ export default function ScanPage() {
                     {diagnosis.possible_causes && diagnosis.possible_causes.length > 0 && (
                       <div className="space-y-1.5 pt-2 border-t border-olive/10">
                         <h3 className="font-black text-amber-900 text-xs uppercase tracking-wide">
-                          {reportLang === 'en' ? 'Likely Reason:' : 'ممکنہ وجہ:'}
+                          {pickReport('Likely Reason:', 'ممکنہ وجہ:', 'ممڪن سبب:')}
                         </h3>
                         <ul className="space-y-1 text-ink/85 font-medium">
                           {diagnosis.possible_causes.map((cause, i) => (
@@ -1664,7 +1784,7 @@ export default function ScanPage() {
                           <h3 className="font-black text-sm text-ink flex items-center gap-1.5">
                             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                             <span>
-                              {reportLang === 'en' ? 'What To Do Now:' : 'ابھی کیا کریں (آسان اقدامات):'}
+                              {pickReport('What To Do Now:', 'ابھی کیا کریں (آسان اقدامات):', 'هاڻي ڇا ڪجي (آسان قدم):')}
                             </span>
                           </h3>
                           <ol className="space-y-2 text-xs sm:text-sm text-ink font-medium">
@@ -1687,7 +1807,7 @@ export default function ScanPage() {
                           <h3 className="font-black text-xs text-olive-dark uppercase flex items-center gap-1.5">
                             <Sun className="w-3.5 h-3.5 text-amber-600" />
                             <span>
-                              {reportLang === 'en' ? 'Care & Prevention Tips:' : 'بچاؤ اور دیکھ بھال:'}
+                              {pickReport('Care & Prevention Tips:', 'بچاؤ اور دیکھ بھال:', 'سنڀال ۽ بچاءُ:')}
                             </span>
                           </h3>
                           <ul className="space-y-1 text-xs text-ink/85 font-medium">
@@ -1706,9 +1826,11 @@ export default function ScanPage() {
                           <h3 className="font-black text-amber-950 flex items-center gap-1.5">
                             <ShieldCheck className="w-4 h-4 text-amber-700" />
                             <span>
-                              {reportLang === 'en'
-                                ? 'Safe Treatment Options (Confirm With Local Expert):'
-                                : 'حفاظتی علاج و دوا کی رہنمائی (زرعی افسر سے تصدیق کے بعد):'}
+                              {pickReport(
+                                'Safe Treatment Options (Confirm With Local Expert):',
+                                'حفاظتی علاج و دوا کی رہنمائی (زرعی افسر سے تصدیق کے بعد):',
+                                'حفاظتي علاج ۽ دوا (ماهر کان پڇي هلايو):'
+                              )}
                             </span>
                           </h3>
                           {bio.map((b, i) => (
@@ -1737,7 +1859,7 @@ export default function ScanPage() {
                     <AlertTriangle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
                     <div>
                       <strong className="text-ink block">
-                        {reportLang === 'en' ? 'When To Ask a Local Expert:' : 'زرعی ماہر کو کب دکھائیں:'}
+                        {pickReport('When To Ask a Local Expert:', 'زرعی ماہر کو کب دکھائیں:', 'زرعي ماهر کي ڪڏهن ڏيکاريجي:')}
                       </strong>
                       <p className="text-ink/85 mt-0.5 leading-relaxed">
                         {getLocalizedText(diagnosis.when_to_consult_expert, reportLang)}
@@ -1768,9 +1890,7 @@ export default function ScanPage() {
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                       <span>
                         {savingToDiary
-                          ? locale === 'ur'
-                            ? 'محفوظ ہو رہا ہے...'
-                            : 'Saving...'
+                          ? pickReport('Saving...', 'محفوظ ہو رہا ہے...', 'محفوظ ٿي رهيو آهي...')
                           : savedToDiary
                           ? t('savedToDiary')
                           : t('saveToDiary')}
@@ -1784,9 +1904,7 @@ export default function ScanPage() {
                     >
                       <RotateCcw className="w-4 h-4 text-white" />
                       <span>
-                        {reportLang === 'en'
-                          ? 'Scan Another Plant'
-                          : 'نیا پودا اسکین کریں'}
+                        {pickReport('Scan Another Plant', 'نیا پودا اسکین کریں', 'نئون ٻوٽو اسڪين ڪريو')}
                       </span>
                     </button>
                   </div>

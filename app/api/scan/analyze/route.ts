@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
     confirmMismatchOverride,
     clientQuality,
     region,
+    outputLang,
   } = parsed.data;
 
   try {
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
       selectedCrop,
       confirmMismatchOverride,
       clientQuality,
-      { region }
+      { region, outputLang }
     );
 
     recordDiagnosticSuccess('vision');
