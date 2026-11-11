@@ -616,12 +616,22 @@ export function normalizeAndValidateDiagnosis(
   // CRITICAL AGRICULTURAL INVARIANT:
   // Visible abnormal lesions must NEVER be returned as `healthy_no_symptoms`.
   const inspection = diagnosis.visual_inspection;
+  const lesionCountStr = (inspection?.lesion_count || '').trim();
+  const hasPositiveLesionCount =
+    Boolean(lesionCountStr) &&
+    !/^(?:none|no\b|zero|nil|n\/a|0+|unassessed|uncertain|کوئی\s*نہیں|صفر)/i.test(lesionCountStr);
   const hasLesions =
     Boolean(inspection?.lesion_detected) ||
-    Boolean(inspection?.lesion_count && inspection.lesion_count !== 'none' && inspection.lesion_count !== '0' && inspection.lesion_count !== 'unassessed' && inspection.lesion_count !== 'uncertain') ||
-    diagnosis.observed_symptoms.some((s) =>
-      /lesion|spot|spindle|dhabba|blast|blight|scorch|chlorosis|necros/i.test(s.en + ' ' + s.ur)
-    );
+    hasPositiveLesionCount ||
+    diagnosis.observed_symptoms.some((s) => {
+      const en = s.en || '';
+      const ur = s.ur || '';
+      const hasSymptomKeyword = /lesion|spot|spindle|dhabba|blast|blight|scorch|chlorosis|necros/i.test(`${en} ${ur}`);
+      const isNegatedStatement =
+        /\b(?:no|zero|none|without|free\s+of|absence\s+of|no\s+sign\s+of)\b/i.test(en) ||
+        /(?:کوئی\s*نہیں|بغیر\s+دھبوں|دھبے\s+نہیں)/i.test(ur);
+      return hasSymptomKeyword && !isNegatedStatement;
+    });
 
   if (hasLesions && diagnosis.diagnosis_status === 'healthy_no_symptoms') {
     diagnosis.diagnosis_status = 'possible_disease';
