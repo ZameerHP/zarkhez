@@ -81,7 +81,7 @@ export interface SpeakCallbacks {
 }
 
 const PRELOAD_CACHE_MAX = 40;
-const VOICE_PERSISTENT_CACHE_NAME = 'zarkhez-tts-v1';
+const VOICE_PERSISTENT_CACHE_NAME = 'zarkhez-tts-v3';
 const preloadedBlobs = new Map<
   string,
   { blob: Blob; meta: VoiceAudioMeta }
@@ -653,8 +653,9 @@ export async function speakText(
   };
 
   try {
-    // Split long explanations strictly along natural sentence boundaries; never truncate or pause awkwardly mid-thought.
-    const chunks = splitSpeechIntoChunks(spokenText, lang, 620);
+    // Synthesize advisor replies in a single continuous natural take when under 900 chars,
+    // splitting longer passages cleanly at sentence boundaries without mid-thought gaps.
+    const chunks = splitSpeechIntoChunks(spokenText, lang, 900);
     if (chunks.length === 0) {
       callbacks?.onPhaseChange?.('idle');
       callbacks?.onEnd?.();

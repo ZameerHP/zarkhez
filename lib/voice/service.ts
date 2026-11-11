@@ -137,10 +137,15 @@ export function buildAudioCacheKey(params: {
   speedRate: number;
   preferProvider?: VoiceProviderId;
 }): string {
+  const voiceSig =
+    VOICE_PROFILES[params.lang]?.[params.gender]?.geminiVoice ||
+    VOICE_PROFILES[params.lang]?.[params.gender]?.azureVoice ||
+    'default';
   const payload = [
-    'v2',
+    'v3',
     params.lang,
     params.gender,
+    voiceSig,
     params.speedRate.toFixed(2),
     params.preferProvider || 'auto',
     params.spokenText,
@@ -229,6 +234,34 @@ function writeDiskCache(
   }
 }
 
+function buildGeminiTtsContentText(params: {
+  spokenText: string;
+  lang: VoiceLang;
+  model: string;
+}): string {
+  // Only gemini-3.1-flash-tts-preview reliably separates structured Director's Notes
+  // from #### TRANSCRIPT without vocalizing rules; never pass style prompts to Sindhi
+  // or legacy fallback TTS models.
+  if (params.model !== 'gemini-3.1-flash-tts-preview' || params.lang === 'sd') {
+    return params.spokenText;
+  }
+
+  const directorNotes =
+    params.lang === 'ur'
+      ? [
+          'Speak this in natural, fluent, native Pakistani Urdu — like a warm, real human farm advisor talking casually to a farmer friend, not a news reader or a robot.',
+          'Use relaxed conversational pacing with soft natural pauses between phrases, and the gentle rising-falling intonation of real spoken Pakistani Urdu.',
+          'Blend any English words inside the sentence smoothly into the Urdu rhythm, the way real bilingual Pakistani speakers say them — no stiff or exaggerated English accent on those words.',
+          'Sound expressive, warm, and alive, with genuine friendly concern — never flat, rushed, or monotone delivery.',
+        ].join(' ')
+      : [
+          'Speak warmly, calmly, and conversationally like a friendly Pakistani farm advisor talking naturally with a farmer friend — never flat, rushed, or robotic.',
+          'Use relaxed conversational pacing with soft pauses at commas, expressive intonation, and smooth everyday pronunciation.',
+        ].join(' ');
+
+  return `### DIRECTOR'S NOTES:\n${directorNotes}\n\n#### TRANSCRIPT:\n[warm] ${params.spokenText}`;
+}
+
 async function synthesizeWithGeminiTts(params: {
   spokenText: string;
   lang: VoiceLang;
@@ -238,11 +271,9 @@ async function synthesizeWithGeminiTts(params: {
   const apiKey = readServerEnv(['GEMINI_API_KEY', 'GOOGLE_API_KEY']);
   if (!apiKey) return null;
 
-  // Send ONLY the clean normalized text to TTS models; never include instructions
-  // in contents or the TTS engine will speak the prompt rules aloud.
   const ttsInputText = params.spokenText;
 
-  // Use gemini-3.1-flash-tts-preview first consistently across all languages (same female voice Aoede);
+  // Use gemini-3.1-flash-tts-preview first consistently across all languages;
   // keep 2.5-flash-preview-tts (ur/en) and 3.8 models cleanly ordered as fallback only.
   const modelsToTry =
     params.lang === 'sd'
@@ -258,6 +289,11 @@ async function synthesizeWithGeminiTts(params: {
     params.lang === 'ur' ? 'ur-PK' : params.lang === 'en' ? 'en-US' : undefined;
 
   for (const model of modelsToTry) {
+    const promptText = buildGeminiTtsContentText({
+      spokenText: ttsInputText,
+      lang: params.lang,
+      model,
+    });
     for (const includeLangCode of geminiLangCode ? [true, false] : [false]) {
       try {
         const res = await fetch(
@@ -266,7 +302,7 @@ async function synthesizeWithGeminiTts(params: {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: ttsInputText }] }],
+              contents: [{ parts: [{ text: promptText }] }],
               generationConfig: {
                 responseModalities: ['AUDIO'],
                 speechConfig: {

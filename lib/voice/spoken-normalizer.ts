@@ -205,7 +205,7 @@ function applyPronunciationLexicon(
     const isAscii = /^[\x00-\x7F]+$/.test(alias);
     const rx = isAscii
       ? new RegExp(`\\b${escapeRegex(alias)}\\b`, 'gi')
-      : new RegExp(`(^|[\\s،۔.!?:])${escapeRegex(alias)}(?=$|[\\s،۔.!?:])`, 'g');
+      : new RegExp(`(^|[\\s،۔.!?:؟؛"'\\(\\)])(${escapeRegex(alias)})(?=$|[\\s،۔.!?:؟؛"'\\(\\)])`, 'g');
 
     if (rx.test(out)) {
       rx.lastIndex = 0;

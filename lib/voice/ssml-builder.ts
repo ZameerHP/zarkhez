@@ -54,11 +54,17 @@ export function buildVoiceSsml(params: {
         const needsPhonemeOverride =
           entry.category === 'pesticide' ||
           entry.category === 'brand' ||
+          entry.category === 'greeting' ||
           entry.category === 'loanword';
         if (!needsPhonemeOverride) continue;
 
         const spoken = getLexiconReplacement(entry, params.lang);
-        const ipa = params.lang === 'sd' ? entry.ipaSd : entry.ipaUr;
+        const ipa =
+          params.lang === 'sd'
+            ? entry.ipaSd
+            : params.lang === 'en'
+            ? entry.ipaEn
+            : entry.ipaUr;
         if (spoken && ipa && body.includes(escapeXml(spoken))) {
           const safeSpoken = escapeXml(spoken);
           body = body.replace(

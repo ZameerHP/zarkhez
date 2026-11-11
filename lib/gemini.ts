@@ -212,6 +212,32 @@ export function getStaticFallbackAdvice(
   };
 }
 
+const PURE_GREETING_REGEX =
+  /^(?:hi+|hello+|hey+|hlo+|aoa|a\.?\s*o\.?\s*a|salam(?:\s+zarkhez)?|salaam(?:\s+zarkhez)?|slam|assalam[\s-]*(?:o|u)?[\s-]*alaikum(?:\s+zarkhez)?|assalamu[\s-]*alaikum|wa[\s-]*alaikum[\s-]*assalam|good\s+(?:morning|afternoon|evening)|hi\s+zarkhez|hello\s+zarkhez|hey\s+zarkhez|ہیلو|سلام|السلام\s*علیکم|وعلیکم\s*السلام)(?:\s+(?:kaise\s+ho|kese\s+ho|kya\s+haal\s+hai|how\s+are\s+you|how\s+r\s+u))?[\s!.?؟،]*$/i;
+
+export function isPureGreeting(text: string): boolean {
+  const cleaned = text.trim();
+  if (!cleaned || cleaned.length > 64) return false;
+  return PURE_GREETING_REGEX.test(cleaned);
+}
+
+export function buildGreetingReply(
+  voiceLang: 'ur' | 'sd' | 'en'
+): { screenText: string; spokenText: string; language: 'ur' | 'sd' | 'en' } {
+  if (voiceLang === 'en') {
+    const s = 'Assalam-o-Alaikum! I am Zarkhez, your farming assistant. How can I help you?';
+    return { screenText: s, spokenText: s, language: 'en' };
+  }
+  if (voiceLang === 'sd') {
+    const s =
+      'اسلام عليڪم! مان زرخيز آهيان، اوهان جي زراعت جي مددگار. ٻڌايو، اڄ مان اوهان جي ڪهڙي مدد ڪري سگهان ٿي؟';
+    return { screenText: s, spokenText: s, language: 'sd' };
+  }
+  const ur =
+    'السلام علیکم! میں زرخیز ہوں، آپ کی کھیتی باڑی کی مددگار۔ بتائیے، آج میں آپ کی کیا مدد کر سکتی ہوں؟';
+  return { screenText: ur, spokenText: ur, language: 'ur' };
+}
+
 export function generateFallbackChatReply(
   question: string,
   lang: 'en' | 'ur' = 'ur',
@@ -227,8 +253,9 @@ export function generateFallbackChatReply(
   const q = question.toLowerCase();
   const isUrdu = lang === 'ur' || /[\u0600-\u06FF]/.test(question);
 
-  // 1. Casual Greetings & Chit-chat (Friendly & Direct, NO ID!)
+  // 1. Casual Greetings & Introductions (Clear-cut & Direct, NO ID!)
   if (
+    isPureGreeting(question) ||
     q.includes('salam') ||
     q.includes('slam') ||
     q.includes('assalam') ||
@@ -237,12 +264,11 @@ export function generateFallbackChatReply(
     q.includes('hal') ||
     q.includes('haal') ||
     q.includes('theek ho') ||
-    q.includes('hello') ||
-    q.includes('hi zarkhez')
+    q.includes('hello')
   ) {
     return isUrdu
-      ? `Walaikum Assalam! Main Zarkhez hoon — aap ka digital kheti advisor aur mukhlis dost. Alhamdulillah main bilkul theek hoon.\nAap batayein, aap ki ${context?.crop || 'fasal'} ka kya haal hai aur main aaj kis tarah aap ki madad kar sakta hoon?`
-      : `Wa Alaikum Assalam! I am Zarkhez, your digital farming companion. I am doing great! How is your ${context?.crop || 'crop'} doing today, and how can I help you?`;
+      ? buildGreetingReply('ur').screenText
+      : buildGreetingReply('en').screenText;
   }
 
   // 2. Irrigation / Water Timing
@@ -381,6 +407,9 @@ export function generateSpokenFallbackChatReply(
   voiceLang: 'ur' | 'sd' | 'en',
   context?: { crop?: string; region?: string; weatherSummary?: string }
 ): { screenText: string; spokenText: string; language: 'ur' | 'sd' | 'en' } {
+  if (isPureGreeting(question)) {
+    return buildGreetingReply(voiceLang);
+  }
   const q = question.toLowerCase();
 
   if (voiceLang === 'sd') {
@@ -478,12 +507,16 @@ export async function generateVoiceDualReply(
   const lastUserMsg =
     [...messages].reverse().find((m) => m.role === 'user')?.content || '';
 
+  if (isPureGreeting(lastUserMsg)) {
+    return buildGreetingReply(voiceLang);
+  }
+
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     return generateSpokenFallbackChatReply(lastUserMsg, voiceLang, farmerProfile);
   }
 
-  const model = 'gemini-3.5-flash-lite';
+  const model = resolvePreferredModel('fast');
 
   const systemInstruction = buildVoiceAdvisorPrompt(voiceLang, farmerProfile);
   const geminiContents = messages.map((m) => ({
@@ -783,7 +816,7 @@ function resolvePreferredModel(kind: 'fast' | 'vision'): string {
   if (configured && !configured.includes('-latest')) {
     return configured;
   }
-  return kind === 'vision' ? 'gemini-3.1-flash-lite' : 'gemini-3.5-flash-lite';
+  return 'gemini-3.1-flash-lite';
 }
 
 /**
@@ -1309,6 +1342,10 @@ export async function streamGeminiChatResponse(
 ): Promise<string> {
   const lastUserMsg =
     [...messages].reverse().find((m) => m.role === 'user')?.content || '';
+
+  if (isPureGreeting(lastUserMsg)) {
+    return buildGreetingReply(lang).screenText;
+  }
 
   const apiKey = getGeminiApiKey();
   if (!apiKey) {

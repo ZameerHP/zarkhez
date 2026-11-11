@@ -106,8 +106,8 @@ export default function AssistantPage() {
 
     const personalWelcome =
       locale === 'en'
-        ? 'Assalam o Alaikum! I am Zarkhez, your farm advisor. Ask any question below about your crops, water, fertilizer, or plant diseases.'
-        : 'السلام علیکم کسان بھائی! میں زرخیز ہوں، آپ کا زرعی مشیر۔ اپنی فصل، پانی، کھاد یا بیماری کے بارے میں جو چاہیں پوچھیں۔';
+        ? 'Assalam-o-Alaikum! I am Zarkhez, your farming assistant. How can I help you?'
+        : 'السلام علیکم! میں زرخیز ہوں، آپ کی کھیتی باڑی کی مددگار۔ بتائیے، آج میں آپ کی کیا مدد کر سکتی ہوں؟';
 
     setMessages([
       {
@@ -185,10 +185,12 @@ export default function AssistantPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: nextMessages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: nextMessages
+            .filter((m) => m.id !== 'welcome-turn')
+            .map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
           context: contextInfo,
           lang: locale,
           voiceLang,
@@ -365,6 +367,20 @@ export default function AssistantPage() {
                   stopSpeaking();
                   setAiSpeaking(false);
                   setVoiceLang(opt.id);
+                  setMessages((prev) =>
+                    prev.length === 1 && prev[0]?.id === 'welcome-turn'
+                      ? [
+                          {
+                            ...prev[0],
+                            content:
+                              opt.id === 'en'
+                                ? 'Assalam-o-Alaikum! I am Zarkhez, your farming assistant. How can I help you?'
+                                : 'السلام علیکم! میں زرخیز ہوں، آپ کی کھیتی باڑی کی مددگار۔ بتائیے، آج میں آپ کی کیا مدد کر سکتی ہوں؟',
+                            voiceLang: opt.id,
+                          },
+                        ]
+                      : prev
+                  );
                 }}
                 className={`px-3.5 py-1 rounded-full text-xs font-extrabold transition-all ${
                   voiceLang === opt.id

@@ -376,13 +376,34 @@
       "needs_native_review": true
     },
     {
+      "id": "greeting_assalam",
+      "term": "Assalam-o-Alaikum",
+      "aliases": [
+        "Assalam o Alaikum",
+        "Assalam-o-Alaikum",
+        "Assalamu Alaikum",
+        "Assalam-u-Alaikum",
+        "Assalamo Alaikum",
+        "AOA"
+      ],
+      "category": "greeting",
+      "spokenUr": "السلام علیکم",
+      "spokenSd": "اسلام عليڪم",
+      "spokenEn": "Assalamo Alaikum",
+      "ipaEn": "əsˈsɑːlɑːmoʊ əˈleɪkʊm",
+      "ipaUr": "əsˈsəlaːmʊ əˈleːkʊm",
+      "ipaSd": "əsˈsəlaːmʊ əˈleːkʊm",
+      "needs_native_review": false
+    },
+    {
       "id": "brand_zarkhez",
       "term": "Zarkhez",
-      "aliases": ["zarkhez", "Zarkhez Fertile", "زرخیز"],
+      "aliases": ["zarkhez", "Zarkhez Fertile", "Zar khaiz", "Zar-khaze", "زرخیز", "زَرخیز"],
       "category": "brand",
-      "spokenUr": "زرخیز",
-      "spokenSd": "زرخيز",
-      "spokenEn": "Zar khaiz",
+      "spokenUr": "زَرخیز",
+      "spokenSd": "زَرخيز",
+      "spokenEn": "Zar-khaze",
+      "ipaEn": "zɑːrˈkeɪz",
       "ipaUr": "zəɾˈxeːz",
       "ipaSd": "zəɾˈxeːz",
       "needs_native_review": true

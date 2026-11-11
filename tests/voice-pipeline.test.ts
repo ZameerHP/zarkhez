@@ -23,12 +23,21 @@ import {
 } from '../lib/voice/speech-prep';
 import { buildVoiceSsml, buildPlsDocument } from '../lib/voice/ssml-builder';
 import { CropDiagnosisSchema } from '../lib/schemas';
-import { getProviderPriorityChain, VOICE_PROFILES } from '../lib/voice/service';
+import {
+  buildAudioCacheKey,
+  getProviderPriorityChain,
+  VOICE_PROFILES,
+} from '../lib/voice/service';
 import {
   clearLexiconHotCacheForTests,
   loadHotPronunciationLexicon,
 } from '../lib/voice/server-lexicon';
-import { buildVoiceAdvisorPrompt, generateSpokenFallbackChatReply } from '../lib/gemini';
+import {
+  buildVoiceAdvisorPrompt,
+  generateSpokenFallbackChatReply,
+  generateVoiceDualReply,
+  isPureGreeting,
+} from '../lib/gemini';
 import { GET as ttsRouteGet, POST as ttsRoutePost } from '../app/api/tts/route';
 import { POST as sttRoutePost } from '../app/api/stt/route';
 import { POST as voiceFeedbackPost } from '../app/api/voice/feedback/route';
@@ -521,6 +530,89 @@ async function runTests() {
     });
     assert.ok(friendlySsml.includes('xmlns:mstts="https://www.w3.org/2001/mstts"'));
     assert.ok(friendlySsml.includes('<mstts:express-as style="friendly"'));
+  });
+
+  await testCase('15. Greeting handling, Zarkhez app-name pronunciation, and native Pakistani Urdu Gemini TTS framing', async () => {
+    assert.ok(isPureGreeting('hi'));
+    assert.ok(isPureGreeting('Assalam o Alaikum!'));
+    assert.ok(isPureGreeting('سلام'));
+    assert.ok(!isPureGreeting('hi my wheat leaves are yellow'));
+
+    const hiEn = await generateVoiceDualReply([{ role: 'user', content: 'hi' }], undefined, 'en');
+    assert.equal(
+      hiEn.spokenText,
+      'Assalam-o-Alaikum! I am Zarkhez, your farming assistant. How can I help you?'
+    );
+
+    const hiUr = await generateVoiceDualReply([{ role: 'user', content: 'hi' }], undefined, 'ur');
+    assert.ok(hiUr.spokenText.includes('السلام علیکم') && hiUr.spokenText.includes('زرخیز'));
+
+    const lexicon = loadHotPronunciationLexicon();
+    const spokenEn = toSpokenText(hiEn.spokenText, 'en', { lexiconEntries: lexicon }).spokenText;
+    assert.ok(spokenEn.includes('Assalamo Alaikum'), 'Must smooth standalone o pause in English greeting');
+    assert.ok(spokenEn.includes('Zar-khaze'), 'Must apply connected phonetic spelling Zar-khaze for Zarkhez');
+    assert.ok(!spokenEn.includes('Zar khaiz'), 'Must not split Zarkhez with old disconnected spelling');
+
+    const spokenUr = toSpokenText(hiUr.spokenText, 'ur', { lexiconEntries: lexicon }).spokenText;
+    assert.ok(spokenUr.includes('زَرخیز'), 'Must apply crisp zabar hint for Urdu Zarkhez pronunciation');
+
+    const ssmlEn = buildVoiceSsml({
+      text: `${hiEn.spokenText} You can spray safely in calm weather.`,
+      lang: 'en',
+      voiceName: 'en-US-AvaMultilingualNeural',
+      lexiconEntries: lexicon,
+    });
+    assert.ok(ssmlEn.includes('ph="zɑːrˈkeɪz"'), 'English SSML must use English IPA for Zar-khaze');
+    assert.ok(!ssmlEn.includes('ph="sɪpˈɾeː"'), 'English SSML must NEVER override English spray with Urdu IPA');
+
+    const keyA = buildAudioCacheKey({ spokenText: 'Zarkhez', lang: 'ur', gender: 'female', speedRate: 1 });
+    assert.equal(keyA.length, 24);
+
+    // Verify Gemini 3.1 TTS receives separated Director's Notes + #### TRANSCRIPT for ur-PK
+    const origFetch = globalThis.fetch;
+    const origGeminiKey = process.env.GEMINI_API_KEY;
+    const origAzureKey = process.env.AZURE_SPEECH_KEY;
+    delete process.env.AZURE_SPEECH_KEY;
+    process.env.GEMINI_API_KEY = 'AIzaSyVoicePipelineMockTestKey123456';
+    const payloads: string[] = [];
+
+    globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+      if (init?.body) payloads.push(String(init.body));
+      const fakePcm = Buffer.alloc(600, 1);
+      return new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;rate=24000', data: fakePcm.toString('base64') } }] } }],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    }) as typeof fetch;
+
+    try {
+      const reqUr = new NextRequest('http://localhost/api/tts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          text: hiUr.spokenText,
+          lang: 'ur',
+          skipCache: true,
+        }),
+      });
+      const resUr = await ttsRoutePost(reqUr);
+      assert.equal(resUr.status, 200);
+      assert.equal(resUr.headers.get('X-Voice-Provider'), 'gemini-tts');
+      assert.equal(payloads.length, 1);
+      const parsedBody = JSON.parse(payloads[0]) as { contents: Array<{ parts: Array<{ text: string }> }> };
+      const ttsPrompt = parsedBody.contents[0].parts[0].text;
+      assert.ok(ttsPrompt.includes("### DIRECTOR'S NOTES:"), 'Must separate voice style directions cleanly');
+      assert.ok(ttsPrompt.includes('#### TRANSCRIPT:\n[warm] '), 'Must isolate spoken transcript under #### TRANSCRIPT:');
+      assert.ok(ttsPrompt.includes('زَرخیز'));
+    } finally {
+      globalThis.fetch = origFetch;
+      if (origGeminiKey === undefined) delete process.env.GEMINI_API_KEY;
+      else process.env.GEMINI_API_KEY = origGeminiKey;
+      if (origAzureKey === undefined) delete process.env.AZURE_SPEECH_KEY;
+      else process.env.AZURE_SPEECH_KEY = origAzureKey;
+    }
   });
 
   console.log(`\nVoice Pipeline Summary: ${passed} passed, ${failed} failed\n`);

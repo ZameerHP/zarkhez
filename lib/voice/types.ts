@@ -31,6 +31,7 @@ export interface LexiconEntry {
   spokenEn: string;
   ipaUr?: string;
   ipaSd?: string;
+  ipaEn?: string;
   needs_native_review?: boolean;
 }
 
