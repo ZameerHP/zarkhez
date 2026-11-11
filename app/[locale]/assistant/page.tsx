@@ -62,7 +62,7 @@ export default function AssistantPage() {
   const [listening, setListening] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [aiSpeaking, setAiSpeaking] = useState(false);
-  const [voiceLang, setVoiceLang] = useState<'ur' | 'en'>(locale === 'en' ? 'en' : 'ur');
+  const [voiceLang, setVoiceLang] = useState<VoiceLang>(locale === 'en' ? 'en' : 'ur');
   const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
   const [userAvatar, setUserAvatar] = useState('');
 
@@ -161,8 +161,13 @@ export default function AssistantPage() {
     const question = rawQuestion.trim();
     if (!question || streaming) return;
 
-    const effectiveVoiceLang: 'ur' | 'en' = /[\u0600-\u06FF]/.test(question)
-      ? 'ur'
+    const hasSindhiChars = /[ٻڀٺٽڄڃڇڊڌڍڏڙڦڪڳڱڻ۽۾]/.test(question);
+    const effectiveVoiceLang: VoiceLang = hasSindhiChars
+      ? 'sd'
+      : /[\u0600-\u06FF]/.test(question)
+      ? voiceLang === 'sd'
+        ? 'sd'
+        : 'ur'
       : voiceLang;
     if (effectiveVoiceLang !== voiceLang) {
       setVoiceLang(effectiveVoiceLang);
@@ -218,7 +223,7 @@ export default function AssistantPage() {
         };
         // Keep ONE exact clean message on screen matching the spoken answer 1:1
         const unifiedText = (dual.spokenText || dual.screenText || '').trim();
-        const replyLang: VoiceLang = dual.language || voiceLang;
+        const replyLang: VoiceLang = dual.language || effectiveVoiceLang;
 
         setMessages((prev) =>
           prev.map((m) =>
@@ -243,25 +248,31 @@ export default function AssistantPage() {
           accumulated += decoder.decode(value, { stream: true });
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantTurnId ? { ...m, content: accumulated, spokenContent: accumulated, voiceLang } : m
+              m.id === assistantTurnId
+                ? { ...m, content: accumulated, spokenContent: accumulated, voiceLang: effectiveVoiceLang }
+                : m
             )
           );
         }
         if (accumulated.trim()) {
-          speakAssistantReply(accumulated, voiceLang);
+          speakAssistantReply(accumulated, effectiveVoiceLang);
         } else {
           setVoicePhase('idle');
         }
       }
     } catch {
       const errText =
-        voiceLang === 'ur'
+        effectiveVoiceLang === 'sd'
+          ? 'معاف ڪجو هاري ڀاءُ، رابطي ۾ عارضي رنڊڪ آهي. مهرباني ڪري ٻيهر پڇو.'
+          : effectiveVoiceLang === 'ur'
           ? 'معاف کیجیے کسان بھائی، رابطے میں عارضی رکاوٹ آئی ہے۔ براہ کرم دوبارہ پوچھیں۔'
           : 'Sorry, connection interrupted. Please ask again.';
       setVoicePhase('error');
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantTurnId ? { ...m, content: errText, spokenContent: errText, voiceLang } : m
+          m.id === assistantTurnId
+            ? { ...m, content: errText, spokenContent: errText, voiceLang: effectiveVoiceLang }
+            : m
         )
       );
     } finally {
@@ -313,7 +324,15 @@ export default function AssistantPage() {
     sendQuestion(inputText);
   };
 
-  const suggestedChips = [t('chip1'), t('chip2'), t('chip3'), t('chip4')];
+  const suggestedChips =
+    voiceLang === 'sd'
+      ? [
+          'ڪڻڪ کي پهريون پاڻي ڪڏهن ڏجي؟',
+          'وونئڻن جا پن مڙڻ جو علاج ڇا آهي؟',
+          'فصل تي اسپري ڪرڻ جو صحيح وقت؟',
+          'ڪڻڪ لاءِ يوريا ڀاڻ ڪيئن ڏجي؟',
+        ]
+      : [t('chip1'), t('chip2'), t('chip3'), t('chip4')];
 
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas flex flex-col overflow-x-hidden">
@@ -358,12 +377,13 @@ export default function AssistantPage() {
           <p className="text-xs text-cream mt-0.5">{t('subtitle')}</p>
         </div>
 
-        {/* Voice Language Selector (Urdu ur-PK | English en-PK) & State Indicator */}
+        {/* Voice Language Selector (Urdu ur-PK | Sindhi sd-PK | English en-PK) & State Indicator */}
         <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
           <div className="inline-flex items-center gap-1 rounded-full bg-white/10 p-1">
             {(
               [
                 { id: 'ur', label: 'اردو' },
+                { id: 'sd', label: 'سنڌي' },
                 { id: 'en', label: 'EN' },
               ] as const
             ).map((opt) => (
@@ -382,6 +402,8 @@ export default function AssistantPage() {
                             content:
                               opt.id === 'en'
                                 ? 'Assalam-o-Alaikum! I am Zarkhez, your farming assistant. How can I help you?'
+                                : opt.id === 'sd'
+                                ? 'السلام عليڪم! مان زرخيز آهيان، اوهان جي زراعت جي مددگار. ٻڌايو، اڄ مان اوهان جي ڪهڙي مدد ڪري سگهان ٿي؟'
                                 : 'السلام علیکم! میں زرخیز ہوں، آپ کی کھیتی باڑی کی مددگار۔ بتائیے، آج میں آپ کی کیا مدد کر سکتی ہوں؟',
                             voiceLang: opt.id,
                           },
@@ -389,7 +411,7 @@ export default function AssistantPage() {
                       : prev
                   );
                 }}
-                className={`px-3.5 py-1 rounded-full text-xs font-extrabold transition-all ${
+                className={`px-3 py-1 rounded-full text-xs font-extrabold transition-all ${
                   voiceLang === opt.id
                     ? 'bg-emerald-400 text-[#062409]'
                     : 'text-white/85 hover:bg-white/10'
@@ -402,19 +424,27 @@ export default function AssistantPage() {
 
           <span className="text-[11px] font-bold text-emerald-200">
             {voicePhase === 'listening'
-              ? voiceLang === 'ur'
+              ? voiceLang === 'sd'
+                ? 'ٻڌي رهيو آهي...'
+                : voiceLang === 'ur'
                 ? 'سن رہا ہے...'
                 : 'Listening...'
               : voicePhase === 'thinking'
-              ? voiceLang === 'ur'
+              ? voiceLang === 'sd'
+                ? 'جواب تيار ٿي رهيو آهي...'
+                : voiceLang === 'ur'
                 ? 'سوچ رہا ہے...'
                 : 'Thinking...'
               : voicePhase === 'speaking'
-              ? voiceLang === 'ur'
+              ? voiceLang === 'sd'
+                ? 'ڳالهائي رهيو آهي...'
+                : voiceLang === 'ur'
                 ? 'بول رہا ہے...'
                 : 'Speaking...'
               : voicePhase === 'error'
-              ? voiceLang === 'ur'
+              ? voiceLang === 'sd'
+                ? 'آواز ٻيهر ٻڌڻ لاءِ بٽڻ دٻايو'
+                : voiceLang === 'ur'
                 ? 'آواز دوبارہ سننے کے لیے بٹن دبائیں'
                 : 'Tap speaker icon to retry voice'
               : ''}
@@ -600,7 +630,9 @@ export default function AssistantPage() {
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={t('inputPlaceholder')}
+              placeholder={
+                voiceLang === 'sd' ? 'سنڌي ۾ لکو يا مائڪ دٻايو...' : t('inputPlaceholder')
+              }
               className="flex-1 min-h-[46px] px-3.5 rounded-full bg-transparent text-ink text-sm sm:text-base focus:outline-none min-w-0"
             />
             <motion.button

@@ -227,7 +227,7 @@ export function buildGreetingReply(
   }
   if (voiceLang === 'sd') {
     const s =
-      'اسلام عليڪم! مان زرخيز آهيان، اوهان جي زراعت جي مددگار. ٻڌايو، اڄ مان اوهان جي ڪهڙي مدد ڪري سگهان ٿي؟';
+      'السلام عليڪم! مان زرخيز آهيان، اوهان جي زراعت جي مددگار. ٻڌايو، اڄ مان اوهان جي ڪهڙي مدد ڪري سگهان ٿي؟';
     return { screenText: s, spokenText: s, language: 'sd' };
   }
   const ur =
@@ -383,7 +383,7 @@ export function buildVoiceAdvisorPrompt(
 
   const targetDirective =
     voiceLang === 'sd'
-      ? `TARGET SPOKEN LANGUAGE: Pakistani Sindhi (sd-PK, Perso-Arabic script using ڀ ٻ ڄ ڃ ڇ ڏ ڊ ڌ ڍ ڙ ڦ ڪ ڳ ڱ ڻ ٿ ٺ ٽ ي ه). NEVER substitute Urdu or Hindi phrasing in Sindhi output. Draft carefully in natural spoken rural Sindhi.`
+      ? `TARGET SPOKEN LANGUAGE: Warm, everyday spoken Pakistani Sindhi (sd-PK, Perso-Arabic script using ڀ ٻ ڄ ڃ ڇ ڏ ڊ ڌ ڍ ڙ ڦ ڪ ڳ ڱ ڻ ٿ ٺ ٽ ي ه). Speak naturally like a caring female Sindhi farm advisor ("ٻڌائي سگهان ٿي", "مدد ڪري سگهان ٿي") using familiar rural words ("ٻني", "پاڻي", "ڀاڻ", "پاڙون", "مٽي"). NEVER mix Urdu or Hindi words into Sindhi sentences, and flow smoothly across commas.`
       : voiceLang === 'ur'
       ? `TARGET SPOKEN LANGUAGE: Warm, everyday conversational Pakistani Urdu (ur-PK, 100% pure Urdu Perso-Arabic script ONLY). Speak gently as a helpful female Pakistani agricultural advisor using matching female grammar ("بتا سکتی ہوں", "مدد کر سکتی ہوں") without repeating "بھائی جان" in every message. Use plain spoken Urdu ("دھیان رکھیں", "پانی لگائیں", "پہلے مٹی چیک کریں", "تاکہ", "کیونکہ") and avoid stiff newsroom/textbook phrasing ("اختیار کریں", "معطل کریں", "ملاحظہ فرمائیں"). Give genuinely sound agronomic steps first (for plant wilting/roots, inspect soil moisture and roots before suggesting any spray; never guess chemical sprays blindly). Understand Roman Urdu/mixed queries cleanly and output spoken_text ONLY in pure Urdu script.`
       : `TARGET SPOKEN LANGUAGE: Warm, natural conversational English spoken by an experienced Pakistani agricultural advisor. Use relaxed everyday rhythm, natural contractions ("it's", "don't", "you'll", "make sure to"), and connected flowing sentences — never stiff textbook prose or robotic bullets.`;
@@ -431,7 +431,7 @@ export function generateSpokenFallbackChatReply(
       return { screenText: s, spokenText: s, language: 'sd' };
     }
     const defaultSd =
-      'اسلام عليڪم هاري ڀاءُ. اوهان پنهنجي فصل، پاڻي، ڀاڻ يا بيماري بابت سڌو سنڌيءَ ۾ پڇي سگهو ٿا. اڄ مان اوهان جي ڪهڙي مدد ڪري سگهان ٿو؟';
+      'السلام عليڪم هاري ڀاءُ! مان زرخيز آهيان، اوهان پنهنجي فصل، پاڻي، ڀاڻ يا بيماري بابت سڌو سنڌيءَ ۾ پڇي سگهو ٿا. اڄ مان اوهان جي ڪهڙي مدد ڪري سگهان ٿي؟';
     return { screenText: defaultSd, spokenText: defaultSd, language: 'sd' };
   }
 
@@ -527,7 +527,7 @@ export async function generateVoiceDualReply(
       systemInstruction,
       contents: geminiContents,
       temperature: 0.25,
-      maxOutputTokens: 700,
+      maxOutputTokens: 1400,
       responseSchema: {
         type: 'OBJECT',
         properties: {
@@ -572,7 +572,8 @@ export async function generateVoiceDualReply(
     const hasLeakedPrompt = /MANDATORY VOICE RULES|TARGET SPOKEN LANGUAGE|STRICT JSON ONLY|Read strictly/i.test(
       cleaned
     );
-    if (cleaned && !hasLeakedPrompt) {
+    const looksLikeTruncatedJson = /^\s*[\[{]/.test(cleaned);
+    if (cleaned && !hasLeakedPrompt && !looksLikeTruncatedJson) {
       return { screenText: cleaned, spokenText: cleaned, language: voiceLang };
     }
   } catch (err) {

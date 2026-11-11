@@ -263,15 +263,12 @@ async function synthesizeWithGeminiTts(params: {
   const ttsInputText = params.spokenText;
 
   // Prefer reliable fast gemini-3.8-flash-tts & lite-tts ahead of quota-limited preview models,
-  // avoiding gemini-2.5-flash-preview-tts which frequently returns finishReason:OTHER with empty audio on ur-PK.
-  const modelsToTry =
-    params.lang === 'sd'
-      ? ['gemini-3.1-flash-tts-preview', 'gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts']
-      : [
-          'gemini-3.8-flash-tts',
-          'gemini-3.8-flash-lite-tts',
-          'gemini-3.1-flash-tts-preview',
-        ];
+  // avoiding gemini-2.5-flash-preview-tts which frequently returns finishReason:OTHER with empty audio.
+  const modelsToTry = [
+    'gemini-3.8-flash-tts',
+    'gemini-3.8-flash-lite-tts',
+    'gemini-3.1-flash-tts-preview',
+  ];
 
   const geminiLangCode =
     params.lang === 'ur' ? 'ur-PK' : params.lang === 'en' ? 'en-US' : undefined;
