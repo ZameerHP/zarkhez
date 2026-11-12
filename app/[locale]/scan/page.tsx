@@ -783,11 +783,11 @@ export default function ScanPage() {
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl p-3.5 shadow-soft border border-olive/15 space-y-2.5"
+            className="bg-white rounded-2xl p-3.5 sm:p-4 shadow-soft border border-olive/15 space-y-2.5"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <label className="font-extrabold text-xs text-ink flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-olive" />
+                <Info className="w-3.5 h-3.5 text-olive flex-shrink-0" />
                 <span>
                   {pickUi(
                     '1. Your Selected Crop:',
@@ -796,12 +796,12 @@ export default function ScanPage() {
                   )}
                 </span>
               </label>
-              <span className="text-[10px] font-bold text-ink/55 bg-canvas px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-bold text-olive-dark bg-emerald-50 border border-emerald-200/70 px-2.5 py-0.5 rounded-full flex-shrink-0">
                 {pickUi('Farmer input', 'کسان کا انتخاب', 'هاريءَ جي چونڊ')}
               </span>
             </div>
 
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-4 gap-2">
               {supportedCrops.map((c) => {
                 const active = selectedCrop.toLowerCase() === c.key;
                 return (
@@ -809,10 +809,10 @@ export default function ScanPage() {
                     key={c.key}
                     type="button"
                     onClick={() => setSelectedCrop(c.key)}
-                    className={`min-h-[40px] rounded-xl font-extrabold text-xs transition-all border ${
+                    className={`min-h-[42px] px-1.5 rounded-xl font-extrabold text-xs transition-all border ${
                       active
-                        ? 'bg-[#062409] text-white border-[#062409] shadow-sm'
-                        : 'bg-canvas text-ink/80 hover:bg-olive/15 border-olive/15'
+                        ? 'bg-[#062409] text-white border-[#062409] shadow-sm ring-2 ring-emerald-500/25'
+                        : 'bg-canvas/70 text-ink/80 hover:bg-olive/10 border-olive/15'
                     }`}
                   >
                     <span>{c[uiLang]}</span>
@@ -831,7 +831,24 @@ export default function ScanPage() {
             className="bg-white rounded-3xl p-4 sm:p-5 shadow-soft border border-olive/15 space-y-4"
           >
             {/* Viewfinder Window */}
-            <div className="relative h-64 sm:h-72 rounded-2xl bg-[#062409] overflow-hidden flex flex-col items-center justify-center p-4 text-white shadow-inner">
+            <div
+              onClick={!cameraActive ? handleOpenCamera : undefined}
+              role={!cameraActive ? 'button' : undefined}
+              tabIndex={!cameraActive ? 0 : undefined}
+              onKeyDown={
+                !cameraActive
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleOpenCamera();
+                      }
+                    }
+                  : undefined
+              }
+              className={`relative h-60 sm:h-72 rounded-2xl bg-[#062409] overflow-hidden flex flex-col items-center justify-center p-4 text-white shadow-inner ${
+                !cameraActive ? 'cursor-pointer group' : ''
+              }`}
+            >
               {cameraActive ? (
                 <>
                   <video
@@ -874,20 +891,30 @@ export default function ScanPage() {
                   <img
                     src="https://images.unsplash.com/photo-1592841200221-a6898f307baa?auto=format&fit=crop&w=800&q=70"
                     alt=""
-                    className="absolute inset-0 w-full h-full object-cover opacity-25"
+                    className="absolute inset-0 w-full h-full object-cover opacity-35 transition-transform duration-500 group-hover:scale-105"
                   />
-                  <div className="relative z-10 text-center space-y-2 p-2">
-                    <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md border border-white/20 mx-auto flex items-center justify-center">
-                      <Sparkles className="w-8 h-8 text-emerald-400" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-[#062409]/50 via-[#062409]/65 to-[#062409]/85" />
+
+                  {/* Scanner Corner Reticles */}
+                  <div className="pointer-events-none absolute inset-3.5">
+                    <span className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-emerald-400/75 rounded-tl-lg" />
+                    <span className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-emerald-400/75 rounded-tr-lg" />
+                    <span className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-emerald-400/75 rounded-bl-lg" />
+                    <span className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-emerald-400/75 rounded-br-lg" />
+                  </div>
+
+                  <div className="relative z-10 text-center space-y-2.5 p-2">
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-300/35 ring-4 ring-emerald-400/15 mx-auto flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105">
+                      <Sparkles className="w-7 h-7 text-emerald-300" />
                     </div>
-                    <p className="font-black text-sm text-white">
+                    <p className="font-black text-base text-white tracking-tight">
                       {pickUi(
                         'Take 1 Clear Plant Photo',
                         'کسی بھی ایک حصے کی 1 واضح تصویر لیں',
                         'ٻوٽي جي هڪ صاف تصوير ڪڍو'
                       )}
                     </p>
-                    <p className="text-xs text-cream/80 max-w-[260px] mx-auto leading-relaxed">
+                    <p className="text-xs text-cream/85 max-w-[270px] mx-auto leading-relaxed">
                       {pickUi(
                         'Leaf, stem, roots, fruit or whole plant — AI will independently identify crop & part',
                         'پتا، تنا، جڑیں، پھل یا پورا پودا — اے آئی خود فصل اور حصے کی درست شناخت کرے گی',
@@ -900,19 +927,19 @@ export default function ScanPage() {
             </div>
 
             {/* Supported Organ Chips */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-extrabold text-ink/65 uppercase tracking-wider block">
+            <div className="space-y-2">
+              <span className="text-[11px] font-extrabold text-ink/60 uppercase tracking-wider block">
                 {pickUi('Acceptable plant parts:', 'قابل قبول حصے:', 'تصوير لاءِ حصا:')}
               </span>
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-bold text-ink/80">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold text-ink/85">
                 {organGuides.map((item, idx) => {
                   const Icon = item.icon;
                   return (
                     <div
                       key={idx}
-                      className="px-2.5 py-1 rounded-full bg-canvas border border-olive/20 flex items-center gap-1.5 flex-shrink-0"
+                      className="px-2.5 py-1.5 rounded-full bg-canvas/80 border border-olive/20 flex items-center gap-1.5 shadow-sm"
                     >
-                      <Icon className="w-3.5 h-3.5 text-olive" />
+                      <Icon className="w-3.5 h-3.5 text-olive flex-shrink-0" />
                       <span>{item[uiLang]}</span>
                     </div>
                   );
@@ -943,10 +970,10 @@ export default function ScanPage() {
                 type="button"
                 whileTap={{ scale: 0.97 }}
                 onClick={handleOpenCamera}
-                className="min-h-[52px] rounded-full bg-[#062409] hover:bg-olive-dark text-white font-black text-sm sm:text-base shadow-soft flex items-center justify-center gap-2.5 transition-all"
+                className="min-h-[50px] px-3.5 py-2.5 rounded-full bg-[#062409] hover:bg-olive-dark text-white font-extrabold text-[13px] sm:text-sm shadow-soft flex items-center justify-center gap-2 transition-all"
               >
-                <Camera className="w-5 h-5 text-emerald-400" />
-                <span>
+                <Camera className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span className="leading-tight whitespace-nowrap">
                   {pickUi('Take Plant Photo', 'کیمرے سے تصویر لیں', 'ڪئميرا سان فوٽو ڪڍو')}
                 </span>
               </motion.button>
@@ -958,10 +985,10 @@ export default function ScanPage() {
                   unlockAudio();
                   uploadInputRef.current?.click();
                 }}
-                className="min-h-[52px] rounded-full bg-olive hover:bg-olive-dark text-white font-extrabold text-sm sm:text-base shadow-soft flex items-center justify-center gap-2.5 transition-all"
+                className="min-h-[50px] px-3.5 py-2.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#062409] border border-olive/30 font-extrabold text-[13px] sm:text-sm shadow-sm flex items-center justify-center gap-2 transition-all"
               >
-                <Upload className="w-5 h-5 text-white" />
-                <span>
+                <Upload className="w-4 h-4 text-olive flex-shrink-0" />
+                <span className="leading-tight whitespace-nowrap">
                   {pickUi(
                     'Upload From Gallery',
                     'گیلری سے تصویر منتخب کریں',
