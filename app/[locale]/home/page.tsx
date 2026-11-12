@@ -11,7 +11,6 @@ import {
   ScanLine,
   Calendar,
   Sprout,
-  Calculator,
   Plus,
   Trash2,
   CheckCircle2,
@@ -310,7 +309,7 @@ export default function HomePage() {
             <Link
               href="/scan"
               onClick={() => unlockAudio()}
-              className="bg-gradient-to-br from-[#062409] to-[#17411D] text-white rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md flex items-center gap-3 min-h-[76px] hover:-translate-y-0.5 transition-all active:scale-95 border border-emerald-400/25"
+              className="col-span-2 bg-gradient-to-br from-[#062409] to-[#17411D] text-white rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md flex items-center gap-3 min-h-[76px] hover:-translate-y-0.5 transition-all active:scale-95 border border-emerald-400/25"
             >
               <div className="w-11 h-11 rounded-2xl bg-olive-fresh/25 border border-emerald-400/35 flex items-center justify-center flex-shrink-0">
                 <ScanLine className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-300" />
@@ -355,23 +354,6 @@ export default function HomePage() {
                 </span>
                 <span className="block text-[11px] text-ink/65 mt-0.5 truncate">
                   {t('toolFertilizerSub')}
-                </span>
-              </div>
-            </Link>
-
-            <Link
-              href="/tools/profit"
-              className="bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md border border-olive/12 flex items-center gap-3 min-h-[76px] hover:border-olive hover:-translate-y-0.5 transition-all active:scale-95"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-olive/12 text-olive flex items-center justify-center flex-shrink-0">
-                <Calculator className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div className="min-w-0">
-                <span className="block font-extrabold text-sm sm:text-base leading-tight truncate">
-                  {t('toolProfit')}
-                </span>
-                <span className="block text-[11px] text-ink/65 mt-0.5 truncate">
-                  {t('toolProfitSub')}
                 </span>
               </div>
             </Link>

@@ -9,7 +9,6 @@ import {
   ScanLine,
   Calendar,
   Sprout,
-  Calculator,
   CheckCircle2,
   Circle,
   MapPin,
@@ -20,7 +19,6 @@ import {
   getAllCrops,
   getCropByKey,
 } from '@/lib/calendar';
-import { calculateProfit } from '@/lib/profit';
 import {
   getSavedFields,
   getSavedProfile,
@@ -76,14 +74,6 @@ export default function CropDetailPage() {
   const calendar = generateCropCalendar(crop.key, sowingDate, completedIds);
   const nextThreeTasks = calendar.tasks.filter((task) => !task.done).slice(0, 3);
 
-  const profitEstimate = calculateProfit({
-    areaAcres: 1,
-    yieldPerAcre: crop.sampleYieldMannPerAcre,
-    basePricePerUnit: crop.samplePricePerMannPkr,
-    priceSliderPercent: 0,
-    costsPerAcre: crop.sampleCostsPkr,
-  });
-
   const handleToggleTask = (taskId: string) => {
     if (fieldId) {
       const updated = toggleFieldTaskDone(fieldId, taskId);
@@ -100,7 +90,7 @@ export default function CropDetailPage() {
 
   const spokenText = `${crop.name[locale]}. ${t('expectedHarvest')}: ${
     calendar.harvestDate
-  }. ${t('estimatedProfit')}: ${profitEstimate.profitPerAcre} PKR. ${nextThreeTasks
+  }. ${nextThreeTasks
     .map((tk) => tk.title[locale])
     .join('. ')}`;
 
@@ -183,31 +173,17 @@ export default function CropDetailPage() {
           <ReadAloudButton text={spokenText} />
         </div>
 
-        {/* Harvest Date & Estimated Profit Per Acre */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-canvas rounded-card p-4 border border-olive/10">
-            <span className="block text-xs text-ink/65 font-semibold">
-              {t('expectedHarvest')}
-            </span>
-            <bdi
-              dir="ltr"
-              className="block font-extrabold text-lg text-ink mt-1"
-            >
-              {calendar.harvestDate}
-            </bdi>
-          </div>
-
-          <div className="bg-cream/65 rounded-card p-4 border border-wheat/30">
-            <span className="block text-xs text-ink/75 font-semibold">
-              {t('estimatedProfit')}
-            </span>
-            <bdi
-              dir="ltr"
-              className="block font-extrabold text-lg text-olive-dark mt-1"
-            >
-              Rs. {profitEstimate.profitPerAcre.toLocaleString()}
-            </bdi>
-          </div>
+        {/* Harvest Date */}
+        <div className="bg-canvas rounded-card p-4 border border-olive/10">
+          <span className="block text-xs text-ink/65 font-semibold">
+            {t('expectedHarvest')}
+          </span>
+          <bdi
+            dir="ltr"
+            className="block font-extrabold text-lg text-ink mt-1"
+          >
+            {calendar.harvestDate}
+          </bdi>
         </div>
 
         {/* Next Three Tasks */}
@@ -253,7 +229,7 @@ export default function CropDetailPage() {
         </section>
 
         {/* Quick Links to Crop Tools */}
-        <div className="grid grid-cols-3 gap-2.5 pt-2">
+        <div className="grid grid-cols-2 gap-2.5 pt-2">
           <Link
             href={`/tools/calendar?crop=${crop.key}`}
             className="min-h-[52px] rounded-tile bg-olive text-white font-bold text-xs flex flex-col items-center justify-center p-2 text-center shadow-sm"
@@ -267,13 +243,6 @@ export default function CropDetailPage() {
           >
             <Sprout className="w-4 h-4 text-wheat mb-1" />
             <span>{t('openFertilizer')}</span>
-          </Link>
-          <Link
-            href={`/tools/profit?crop=${crop.key}`}
-            className="min-h-[52px] rounded-tile bg-canvas text-ink font-bold text-xs flex flex-col items-center justify-center p-2 text-center border border-olive/15"
-          >
-            <Calculator className="w-4 h-4 text-olive mb-1" />
-            <span>{t('openProfit')}</span>
           </Link>
         </div>
 

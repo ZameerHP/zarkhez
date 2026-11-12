@@ -905,7 +905,7 @@ export default function ScanPage() {
 
                   <div className="relative z-10 text-center space-y-2.5 p-2">
                     <div className="w-16 h-16 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-300/35 ring-4 ring-emerald-400/15 mx-auto flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-105">
-                      <Sparkles className="w-7 h-7 text-emerald-300" />
+                      <Camera className="w-7 h-7 text-emerald-300" />
                     </div>
                     <p className="font-black text-base text-white tracking-tight">
                       {pickUi(
