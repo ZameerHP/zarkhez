@@ -789,7 +789,7 @@ export default function ScanPage() {
         </div>
       </header>
 
-      <main className="px-3.5 sm:px-5 mt-4 space-y-4 w-full max-w-2xl mx-auto">
+      <main className="px-3.5 sm:px-5 mt-4 space-y-4 w-full max-w-md mx-auto">
         {/* Step A: User Crop Selector (Treated as user input, NOT visual proof) */}
         {!diagnosis && !analysing && (
           <motion.section

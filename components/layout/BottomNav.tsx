@@ -41,7 +41,7 @@ export function BottomNav() {
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-        className="pointer-events-auto w-full max-w-[450px] md:max-w-[600px] bg-[#062409]/95 backdrop-blur-lg text-white rounded-[24px] sm:rounded-[26px] p-1 sm:p-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)] border border-emerald-400/20 grid grid-cols-6 gap-0.5 items-center"
+        className="pointer-events-auto w-full max-w-[450px] bg-[#062409]/95 backdrop-blur-lg text-white rounded-[24px] sm:rounded-[26px] p-1 sm:p-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)] border border-emerald-400/20 grid grid-cols-6 gap-0.5 items-center"
       >
         {items.map((item) => {
           const Icon = item.icon;

@@ -69,7 +69,7 @@ export default async function LocaleLayout({
             <ZoomGuard />
             <PWAOverlays />
             <AuthGuard>
-              <div className="mx-auto w-full max-w-[860px] min-h-[100dvh] bg-canvas relative xl:shadow-2xl [overflow-x:clip]">
+              <div className="mx-auto w-full max-w-[480px] min-h-[100dvh] bg-canvas relative shadow-2xl [overflow-x:clip]">
                 {children}
               </div>
             </AuthGuard>

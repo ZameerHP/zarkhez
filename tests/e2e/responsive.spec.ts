@@ -546,4 +546,35 @@ test.describe('Zarkhez Responsive & PWA Zoom Audit', () => {
       await guestCtx.close();
     }
   });
+
+  test('laptop/desktop viewport keeps compact 480px centered shell without stretching wide', async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      viewport: { width: 1366, height: 768 },
+    });
+    const page = await context.newPage();
+    await setupFarmerSession(page, 'en');
+
+    await page.goto('/en/home', { waitUntil: 'load' });
+    await page.waitForSelector('header', { state: 'visible' });
+    await auditLayoutInvariants(page, '/en/home', '1366x768 (Laptop)');
+
+    const dims = await page.evaluate(() => {
+      const header = document.querySelector('header')?.getBoundingClientRect();
+      const navInner = document.querySelector(
+        'nav[aria-label="Primary Bottom Navigation"] > div'
+      )?.getBoundingClientRect();
+      return {
+        headerWidth: header ? Math.round(header.width) : 0,
+        navWidth: navInner ? Math.round(navInner.width) : 0,
+      };
+    });
+
+    expect(dims.headerWidth).toBeLessThanOrEqual(480);
+    expect(dims.headerWidth).toBeGreaterThanOrEqual(400);
+    expect(dims.navWidth).toBeLessThanOrEqual(450);
+
+    await context.close();
+  });
 });
