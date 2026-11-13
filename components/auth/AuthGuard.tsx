@@ -40,11 +40,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     pathname === '' ||
     pathname === `/${locale}/`;
 
-  const [authorized, setAuthorized] = useState<boolean>(() => {
-    if (isPublicWelcomeRoute) return true;
-    if (typeof window === 'undefined') return false;
-    return isUserAuthenticated();
-  });
+  // Match SSR and initial client render so React never throws a hydration mismatch on protected routes.
+  const [authorized, setAuthorized] = useState<boolean>(isPublicWelcomeRoute);
 
   useEffect(() => {
     let active = true;

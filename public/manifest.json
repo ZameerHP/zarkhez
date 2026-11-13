@@ -1,24 +1,63 @@
 {
-  "name": "Zarkhez (زرخیز) — Aap ki kheti, aap ka dost",
-  "short_name": "Zarkhez",
-  "description": "Urdu-first AI farming assistant for small farmers in Pakistan",
-  "start_url": "/ur",
+  "id": "/",
+  "name": "ZARKHEZ",
+  "short_name": "ZARKHEZ",
+  "description": "ZARKHEZ (زرخیز) — AI-powered smart farming assistant for Pakistani farmers. Crop scanning, AI advisor, weather alerts and farm diary in Urdu, English and Sindhi.",
+  "lang": "ur",
+  "dir": "auto",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#062409",
-  "theme_color": "#062409",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
+  "theme_color": "#062409",
+  "background_color": "#021403",
+  "categories": ["productivity", "utilities", "education"],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/images/zarkhez-logo-mark.png",
-      "sizes": "573x573",
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "فصل اسکین / Crop Scan",
+      "short_name": "Scan",
+      "url": "/scan?source=pwa-shortcut",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "AI مشیر / AI Advisor",
+      "short_name": "Advisor",
+      "url": "/assistant?source=pwa-shortcut",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "موسم / Weather",
+      "short_name": "Weather",
+      "url": "/weather?source=pwa-shortcut",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96", "type": "image/png" }]
     }
   ]
 }

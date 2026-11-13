@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { GoogleLogoSvg } from '@/components/cards/FarmerPersonaCard';
 import { OnboardingModal } from '@/components/auth/OnboardingModal';
+import { InstallAppPill } from '@/components/pwa/InstallApp';
 import {
   deriveGoogleIdentityFromEmail,
   FarmerProfile,
@@ -555,12 +556,13 @@ export default function WelcomePage() {
       </motion.div>
 
       {/* Footer */}
-      <footer className="text-center pb-3">
+      <footer className="relative z-10 text-center pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <p className="text-[11px] text-white/50">
           {locale === 'ur'
             ? 'زرخیز — پاکستانی کسانوں کا ڈیجیٹل ساتھی'
             : 'Zarkhez — Built for Pakistani Farmers'}
         </p>
+        <InstallAppPill />
       </footer>
 
       {/* 4-Tap Onboarding Modal */}

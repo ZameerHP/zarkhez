@@ -64,6 +64,7 @@ export default function AssistantPage() {
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [voiceLang, setVoiceLang] = useState<VoiceLang>(locale === 'en' ? 'en' : 'ur');
   const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
+  const [micError, setMicError] = useState<string | null>(null);
   const [userAvatar, setUserAvatar] = useState('');
 
   const [contextInfo, setContextInfo] = useState({
@@ -260,9 +261,17 @@ export default function AssistantPage() {
           setVoicePhase('idle');
         }
       }
-    } catch {
-      const errText =
-        effectiveVoiceLang === 'sd'
+    } catch (err) {
+      const isOffline =
+        (typeof navigator !== 'undefined' && navigator.onLine === false) ||
+        err instanceof TypeError;
+      const errText = isOffline
+        ? effectiveVoiceLang === 'sd'
+          ? 'معاف ڪجو هاري ڀاءُ، هن وقت انٽرنيٽ ڪونهي. AI صلاحڪار لاءِ انٽرنيٽ ضروري آهي — رابطو بحال ڪري ٻيهر پڇو.'
+          : effectiveVoiceLang === 'ur'
+          ? 'معاف کیجیے کسان بھائی، آپ آف لائن ہیں۔ AI مشیر کے لیے انٹرنیٹ ضروری ہے — رابطہ بحال کر کے دوبارہ پوچھیں۔'
+          : 'You are offline. The AI advisor needs internet — please reconnect and ask again.'
+        : effectiveVoiceLang === 'sd'
           ? 'معاف ڪجو هاري ڀاءُ، رابطي ۾ عارضي رنڊڪ آهي. مهرباني ڪري ٻيهر پڇو.'
           : effectiveVoiceLang === 'ur'
           ? 'معاف کیجیے کسان بھائی، رابطے میں عارضی رکاوٹ آئی ہے۔ براہ کرم دوبارہ پوچھیں۔'
@@ -283,6 +292,7 @@ export default function AssistantPage() {
   const handleToggleMic = () => {
     stopSpeaking();
     setAiSpeaking(false);
+    setMicError(null);
 
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
@@ -293,6 +303,18 @@ export default function AssistantPage() {
       sessionRef.current?.stop();
       setListening(false);
       setVoicePhase('idle');
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setVoicePhase('error');
+      setMicError(
+        voiceLang === 'sd'
+          ? 'آواز سڃاڻڻ لاءِ انٽرنيٽ ضروري آهي.'
+          : voiceLang === 'ur'
+          ? 'آواز سے سوال پوچھنے کے لیے انٹرنیٹ ضروری ہے۔'
+          : 'Voice input requires an internet connection.'
+      );
       return;
     }
 
@@ -308,9 +330,26 @@ export default function AssistantPage() {
           setVoicePhase('idle');
         }
       },
-      onError: () => {
+      onError: (err) => {
         setListening(false);
         setVoicePhase('idle');
+        if (err === 'stt_network_error' || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+          setMicError(
+            voiceLang === 'sd'
+              ? 'نيٽ ورڪ نه هجڻ سبب آواز نه سمجهي سگهيو.'
+              : voiceLang === 'ur'
+              ? 'انٹرنیٹ نہ ہونے کی وجہ سے آواز موصول نہیں ہو سکی۔'
+              : 'Voice input failed — please check your connection.'
+          );
+        } else if (err === 'not-allowed' || err === 'permission-denied') {
+          setMicError(
+            voiceLang === 'sd'
+              ? 'مهرباني ڪري مائڪ جي اجازت ڏيو.'
+              : voiceLang === 'ur'
+              ? 'براہِ کرم براؤزر میں مائیکروفون کی اجازت دیں۔'
+              : 'Please allow microphone permission in your browser settings.'
+          );
+        }
       },
       onEnd: () => {
         setListening(false);
@@ -615,6 +654,11 @@ export default function AssistantPage() {
               <span className="text-xs font-bold text-ink/75 mt-1.5 text-center">
                 {listening ? t('micListening') : t('micReady')}
               </span>
+              {micError && (
+                <p className="text-xs font-bold text-alert-amber bg-cream border border-alert-amber/35 rounded-xl px-3 py-1.5 mt-2 text-center">
+                  {micError}
+                </p>
+              )}
             </div>
           ) : (
             <p className="text-xs text-ink/75 bg-cream p-3 rounded-tile text-center">

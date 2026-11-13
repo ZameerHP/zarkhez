@@ -176,6 +176,11 @@ export function TechnicalDetailsDrawer({
       );
       setFbStatus('submitted');
     } catch {
+      setServerMsg(
+        reportLang === 'en'
+          ? 'Could not send feedback right now (check connection).'
+          : 'انٹرنیٹ نہ ہونے کی وجہ سے رائے نہیں بھیجی جا سکی۔'
+      );
       setFbStatus('idle');
     }
   };
@@ -341,6 +346,9 @@ export function TechnicalDetailsDrawer({
               </div>
             ) : (
               <>
+                {serverMsg && (
+                  <p className="text-[11px] font-semibold text-alert-amber">{serverMsg}</p>
+                )}
                 <div className="flex items-center gap-2">
                   <button
                     type="button"

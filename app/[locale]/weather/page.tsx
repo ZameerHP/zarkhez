@@ -41,6 +41,7 @@ export default function WeatherPage() {
   const [weather, setWeather] = useState<WeatherForecastResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
+  const [weatherUnavailable, setWeatherUnavailable] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
 
   const fetchWeather = useCallback(async (lat: number, lon: number) => {
@@ -51,12 +52,16 @@ export default function WeatherPage() {
       const data = (await res.json()) as WeatherForecastResponse;
       setWeather(data);
       setIsOffline(false);
+      setWeatherUnavailable(false);
       saveWeatherToCache(data);
     } catch {
       const cached = getCachedWeather();
       if (cached) {
         setWeather(cached);
         setIsOffline(true);
+        setWeatherUnavailable(false);
+      } else {
+        setWeatherUnavailable(true);
       }
     } finally {
       setLoading(false);
@@ -133,6 +138,7 @@ export default function WeatherPage() {
           weather={weather}
           loading={loading}
           isOfflineCached={isOffline}
+          weatherUnavailable={weatherUnavailable}
           onRefresh={() => fetchWeather(coords.lat, coords.lon)}
           onChangeLocation={() => setShowLocationModal(true)}
         />

@@ -127,6 +127,7 @@ export default function ScanPage() {
 
   // Live mobile camera stream state & duplicate request guard refs
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraNotice, setCameraNotice] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -217,6 +218,7 @@ export default function ScanPage() {
 
   const handleOpenCamera = async () => {
     unlockAudio();
+    setCameraNotice(null);
     if (scanInFlightRef.current) return;
     if (
       typeof navigator !== 'undefined' &&
@@ -241,7 +243,17 @@ export default function ScanPage() {
           }
         }, 60);
         return;
-      } catch {
+      } catch (err: unknown) {
+        const errName = (err as { name?: string })?.name || '';
+        if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
+          setCameraNotice(
+            pickUi(
+              'Camera permission was denied. Allow camera access in browser settings or pick a photo from gallery.',
+              'کیمرے کی اجازت بند ہے۔ براؤزر سیٹنگز سے کیمرے کی اجازت دیں یا گیلری سے تصویر منتخب کریں۔',
+              'ڪئميرا جي اجازت بند آهي. برائوزر سيٽنگز مان اجازت ڏيو يا گيلري مان فوٽو چونڊيو.'
+            )
+          );
+        }
         // Fallback to native file input with capture="environment"
       }
     }
@@ -997,6 +1009,21 @@ export default function ScanPage() {
                 </span>
               </motion.button>
             </div>
+
+            {cameraNotice && (
+              <div className="rounded-2xl bg-cream border border-alert-amber/40 px-3.5 py-2.5 text-xs font-bold text-ink flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-alert-amber flex-shrink-0 mt-0.5" />
+                <span className="flex-1">{cameraNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setCameraNotice(null)}
+                  aria-label="Close"
+                  className="text-ink/50 hover:text-ink"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </motion.section>
         )}
 

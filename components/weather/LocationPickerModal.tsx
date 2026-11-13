@@ -38,6 +38,7 @@ export function LocationPickerModal({
   const [detectingGps, setDetectingGps] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<GeocodePlace[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const handleUseGps = () => {
     if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
@@ -59,14 +60,30 @@ export function LocationPickerModal({
   const handleSearchPlace = async (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim().length < 2) return;
+    setSearchError(null);
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setSearchResults([]);
+      setSearchError(
+        locale === 'ur'
+          ? 'تلاش کے لیے انٹرنیٹ درکار ہے — نیچے مشہور شہر منتخب کریں۔'
+          : 'City search needs internet — choose a popular district below.'
+      );
+      return;
+    }
     try {
       const res = await fetch(
         `/api/geocode?q=${encodeURIComponent(searchQuery.trim())}`
       );
+      if (!res.ok) throw new Error('Geocode failed');
       const data = await res.json();
       setSearchResults(data.places || []);
     } catch {
       setSearchResults([]);
+      setSearchError(
+        locale === 'ur'
+          ? 'تلاش اس وقت دستیاب نہیں — نیچے مشہور شہر منتخب کریں۔'
+          : 'Search unavailable right now — choose a popular district below.'
+      );
     }
   };
 
@@ -131,6 +148,12 @@ export function LocationPickerModal({
                 {tWelcome('searchBtn')}
               </button>
             </form>
+
+            {searchError && (
+              <p className="text-xs font-bold text-alert-amber bg-cream px-3 py-2 rounded-xl border border-alert-amber/30">
+                {searchError}
+              </p>
+            )}
 
             {searchResults.length > 0 && (
               <div className="max-h-32 overflow-y-auto space-y-1">

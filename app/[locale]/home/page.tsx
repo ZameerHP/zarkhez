@@ -61,6 +61,7 @@ export default function HomePage() {
   const [weather, setWeather] = useState<WeatherForecastResponse | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [isOfflineCached, setIsOfflineCached] = useState(false);
+  const [weatherUnavailable, setWeatherUnavailable] = useState(false);
   const [fields, setFields] = useState<FarmField[]>([]);
   const [showAddField, setShowAddField] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -83,12 +84,16 @@ export default function HomePage() {
       const data = (await res.json()) as WeatherForecastResponse;
       setWeather(data);
       setIsOfflineCached(false);
+      setWeatherUnavailable(false);
       saveWeatherToCache(data);
     } catch {
       const cached = getCachedWeather();
       if (cached) {
         setWeather(cached);
         setIsOfflineCached(true);
+        setWeatherUnavailable(false);
+      } else {
+        setWeatherUnavailable(true);
       }
     } finally {
       setLoadingWeather(false);
@@ -288,6 +293,7 @@ export default function HomePage() {
           weather={weather}
           loading={loadingWeather}
           isOfflineCached={isOfflineCached}
+          weatherUnavailable={weatherUnavailable}
           onRefresh={() => loadWeather(profile.lat, profile.lon)}
           onChangeLocation={() => setShowLocationModal(true)}
         />

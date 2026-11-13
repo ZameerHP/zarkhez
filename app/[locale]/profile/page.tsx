@@ -20,6 +20,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
 import { ZarkhezLogo } from '@/components/layout/ZarkhezLogo';
 import { LocationPickerModal } from '@/components/weather/LocationPickerModal';
+import { InstallAppCard } from '@/components/pwa/InstallApp';
 import {
   arePersonalFieldsComplete,
   deleteAllUserData,
@@ -524,6 +525,9 @@ export default function ProfilePage() {
             />
           </label>
         </section>
+
+        {/* Install ZARKHEZ as an app (PWA) — hidden once installed */}
+        <InstallAppCard />
 
         {/* Bottom Actions: Back, Sign Out, Delete Data */}
         <div className="space-y-3 pt-1">

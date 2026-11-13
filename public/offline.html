@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#062409" />
+  <meta name="robots" content="noindex" />
+  <title>ZARKHEZ — آف لائن</title>
+  <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="manifest" href="/manifest.json" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: calc(24px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right))
+        calc(24px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
+      background: radial-gradient(120% 80% at 50% 0%, #0b3a12 0%, #062409 45%, #021403 100%);
+      color: #fbf6d9;
+      font-family: 'Noto Naskh Arabic', 'Noto Nastaliq Urdu', 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+      text-align: center;
+    }
+    .card { width: 100%; max-width: 400px; }
+    .logo {
+      width: 96px; height: 96px; margin: 0 auto 20px;
+      border-radius: 26px; overflow: hidden;
+      border: 2px solid rgba(52, 211, 153, 0.45);
+      box-shadow: 0 0 44px rgba(95, 165, 46, 0.45);
+    }
+    .logo img { width: 100%; height: 100%; display: block; object-fit: cover; }
+    .brand { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-weight: 900; letter-spacing: 0.18em; font-size: 22px; margin: 0; color: #fff; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin: 14px 0 18px; padding: 6px 14px; border-radius: 999px;
+      background: rgba(224, 161, 0, 0.14); border: 1px solid rgba(224, 161, 0, 0.45);
+      color: #f5c542; font-size: 13px; font-weight: 700;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #e0a100; box-shadow: 0 0 8px #e0a100; }
+    h1 { font-size: 24px; line-height: 1.9; margin: 0 0 4px; color: #fff; }
+    p { margin: 0; line-height: 1.95; font-size: 16px; color: rgba(251, 246, 217, 0.88); }
+    .en, .sd { font-size: 14px; color: rgba(251, 246, 217, 0.7); margin-top: 8px; }
+    .en { direction: ltr; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; line-height: 1.55; }
+    .box {
+      margin: 22px 0; padding: 14px 16px; border-radius: 18px;
+      background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
+      text-align: start; font-size: 14px;
+    }
+    .box p { font-size: 14px; }
+    .btn {
+      width: 100%; min-height: 54px; border: 0; border-radius: 18px; cursor: pointer;
+      background: linear-gradient(135deg, #5fa52e, #3f7a1e); color: #fff;
+      font-size: 17px; font-weight: 800; font-family: inherit;
+      box-shadow: 0 10px 30px rgba(95, 165, 46, 0.35);
+      touch-action: manipulation;
+    }
+    .btn:active { transform: scale(0.98); }
+    .hint { margin-top: 14px; font-size: 12px; color: rgba(251, 246, 217, 0.55); font-family: system-ui, sans-serif; direction: ltr; }
+  </style>
+</head>
+<body>
+  <main class="card" role="main">
+    <div class="logo"><img src="/icons/icon-192.png" alt="ZARKHEZ" width="96" height="96" /></div>
+    <p class="brand" dir="ltr">ZARKHEZ</p>
+    <div class="pill" dir="ltr"><span class="dot"></span><span id="status">Offline · آف لائن</span></div>
+
+    <h1>انٹرنیٹ دستیاب نہیں</h1>
+    <p>کسان بھائی، اس وقت آپ کا رابطہ منقطع ہے۔ انٹرنیٹ بحال ہوتے ہی زرخیز خود بخود دوبارہ کھل جائے گا۔</p>
+    <p class="sd" lang="sd">هاري ڀاءُ، هن وقت انٽرنيٽ ڪونهي. انٽرنيٽ بحال ٿيندي ئي زرخيز پاڻمرادو ٻيهر کلي ويندو.</p>
+    <p class="en" lang="en">You're offline. ZARKHEZ will reopen automatically as soon as your connection is back.</p>
+
+    <div class="box">
+      <p>• AI مشیر، فصل اسکین کا تجزیہ اور موسم کی تازہ معلومات کے لیے انٹرنیٹ ضروری ہے۔</p>
+      <p class="en" lang="en" style="margin-top:6px">AI advisor, crop-scan analysis and live weather need an internet connection.</p>
+    </div>
+
+    <button class="btn" id="retry" type="button">دوبارہ کوشش کریں · Try again</button>
+    <p class="hint">Tip: check mobile data or Wi-Fi, then tap “Try again”.</p>
+  </main>
+
+  <script>
+    (function () {
+      var retry = function () { window.location.reload(); };
+      document.getElementById('retry').addEventListener('click', retry);
+      window.addEventListener('online', function () {
+        var s = document.getElementById('status');
+        if (s) s.textContent = 'Reconnecting · رابطہ بحال ہو رہا ہے';
+        setTimeout(retry, 600);
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -22,6 +22,7 @@ interface WeatherCardProps {
   weather: WeatherForecastResponse | null;
   loading: boolean;
   isOfflineCached?: boolean;
+  weatherUnavailable?: boolean;
   onRefresh?: () => void;
   onChangeLocation?: () => void;
 }
@@ -36,6 +37,7 @@ export function WeatherCard({
   weather,
   loading,
   isOfflineCached = false,
+  weatherUnavailable = false,
   onRefresh,
   onChangeLocation,
 }: WeatherCardProps) {
@@ -128,7 +130,13 @@ export function WeatherCard({
               )}
             </button>
             <div className="flex items-center gap-2 text-[11px] text-ink/60">
-              {isOfflineCached ? (
+              {weatherUnavailable ? (
+                <span className="text-alert-amber font-bold">
+                  {locale === 'ur'
+                    ? 'آف لائن — تازہ موسم کے لیے انٹرنیٹ درکار ہے'
+                    : 'Offline — live weather needs internet'}
+                </span>
+              ) : isOfflineCached ? (
                 <span className="text-alert-amber font-bold">
                   {tHome('cachedOffline')}
                 </span>

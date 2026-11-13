@@ -5,11 +5,13 @@ import {
   Noto_Naskh_Arabic,
 } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
+import { getMessages, getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
-import { ServiceWorkerRegistrar } from '@/components/layout/ServiceWorkerRegistrar';
 import { AuthGuard } from '@/components/auth/AuthGuard';
+import { PWAProvider } from '@/components/pwa/PWAProvider';
+import { PWAOverlays } from '@/components/pwa/PWAOverlays';
+import { LaunchSplash, PWA_HEAD_SCRIPT } from '@/components/pwa/LaunchSplash';
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -46,6 +48,7 @@ export default async function LocaleLayout({
   }
 
   const messages = await getMessages();
+  const tApp = await getTranslations({ locale, namespace: 'app' });
   const dir = locale === 'ur' ? 'rtl' : 'ltr';
 
   return (
@@ -55,14 +58,20 @@ export default async function LocaleLayout({
       className={`${plusJakarta.variable} ${notoNastaliq.variable} ${notoNaskh.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: PWA_HEAD_SCRIPT }} />
+      </head>
       <body className="min-h-[100dvh] bg-canvas text-ink antialiased selection:bg-olive selection:text-white">
+        <LaunchSplash tagline={tApp('tagline')} />
         <NextIntlClientProvider messages={messages} locale={locale}>
-          <ServiceWorkerRegistrar />
-          <AuthGuard>
-            <div className="mx-auto max-w-[480px] min-h-[100dvh] bg-canvas relative shadow-2xl overflow-x-hidden">
-              {children}
-            </div>
-          </AuthGuard>
+          <PWAProvider>
+            <PWAOverlays />
+            <AuthGuard>
+              <div className="mx-auto max-w-[480px] min-h-[100dvh] bg-canvas relative shadow-2xl overflow-x-hidden">
+                {children}
+              </div>
+            </AuthGuard>
+          </PWAProvider>
         </NextIntlClientProvider>
       </body>
     </html>
