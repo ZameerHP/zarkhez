@@ -789,7 +789,7 @@ export default function ScanPage() {
         </div>
       </header>
 
-      <main className="px-4 sm:px-5 mt-4 space-y-4 max-w-md mx-auto">
+      <main className="px-3.5 sm:px-5 mt-4 space-y-4 w-full max-w-2xl mx-auto">
         {/* Step A: User Crop Selector (Treated as user input, NOT visual proof) */}
         {!diagnosis && !analysing && (
           <motion.section
@@ -813,7 +813,7 @@ export default function ScanPage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 min-[380px]:grid-cols-4 gap-2">
               {supportedCrops.map((c) => {
                 const active = selectedCrop.toLowerCase() === c.key;
                 return (
@@ -821,7 +821,7 @@ export default function ScanPage() {
                     key={c.key}
                     type="button"
                     onClick={() => setSelectedCrop(c.key)}
-                    className={`min-h-[42px] px-1.5 rounded-xl font-extrabold text-xs transition-all border ${
+                    className={`min-h-[44px] px-2 py-1.5 rounded-xl font-extrabold text-xs leading-tight break-words transition-all border ${
                       active
                         ? 'bg-[#062409] text-white border-[#062409] shadow-sm ring-2 ring-emerald-500/25'
                         : 'bg-canvas/70 text-ink/80 hover:bg-olive/10 border-olive/15'
@@ -857,7 +857,7 @@ export default function ScanPage() {
                     }
                   : undefined
               }
-              className={`relative h-60 sm:h-72 rounded-2xl bg-[#062409] overflow-hidden flex flex-col items-center justify-center p-4 text-white shadow-inner ${
+              className={`relative h-56 sm:h-72 landscape:h-52 md:landscape:h-64 rounded-2xl bg-[#062409] overflow-hidden flex flex-col items-center justify-center p-4 text-white shadow-inner ${
                 !cameraActive ? 'cursor-pointer group' : ''
               }`}
             >
@@ -982,10 +982,10 @@ export default function ScanPage() {
                 type="button"
                 whileTap={{ scale: 0.97 }}
                 onClick={handleOpenCamera}
-                className="min-h-[50px] px-3.5 py-2.5 rounded-full bg-[#062409] hover:bg-olive-dark text-white font-extrabold text-[13px] sm:text-sm shadow-soft flex items-center justify-center gap-2 transition-all"
+                className="min-h-[50px] px-3.5 py-2.5 rounded-full bg-[#062409] hover:bg-olive-dark text-white font-extrabold text-[13px] sm:text-sm shadow-soft flex items-center justify-center gap-2 transition-all text-center"
               >
                 <Camera className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span className="leading-tight whitespace-nowrap">
+                <span className="leading-snug">
                   {pickUi('Take Plant Photo', 'کیمرے سے تصویر لیں', 'ڪئميرا سان فوٽو ڪڍو')}
                 </span>
               </motion.button>
@@ -997,10 +997,10 @@ export default function ScanPage() {
                   unlockAudio();
                   uploadInputRef.current?.click();
                 }}
-                className="min-h-[50px] px-3.5 py-2.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#062409] border border-olive/30 font-extrabold text-[13px] sm:text-sm shadow-sm flex items-center justify-center gap-2 transition-all"
+                className="min-h-[50px] px-3.5 py-2.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-[#062409] border border-olive/30 font-extrabold text-[13px] sm:text-sm shadow-sm flex items-center justify-center gap-2 transition-all text-center"
               >
                 <Upload className="w-4 h-4 text-olive flex-shrink-0" />
-                <span className="leading-tight whitespace-nowrap">
+                <span className="leading-snug">
                   {pickUi(
                     'Upload From Gallery',
                     'گیلری سے تصویر منتخب کریں',
@@ -1030,12 +1030,12 @@ export default function ScanPage() {
         {/* Quality Check Advisory Modal */}
         <AnimatePresence>
           {pendingQualityData && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[75] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl border-2 border-alert-amber text-start space-y-4"
+                className="w-full max-w-sm max-h-[90dvh] overflow-y-auto overscroll-contain rounded-3xl bg-white p-5 shadow-2xl border-2 border-alert-amber text-start space-y-4"
               >
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-amber-500/15 flex items-center justify-center text-alert-amber flex-shrink-0">
@@ -1573,7 +1573,7 @@ export default function ScanPage() {
               )}
 
               {/* Language Selector Bar (Urdu | Sindhi | English) */}
-              <div className="bg-white rounded-2xl p-2 shadow-soft border border-olive/15 flex items-center justify-between gap-1">
+              <div className="bg-white rounded-2xl p-2 shadow-soft border border-olive/15 flex items-center justify-between flex-wrap gap-2">
                 <span className="text-[11px] font-black text-ink/60 px-2 flex items-center gap-1.5">
                   <span>{pickReport('Report Language:', 'زبان منتخب کریں:', 'ٻولي چونڊيو:')}</span>
                   {sdTranslating && (
@@ -1596,7 +1596,7 @@ export default function ScanPage() {
                         key={langItem.key}
                         type="button"
                         onClick={() => handleSelectReportLang(langItem.key)}
-                        className={`px-3 py-1 rounded-xl text-xs font-black transition-all ${
+                        className={`min-h-[38px] px-3 py-1 rounded-xl text-xs font-black transition-all ${
                           active
                             ? 'bg-[#062409] text-white shadow-sm'
                             : 'bg-canvas text-ink/70 hover:bg-olive/15'
@@ -1930,18 +1930,18 @@ export default function ScanPage() {
 
                 {/* Actions: Save to Farm Diary & Scan Another */}
                 <div className="space-y-2 pt-2">
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2.5">
                     <button
                       type="button"
                       onClick={handleSaveToDiary}
                       disabled={savedToDiary || savingToDiary}
-                      className={`min-h-[48px] rounded-full font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                      className={`min-h-[48px] px-3 py-2 rounded-full font-extrabold text-xs flex items-center justify-center gap-1.5 text-center transition-all ${
                         savedToDiary
                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                           : 'bg-white hover:bg-canvas text-ink border-2 border-olive/30 shadow-sm'
                       }`}
                     >
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                       <span>
                         {savingToDiary
                           ? pickReport('Saving...', 'محفوظ ہو رہا ہے...', 'محفوظ ٿي رهيو آهي...')
@@ -1954,9 +1954,9 @@ export default function ScanPage() {
                     <button
                       type="button"
                       onClick={resetScan}
-                      className="min-h-[48px] rounded-full bg-gradient-to-r from-olive to-emerald-600 hover:from-olive-dark hover:to-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
+                      className="min-h-[48px] px-3 py-2 rounded-full bg-gradient-to-r from-olive to-emerald-600 hover:from-olive-dark hover:to-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 text-center shadow-md active:scale-95 transition-all"
                     >
-                      <RotateCcw className="w-4 h-4 text-white" />
+                      <RotateCcw className="w-4 h-4 text-white flex-shrink-0" />
                       <span>
                         {pickReport('Scan Another Plant', 'نیا پودا اسکین کریں', 'نئون ٻوٽو اسڪين ڪريو')}
                       </span>

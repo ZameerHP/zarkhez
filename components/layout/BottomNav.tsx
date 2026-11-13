@@ -35,13 +35,13 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Primary Bottom Navigation"
-      className="fixed bottom-0 inset-x-0 z-50 pointer-events-none flex justify-center px-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom))]"
+      className="fixed bottom-0 inset-x-0 z-40 pointer-events-none flex justify-center px-1.5 min-[360px]:px-2.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
     >
       <motion.div
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-        className="pointer-events-auto w-full max-w-[450px] bg-[#062409]/95 backdrop-blur-lg text-white rounded-[26px] p-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)] border border-emerald-400/20 grid grid-cols-6 gap-0.5 items-center"
+        className="pointer-events-auto w-full max-w-[450px] md:max-w-[600px] bg-[#062409]/95 backdrop-blur-lg text-white rounded-[24px] sm:rounded-[26px] p-1 sm:p-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)] border border-emerald-400/20 grid grid-cols-6 gap-0.5 items-center"
       >
         {items.map((item) => {
           const Icon = item.icon;
@@ -80,14 +80,14 @@ export function BottomNav() {
                 }`}
               >
                 <Icon
-                  className={`w-[19px] h-[19px] ${
+                  className={`w-[18px] h-[18px] min-[375px]:w-[19px] min-[375px]:h-[19px] ${
                     isActive
                       ? 'stroke-[2.5px] text-emerald-300'
                       : 'stroke-[2px]'
                   }`}
                 />
               </motion.div>
-              <span className="relative z-10 text-[10px] mt-0.5 leading-tight truncate max-w-full px-0.5">
+              <span className="relative z-10 text-[9px] min-[360px]:text-[10px] sm:text-[11px] mt-0.5 leading-tight truncate max-w-full px-0.5">
                 {item.label}
               </span>
             </Link>

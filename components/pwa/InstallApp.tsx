@@ -111,7 +111,7 @@ export function InstallInstructionsSheet({
             exit={{ y: 60, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 340, damping: 30 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-[480px] rounded-t-[28px] bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl space-y-4 text-start"
+            className="w-full max-w-[480px] max-h-[88dvh] overflow-y-auto overscroll-contain rounded-t-[28px] sm:rounded-[28px] bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl space-y-4 text-start"
           >
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-[14px] overflow-hidden border border-emerald-400/40 shadow-md flex-shrink-0 bg-[#062409]">
@@ -265,7 +265,7 @@ export function InstallAppPill() {
         type="button"
         onClick={() => void install()}
         disabled={busy}
-        className="mt-2 inline-flex items-center gap-1.5 min-h-[36px] px-3.5 py-1 rounded-full bg-white/10 hover:bg-white/20 border border-emerald-400/35 text-xs font-bold text-emerald-200 transition-all active:scale-95 disabled:opacity-70"
+        className="mt-2 inline-flex items-center gap-1.5 min-h-[44px] px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-emerald-400/35 text-xs font-bold text-emerald-200 transition-all active:scale-95 disabled:opacity-70"
       >
         <Download className="w-3.5 h-3.5 text-emerald-300" />
         <span>{busy ? t('installing') : t('installButton')}</span>

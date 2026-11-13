@@ -185,9 +185,9 @@ export default function HomePage() {
     : '';
 
   return (
-    <div className="min-h-[100dvh] pb-32 bg-canvas overflow-x-hidden">
+    <div className="min-h-[100dvh] pb-32 bg-canvas [overflow-x:clip]">
       {/* Enhanced Deep Emerald / Olive Header */}
-      <header className="bg-gradient-to-b from-[#051D08] via-[#133A19] to-[#264E1C] text-white rounded-b-[36px] px-4 sm:px-5 pt-4 pb-24 shadow-[0_14px_38px_rgba(6,36,9,0.22)] relative overflow-hidden">
+      <header className="bg-gradient-to-b from-[#051D08] via-[#133A19] to-[#264E1C] text-white rounded-b-[32px] sm:rounded-b-[36px] px-3.5 min-[375px]:px-4 sm:px-6 pt-4 pb-24 shadow-[0_14px_38px_rgba(6,36,9,0.22)] relative overflow-hidden">
         <div
           className="absolute -top-20 -end-16 w-60 h-60 rounded-full bg-olive-fresh/25 blur-3xl pointer-events-none"
           aria-hidden="true"
@@ -198,9 +198,9 @@ export default function HomePage() {
         />
 
         {/* Top Bar: Zarkhez Emblem + Language Toggle + Refresh */}
-        <div className="relative z-10 flex items-center justify-between gap-2">
-          <ZarkhezLogo size={38} lightText />
-          <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="relative z-10 flex items-center justify-between gap-1.5 min-[375px]:gap-2">
+          <ZarkhezLogo size={36} lightText />
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <LanguageToggle variant="glass" />
             <motion.button
               type="button"
@@ -286,7 +286,7 @@ export default function HomePage() {
       </header>
 
       {/* Main Content Overlapping the Olive Header */}
-      <main className="px-4 sm:px-5 -mt-16 relative z-20 space-y-5">
+      <main className="px-3.5 min-[375px]:px-4 sm:px-6 -mt-16 relative z-20 space-y-5">
         {/* White Weather Card + Active Alert Banner */}
         <WeatherCard
           placeName={profile.placeName}
@@ -382,7 +382,7 @@ export default function HomePage() {
             </h2>
           </div>
 
-          <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 sm:-mx-5 sm:px-5">
+          <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-2 -mx-3.5 px-3.5 min-[375px]:-mx-4 min-[375px]:px-4 sm:-mx-6 sm:px-6">
             {crops.map((crop) => (
               <Link
                 key={crop.key}
@@ -502,7 +502,7 @@ export default function HomePage() {
                             <button
                               type="button"
                               onClick={(e) => handleRemoveField(e, field.id)}
-                              className="p-1 text-ink/35 hover:text-alert-red"
+                              className="min-w-[40px] min-h-[40px] -me-2 flex items-center justify-center rounded-full text-ink/40 hover:text-alert-red hover:bg-alert-red/10 flex-shrink-0"
                               aria-label={tApp('delete')}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -581,13 +581,13 @@ export default function HomePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+            className="fixed inset-0 z-[75] bg-ink/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] overflow-y-auto"
           >
             <motion.div
               initial={{ y: 40, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 40, opacity: 0 }}
-              className="w-full max-w-[430px] bg-white rounded-card p-5 shadow-2xl space-y-4"
+              className="w-full max-w-[430px] max-h-[90dvh] overflow-y-auto overscroll-contain bg-white rounded-card p-4 sm:p-5 shadow-2xl space-y-4"
             >
               <h3 className="font-extrabold text-lg text-ink">
                 {tDiary('addFieldModalTitle')}
@@ -602,19 +602,19 @@ export default function HomePage() {
                     value={newFieldName}
                     onChange={(e) => setNewFieldName(e.target.value)}
                     placeholder="نہر والا کھیت / North Plot"
-                    className="w-full min-h-[46px] px-3.5 rounded-tile bg-canvas border border-olive/25 text-sm"
+                    className="w-full min-h-[46px] px-3.5 rounded-tile bg-canvas border border-olive/25 text-base sm:text-sm"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
+                <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
+                  <div className="min-w-0">
                     <label className="block text-xs font-bold text-ink/75 mb-1">
                       {tTools('selectCrop')}
                     </label>
                     <select
                       value={newFieldCrop}
                       onChange={(e) => setNewFieldCrop(e.target.value)}
-                      className="w-full min-h-[46px] px-3 rounded-tile bg-canvas border border-olive/25 text-sm font-semibold"
+                      className="w-full min-w-0 min-h-[46px] px-3 rounded-tile bg-canvas border border-olive/25 text-base sm:text-sm font-semibold"
                     >
                       {crops.map((c) => (
                         <option key={c.key} value={c.key}>
@@ -624,7 +624,7 @@ export default function HomePage() {
                     </select>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-xs font-bold text-ink/75 mb-1">
                       {tTools('landSize')}
                     </label>
@@ -634,13 +634,13 @@ export default function HomePage() {
                       min="0.5"
                       value={newFieldArea}
                       onChange={(e) => setNewFieldArea(e.target.value)}
-                      className="w-full min-h-[46px] px-3.5 rounded-tile bg-canvas border border-olive/25 text-sm font-bold"
+                      className="w-full min-w-0 min-h-[46px] px-3.5 rounded-tile bg-canvas border border-olive/25 text-base sm:text-sm font-bold"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
+                <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
+                  <div className="min-w-0">
                     <label className="block text-xs font-bold text-ink/75 mb-1">
                       {tTools('soilType')}
                     </label>
@@ -649,7 +649,7 @@ export default function HomePage() {
                       onChange={(e) =>
                         setNewFieldSoil(e.target.value as SoilType)
                       }
-                      className="w-full min-h-[46px] px-3 rounded-tile bg-canvas border border-olive/25 text-sm font-semibold"
+                      className="w-full min-w-0 min-h-[46px] px-3 rounded-tile bg-canvas border border-olive/25 text-base sm:text-sm font-semibold"
                     >
                       <option value="poor">{tTools('soilPoor')}</option>
                       <option value="medium">{tTools('soilMedium')}</option>
@@ -657,7 +657,7 @@ export default function HomePage() {
                     </select>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-xs font-bold text-ink/75 mb-1">
                       {tTools('sowingDate')}
                     </label>
@@ -665,7 +665,7 @@ export default function HomePage() {
                       type="date"
                       value={newFieldDate}
                       onChange={(e) => setNewFieldDate(e.target.value)}
-                      className="w-full min-h-[46px] px-3 rounded-tile bg-canvas border border-olive/25 text-sm"
+                      className="w-full min-w-0 min-h-[46px] px-3 rounded-tile bg-canvas border border-olive/25 text-base sm:text-sm"
                     />
                   </div>
                 </div>

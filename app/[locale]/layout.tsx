@@ -12,6 +12,7 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { PWAProvider } from '@/components/pwa/PWAProvider';
 import { PWAOverlays } from '@/components/pwa/PWAOverlays';
 import { LaunchSplash, PWA_HEAD_SCRIPT } from '@/components/pwa/LaunchSplash';
+import { ZoomGuard } from '@/components/pwa/ZoomGuard';
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -65,9 +66,10 @@ export default async function LocaleLayout({
         <LaunchSplash tagline={tApp('tagline')} />
         <NextIntlClientProvider messages={messages} locale={locale}>
           <PWAProvider>
+            <ZoomGuard />
             <PWAOverlays />
             <AuthGuard>
-              <div className="mx-auto max-w-[480px] min-h-[100dvh] bg-canvas relative shadow-2xl overflow-x-hidden">
+              <div className="mx-auto w-full max-w-[860px] min-h-[100dvh] bg-canvas relative xl:shadow-2xl [overflow-x:clip]">
                 {children}
               </div>
             </AuthGuard>

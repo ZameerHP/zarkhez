@@ -552,6 +552,22 @@ async function runTests() {
     assert.ok(spokenEn.includes('Assalamo Alaikum'), 'Must smooth standalone o pause in English greeting');
     assert.ok(spokenEn.includes('Zar-khaze'), 'Must apply connected phonetic spelling Zar-khaze for Zarkhez');
     assert.ok(!spokenEn.includes('Zar khaiz'), 'Must not split Zarkhez with old disconnected spelling');
+    assert.ok(
+      !spokenEn.toLowerCase().includes('calcium ammonium nitrate'),
+      'Lowercase verb "can" in greeting must never be expanded to Calcium Ammonium Nitrate fertilizer'
+    );
+    assert.ok(
+      toSpokenText('Apply 1 bag of CAN fertilizer.', 'en', { lexiconEntries: lexicon })
+        .spokenText.toLowerCase()
+        .includes('calcium ammonium nitrate'),
+      'Uppercase CAN fertilizer acronym should still expand cleanly'
+    );
+    assert.ok(
+      !toSpokenText('You can spray safely in calm weather.', 'en', { lexiconEntries: lexicon })
+        .spokenText.toLowerCase()
+        .includes('calcium ammonium nitrate'),
+      'Lowercase "can" in farming advice must stay "can"'
+    );
 
     const spokenUr = toSpokenText(hiUr.spokenText, 'ur', { lexiconEntries: lexicon }).spokenText;
     assert.ok(spokenUr.includes('زَرخیز'), 'Must apply crisp zabar hint for Urdu Zarkhez pronunciation');

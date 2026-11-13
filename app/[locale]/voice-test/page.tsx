@@ -185,17 +185,17 @@ export default function VoiceListeningTestPage() {
   return (
     <div className="min-h-screen bg-[#f4f7f2] text-[#0c1a12] p-4 sm:p-6" dir="ltr">
       <div className="max-w-3xl mx-auto space-y-5">
-        <header className="flex items-center justify-between gap-3 bg-white rounded-3xl p-4 shadow-sm border border-[#dce6da]">
-          <div className="flex items-center gap-3">
+        <header className="flex flex-wrap items-center justify-between gap-3 bg-white rounded-3xl p-4 shadow-sm border border-[#dce6da]">
+          <div className="flex items-center gap-3 min-w-0">
             <Link
               href="/home"
               locale={locale}
-              className="w-10 h-10 rounded-full bg-[#eef3ec] flex items-center justify-center text-[#165b33]"
+              className="w-10 h-10 rounded-full bg-[#eef3ec] flex items-center justify-center text-[#165b33] flex-shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <div>
-              <h1 className="text-lg font-extrabold text-[#0c1a12]">
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-extrabold text-[#0c1a12]">
                 Zarkhez Native Voice Listening Test (A/B Panel)
               </h1>
               <p className="text-xs text-[#4a5d52]">
@@ -217,7 +217,7 @@ export default function VoiceListeningTestPage() {
 
         {/* Evaluator & Language Controls */}
         <section className="bg-white rounded-3xl p-4 shadow-sm border border-[#dce6da] flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {(['Evaluator 1', 'Evaluator 2', 'Evaluator 3', 'Evaluator 4', 'Evaluator 5'] as const).map(
               (ev) => (
                 <button
@@ -301,7 +301,7 @@ export default function VoiceListeningTestPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {(['A', 'B'] as const).map((side) => {
               const isPlaying = playingSide === side;
               return (
@@ -391,7 +391,7 @@ export default function VoiceListeningTestPage() {
               value={currentScore.notes}
               onChange={(e) => setCurrentScore((prev) => ({ ...prev, notes: e.target.value }))}
               placeholder="Optional native feedback (e.g. mispronounced letter or suggested phrasing)"
-              className="w-full rounded-xl bg-[#f7faf6] border border-[#dce6da] px-3.5 py-2.5 text-xs"
+              className="w-full min-h-[44px] rounded-xl bg-[#f7faf6] border border-[#dce6da] px-3.5 py-2.5 text-base sm:text-xs"
             />
 
             <button
@@ -420,7 +420,7 @@ export default function VoiceListeningTestPage() {
                 Overall: {aggregate.overall} / 5.0 {aggregate.passesTarget ? '(Target >= 4.0 Met)' : '(Needs tuning)'}
               </span>
             </div>
-            <div className="grid grid-cols-4 gap-2 text-center">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
               <div className="p-2 rounded-xl bg-[#f7faf6]">Clarity: <strong>{aggregate.clarity}</strong></div>
               <div className="p-2 rounded-xl bg-[#f7faf6]">Natural: <strong>{aggregate.naturalness}</strong></div>
               <div className="p-2 rounded-xl bg-[#f7faf6]">Accent: <strong>{aggregate.accent}</strong></div>

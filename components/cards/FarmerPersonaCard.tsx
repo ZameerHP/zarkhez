@@ -105,7 +105,7 @@ export function FarmerPersonaCard({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-olive-dark via-[#2E4614] to-ink text-white p-5 shadow-2xl border-2 border-wheat/45 space-y-4">
+    <div className="relative overflow-hidden rounded-card bg-gradient-to-br from-olive-dark via-[#2E4614] to-ink text-white p-4 sm:p-5 shadow-2xl border-2 border-wheat/45 space-y-4">
       {/* Subtle decorative gold circles */}
       <div
         className="absolute -top-16 -end-16 w-44 h-44 rounded-full bg-wheat/20 blur-2xl pointer-events-none"
@@ -113,7 +113,7 @@ export function FarmerPersonaCard({
       />
 
       {/* Card Header: Logo + Official Persona ID Pill */}
-      <div className="relative z-10 flex items-center justify-between gap-2 pb-3 border-b border-white/15">
+      <div className="relative z-10 flex items-center justify-between gap-2 flex-wrap pb-3 border-b border-white/15">
         <ZarkhezLogo size={32} lightText subtitle={t('personaCardTitle')} />
         <div className="text-end">
           <span className="block text-[10px] uppercase tracking-wider text-cream/75">
@@ -129,26 +129,26 @@ export function FarmerPersonaCard({
       </div>
 
       {/* Farmer Identity Row */}
-      <div className="relative z-10 flex items-center gap-4">
+      <div className="relative z-10 flex items-center gap-3.5 sm:gap-4">
         {profile.avatarUrl ? (
           <img
             src={profile.avatarUrl}
             alt={profile.fullName}
-            className="w-16 h-16 rounded-2xl object-cover border-2 border-wheat shadow-md flex-shrink-0"
+            className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-wheat shadow-md flex-shrink-0"
           />
         ) : (
-          <div className="w-16 h-16 rounded-2xl bg-cream text-olive-dark font-extrabold text-xl flex items-center justify-center border-2 border-wheat shadow-md flex-shrink-0">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-cream text-olive-dark font-extrabold text-lg sm:text-xl flex items-center justify-center border-2 border-wheat shadow-md flex-shrink-0">
             {initials}
           </div>
         )}
 
         <div className="min-w-0 flex-1">
-          <h3 className="font-extrabold text-xl text-white truncate">
+          <h3 className="font-extrabold text-lg sm:text-xl text-white truncate">
             {profile.fullName}
           </h3>
 
           {profile.fatherOrFarmName && (
-            <p className="text-xs text-cream/90 font-medium mt-0.5">
+            <p className="text-xs text-cream/90 font-medium mt-0.5 truncate">
               {profile.fatherOrFarmName}
             </p>
           )}
@@ -156,7 +156,7 @@ export function FarmerPersonaCard({
       </div>
 
       {/* Personal & Farm Details Grid */}
-      <div className="relative z-10 grid grid-cols-2 gap-2.5 pt-2">
+      <div className="relative z-10 grid grid-cols-1 min-[360px]:grid-cols-2 gap-2.5 pt-2">
         <div className="bg-white/10 backdrop-blur-sm rounded-tile p-2.5">
           <span className="text-[11px] text-white/70 flex items-center gap-1">
             <MapPin className="w-3.5 h-3.5 text-wheat" />
@@ -214,7 +214,7 @@ export function FarmerPersonaCard({
       </div>
 
       {/* Bottom Verification Barcode Strip */}
-      <div className="relative z-10 pt-3 border-t border-white/15 flex items-center justify-between text-[11px] text-white/70">
+      <div className="relative z-10 pt-3 border-t border-white/15 flex items-center justify-between flex-wrap gap-2 text-[11px] text-white/70">
         <span>
           {t('memberSince')}: <bdi dir="ltr">{profile.joinedAt || '2026'}</bdi>
         </span>

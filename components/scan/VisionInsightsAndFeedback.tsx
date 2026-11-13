@@ -101,7 +101,7 @@ export function RegionSelectorBar({
       <select
         value={region}
         onChange={(e) => onRegionChange(e.target.value)}
-        className="text-xs font-bold bg-canvas border border-olive/20 rounded-xl px-2.5 py-1.5 text-ink max-w-[230px]"
+        className="text-base sm:text-sm font-bold bg-canvas border border-olive/20 rounded-xl px-2.5 py-2 min-h-[44px] text-ink w-full sm:w-auto sm:max-w-[260px]"
       >
         <option value="">{locale === 'ur' ? 'تمام علاقے (خودکار)' : 'Auto / Any Region'}</option>
         {PAKISTAN_REGION_PROFILES.map((rp) => (
@@ -354,43 +354,43 @@ export function TechnicalDetailsDrawer({
                     type="button"
                     disabled={fbStatus === 'submitting'}
                     onClick={() => sendFeedback('correct')}
-                    className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold text-[11px] flex items-center justify-center gap-1"
+                    className="flex-1 min-h-[44px] py-2 px-2 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1"
                   >
-                    <ThumbsUp className="w-3 h-3" />
+                    <ThumbsUp className="w-3.5 h-3.5" />
                     <span>{reportLang === 'en' ? 'Yes, Accurate' : 'جی درست ہے'}</span>
                   </button>
                   <button
                     type="button"
                     disabled={fbStatus === 'submitting'}
                     onClick={() => setFbStatus(fbStatus === 'editing' ? 'idle' : 'editing')}
-                    className="flex-1 py-1.5 px-2 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 font-bold text-[11px] flex items-center justify-center gap-1"
+                    className="flex-1 min-h-[44px] py-2 px-2 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1"
                   >
-                    <ThumbsDown className="w-3 h-3" />
+                    <ThumbsDown className="w-3.5 h-3.5" />
                     <span>{reportLang === 'en' ? 'Needs Correction' : 'درستگی بتائیں'}</span>
                   </button>
                 </div>
                 {fbStatus === 'editing' && (
-                  <div className="space-y-1.5 pt-1">
+                  <div className="space-y-2 pt-1">
                     <input
                       type="text"
                       value={correctedCrop}
                       onChange={(e) => setCorrectedCrop(e.target.value)}
                       placeholder={reportLang === 'en' ? 'Correct crop name' : 'درست فصل کا نام'}
-                      className="w-full px-2.5 py-1.5 rounded-lg bg-canvas border border-olive/20 text-xs"
+                      className="w-full min-h-[44px] px-3 py-2 rounded-lg bg-canvas border border-olive/20 text-base sm:text-sm"
                     />
                     <input
                       type="text"
                       value={correctedDisease}
                       onChange={(e) => setCorrectedDisease(e.target.value)}
                       placeholder={reportLang === 'en' ? 'Confirmed disease name' : 'درست بیماری کا نام'}
-                      className="w-full px-2.5 py-1.5 rounded-lg bg-canvas border border-olive/20 text-xs"
+                      className="w-full min-h-[44px] px-3 py-2 rounded-lg bg-canvas border border-olive/20 text-base sm:text-sm"
                     />
                     <textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       rows={2}
                       placeholder={reportLang === 'en' ? 'Extra notes...' : 'اضافی بات (اختیاری)'}
-                      className="w-full px-2.5 py-1.5 rounded-lg bg-canvas border border-olive/20 text-xs"
+                      className="w-full px-3 py-2 rounded-lg bg-canvas border border-olive/20 text-base sm:text-sm"
                     />
                     <label className="flex items-start gap-1.5 text-[10px] text-ink/75">
                       <input
@@ -407,7 +407,7 @@ export function TechnicalDetailsDrawer({
                     <button
                       type="button"
                       onClick={() => sendFeedback('incorrect')}
-                      className="w-full py-1.5 rounded-lg bg-[#062409] text-white font-bold text-xs"
+                      className="w-full min-h-[44px] py-2 rounded-lg bg-[#062409] text-white font-bold text-xs"
                     >
                       {reportLang === 'en' ? 'Send Feedback' : 'بھیجیں'}
                     </button>

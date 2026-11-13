@@ -25,7 +25,7 @@ export function ZarkhezLogo({
   animate = true,
 }: ZarkhezLogoProps) {
   return (
-    <div className="inline-flex items-center gap-2.5 select-none">
+    <div className="inline-flex items-center gap-2 min-[360px]:gap-2.5 select-none min-w-0 max-w-full">
       <motion.div
         dir="ltr"
         initial={animate ? { scale: 0.9, opacity: 0 } : false}
@@ -48,16 +48,16 @@ export function ZarkhezLogo({
       </motion.div>
       {showText && (
         <div className="flex flex-col min-w-0">
-          <div className="flex items-baseline gap-1.5 flex-wrap">
+          <div className="flex items-baseline gap-1 min-[360px]:gap-1.5 flex-wrap">
             <span
-              className={`font-extrabold tracking-tight text-lg leading-tight ${
+              className={`font-extrabold tracking-tight text-base min-[360px]:text-lg leading-tight ${
                 lightText ? 'text-white' : 'text-ink'
               }`}
             >
               Zarkhez
             </span>
             <span
-              className={`font-urduHeading text-base leading-loose ${
+              className={`font-urduHeading text-sm min-[360px]:text-base leading-loose ${
                 lightText ? 'text-cream' : 'text-olive-dark'
               }`}
             >

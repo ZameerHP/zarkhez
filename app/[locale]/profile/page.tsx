@@ -52,12 +52,6 @@ export default function ProfilePage() {
   const [totalAcres, setTotalAcres] = useState('5');
   const [selectedCrops, setSelectedCrops] = useState<string[]>(['wheat']);
 
-  const [autoSpeakVoice, setAutoSpeakVoice] = useState(true);
-  const [preferredVoice, setPreferredVoice] = useState<
-    'ur-PK-UzmaNeural' | 'ur-PK-AsadNeural'
-  >('ur-PK-UzmaNeural');
-  const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
-
   const [editingPersonalInfo, setEditingPersonalInfo] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -77,12 +71,6 @@ export default function ProfilePage() {
     setLon(p.lon);
     setTotalAcres(String(p.totalAcres > 0 ? p.totalAcres : ''));
     setSelectedCrops(p.primaryCrops?.length ? p.primaryCrops : ['wheat']);
-    setAutoSpeakVoice(p.autoSpeakVoice ?? true);
-    setPreferredVoice(
-      (p.preferredVoice as 'ur-PK-UzmaNeural' | 'ur-PK-AsadNeural') ||
-        'ur-PK-UzmaNeural'
-    );
-    setVoiceSpeed(p.voiceSpeed || 1.0);
   };
 
   useEffect(() => {
@@ -135,9 +123,6 @@ export default function ProfilePage() {
       totalAcres: Math.max(0.5, parseFloat(totalAcres) || 1),
       primaryCrops: selectedCrops,
       mainCrops: selectedCrops,
-      autoSpeakVoice,
-      preferredVoice,
-      voiceSpeed,
       language: locale,
       onboardingDone: true,
     });
@@ -147,25 +132,6 @@ export default function ProfilePage() {
     setEditingPersonalInfo(false);
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 3500);
-  };
-
-  const handleSaveVoiceSettings = async (
-    nextVoice: 'ur-PK-UzmaNeural' | 'ur-PK-AsadNeural',
-    nextSpeed: number,
-    nextAutoSpeak: boolean
-  ) => {
-    setPreferredVoice(nextVoice);
-    setVoiceSpeed(nextSpeed);
-    setAutoSpeakVoice(nextAutoSpeak);
-    const updated = await saveProfile({
-      preferredVoice: nextVoice,
-      voiceSpeed: nextSpeed,
-      autoSpeakVoice: nextAutoSpeak,
-      language: locale,
-    });
-    setProfile(updated);
-    setSavedNotice(true);
-    setTimeout(() => setSavedNotice(false), 2500);
   };
 
   const handleSignOut = async () => {
@@ -312,7 +278,7 @@ export default function ProfilePage() {
                     hydrateFieldsFromProfile(profile);
                     setEditingPersonalInfo(false);
                   }}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-canvas text-xs font-bold text-ink/70 hover:text-ink"
+                  className="inline-flex items-center gap-1 min-h-[40px] px-3 py-1 rounded-full bg-canvas text-xs font-bold text-ink/70 hover:text-ink"
                 >
                   <X className="w-3.5 h-3.5" />
                   <span>{tApp('cancel')}</span>
@@ -339,7 +305,7 @@ export default function ProfilePage() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder={locale === 'ur' ? 'مثلاً محمد اکرم' : 'e.g. Muhammad Akram'}
-                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-base sm:text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
                 />
               </div>
 
@@ -353,7 +319,7 @@ export default function ProfilePage() {
                   value={fatherOrFarmName}
                   onChange={(e) => setFatherOrFarmName(e.target.value)}
                   placeholder={locale === 'ur' ? 'مثلاً النور فارم' : 'e.g. Al-Noor Farm'}
-                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-base sm:text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
                 />
               </div>
             </div>
@@ -370,7 +336,7 @@ export default function ProfilePage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="0300-1234567"
-                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-base sm:text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
                 />
               </div>
 
@@ -386,7 +352,7 @@ export default function ProfilePage() {
                   dir="ltr"
                   value={totalAcres}
                   onChange={(e) => setTotalAcres(e.target.value)}
-                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-base sm:text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
                 />
               </div>
             </div>
@@ -402,7 +368,7 @@ export default function ProfilePage() {
                   value={villageOrTehsil}
                   onChange={(e) => setVillageOrTehsil(e.target.value)}
                   placeholder={locale === 'ur' ? 'مثلاً چک 45/12-L' : 'e.g. Village 45/12-L'}
-                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                  className="w-full min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-base sm:text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
                 />
               </div>
 
@@ -417,7 +383,7 @@ export default function ProfilePage() {
                     value={placeName}
                     onChange={(e) => setPlaceName(e.target.value)}
                     placeholder="Mirpur Khas, Sindh"
-                    className="flex-1 min-w-0 min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                    className="flex-1 min-w-0 min-h-[46px] px-3.5 rounded-xl bg-canvas border border-olive/25 text-base sm:text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
                   />
                   <button
                     type="button"
@@ -437,7 +403,7 @@ export default function ProfilePage() {
                 <Sprout className="w-3.5 h-3.5 text-olive" />
                 <span>{locale === 'ur' ? 'اہم فصلیں' : 'Primary Crops'} *</span>
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 min-[380px]:grid-cols-3 gap-2">
                 {crops.map((c) => {
                   const active = selectedCrops.includes(c.key);
                   return (
@@ -476,55 +442,6 @@ export default function ProfilePage() {
             </button>
           </form>
         )}
-
-        {/* Voice Preferences (Locked to single best female voice; speed & auto-speak synced cleanly) */}
-        <section className="bg-white rounded-2xl p-4 shadow-soft border border-olive/15 space-y-2.5">
-          <span className="block text-xs font-extrabold text-ink">
-            {locale === 'ur' ? 'آواز کی ترتیبات' : 'Voice Settings'}
-          </span>
-
-          <div className="flex items-center justify-between gap-2 pt-1">
-            <span className="text-[11px] font-bold text-ink/70">
-              {t('voiceSpeedLabel')}:
-            </span>
-            <div className="flex gap-1.5">
-              {[0.85, 1.0, 1.15].map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() =>
-                    handleSaveVoiceSettings(preferredVoice, s, autoSpeakVoice)
-                  }
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
-                    voiceSpeed === s
-                      ? 'bg-olive text-white'
-                      : 'bg-canvas text-ink/75 border border-olive/20'
-                  }`}
-                >
-                  {s}x
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <label className="flex items-center justify-between gap-2 pt-1 cursor-pointer">
-            <span className="text-xs font-bold text-ink/85">
-              {t('autoSpeakLabel')}
-            </span>
-            <input
-              type="checkbox"
-              checked={autoSpeakVoice}
-              onChange={(e) =>
-                handleSaveVoiceSettings(
-                  preferredVoice,
-                  voiceSpeed,
-                  e.target.checked
-                )
-              }
-              className="w-4 h-4 accent-olive rounded"
-            />
-          </label>
-        </section>
 
         {/* Install ZARKHEZ as an app (PWA) — hidden once installed */}
         <InstallAppCard />
@@ -580,8 +497,8 @@ export default function ProfilePage() {
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/75 backdrop-blur-sm">
-            <div className="w-full max-w-sm rounded-card bg-white p-5 space-y-4 text-start shadow-2xl border border-alert-red/20">
+          <div className="fixed inset-0 z-[75] flex items-center justify-center p-4 bg-ink/75 backdrop-blur-sm overflow-y-auto">
+            <div className="w-full max-w-sm max-h-[90dvh] overflow-y-auto overscroll-contain rounded-card bg-white p-5 space-y-4 text-start shadow-2xl border border-alert-red/20">
               <div className="w-12 h-12 rounded-full bg-alert-red/10 flex items-center justify-center text-alert-red">
                 <Trash2 className="w-6 h-6" />
               </div>

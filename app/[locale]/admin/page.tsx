@@ -116,7 +116,7 @@ export default function AdminDiagnosticsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0c1a12] text-[#e8efe9] p-6" dir="ltr">
+    <div className="min-h-screen bg-[#0c1a12] text-[#e8efe9] p-4 sm:p-6" dir="ltr">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
@@ -189,12 +189,12 @@ export default function AdminDiagnosticsPage() {
                 onChange={(e) => setAdminSecretInput(e.target.value)}
                 placeholder="Enter ADMIN_DIAGNOSTICS_SECRET"
                 autoComplete="off"
-                className="w-full rounded-xl bg-black/40 border border-white/15 px-3.5 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-400"
+                className="w-full min-h-[46px] rounded-xl bg-black/40 border border-white/15 px-3.5 py-2.5 text-base sm:text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-emerald-400"
               />
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm font-semibold text-white transition"
+                className="w-full min-h-[46px] py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm font-semibold text-white transition"
               >
                 {loading ? 'Verifying...' : 'Verify Admin Access'}
               </button>

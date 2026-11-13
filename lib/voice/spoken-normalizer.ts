@@ -203,8 +203,10 @@ function applyPronunciationLexicon(
     if (!replacement || replacement === alias) continue;
 
     const isAscii = /^[\x00-\x7F]+$/.test(alias);
+    // Match uppercase acronyms (e.g. CAN fertilizer vs modal verb "can", MOP vs "mop") case-sensitively.
+    const isUppercaseAcronym = isAscii && /[A-Z]/.test(alias) && !/[a-z]/.test(alias);
     const rx = isAscii
-      ? new RegExp(`\\b${escapeRegex(alias)}\\b`, 'gi')
+      ? new RegExp(`\\b${escapeRegex(alias)}\\b`, isUppercaseAcronym ? 'g' : 'gi')
       : new RegExp(`(^|[\\s،۔.!?:؟؛"'\\(\\)])(${escapeRegex(alias)})(?=$|[\\s،۔.!?:؟؛"'\\(\\)])`, 'g');
 
     if (rx.test(out)) {

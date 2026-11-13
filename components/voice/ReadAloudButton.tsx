@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Volume2, Square, Pause, Play, Turtle, RotateCcw } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
@@ -37,6 +37,7 @@ export function ReadAloudButton({
   const targetLang: VoiceLang = normalizeVoiceLang(lang || currentLocale);
 
   const [speaking, setSpeaking] = useState(false);
+  const speakingRef = useRef(false);
   const [paused, setPaused] = useState(false);
   const [phase, setPhase] = useState<VoicePhase>('idle');
   const [speedMode, setSpeedMode] = useState<VoiceSpeedMode>('normal');
@@ -46,7 +47,10 @@ export function ReadAloudButton({
   useEffect(() => {
     setSpeedMode(getSavedVoiceSpeed());
     return () => {
-      stopSpeaking();
+      if (speakingRef.current) {
+        speakingRef.current = false;
+        stopSpeaking();
+      }
     };
   }, [targetLang]);
 
@@ -61,6 +65,7 @@ export function ReadAloudButton({
       return;
     }
 
+    speakingRef.current = true;
     setSpeaking(true);
     setPhase('thinking');
 
@@ -71,16 +76,19 @@ export function ReadAloudButton({
       onPhaseChange: (p) => setPhase(p),
       onPauseChange: (isPaused) => setPaused(isPaused),
       onStart: () => {
+        speakingRef.current = true;
         setSpeaking(true);
         setPaused(false);
         setHasPlayed(true);
       },
       onEnd: () => {
+        speakingRef.current = false;
         setSpeaking(false);
         setPaused(false);
         setPhase('idle');
       },
       onError: () => {
+        speakingRef.current = false;
         setSpeaking(false);
         setPaused(false);
         setVoiceFailed(true);
@@ -91,6 +99,7 @@ export function ReadAloudButton({
 
   const handleToggle = () => {
     if (speaking) {
+      speakingRef.current = false;
       stopSpeaking();
       setSpeaking(false);
       setPaused(false);

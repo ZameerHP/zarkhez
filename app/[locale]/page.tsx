@@ -245,7 +245,7 @@ export default function WelcomePage() {
   };
 
   return (
-    <main className="relative min-h-[100dvh] bg-[#062409] text-white overflow-x-hidden flex flex-col justify-between selection:bg-emerald-500 selection:text-white max-w-md mx-auto">
+    <main className="relative min-h-[100dvh] bg-[#062409] text-white [overflow-x:clip] flex flex-col justify-between selection:bg-emerald-500 selection:text-white w-full">
       {/* Decorative Agriculture Field Glows & Vignette */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div
@@ -273,20 +273,20 @@ export default function WelcomePage() {
       </div>
 
       {/* Top Bar: Feature Chips & Minimal Language Switcher */}
-      <div className="relative z-10 px-4 pt-4 flex items-center justify-between gap-2">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-bold text-cream">
-          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-          <span>{locale === 'ur' ? 'زرعی ڈاکٹر' : 'Crop Doctor'}</span>
+      <div className="relative z-10 w-full max-w-md mx-auto px-3.5 sm:px-4 pt-3.5 sm:pt-4 flex items-center justify-between gap-2 flex-wrap">
+        <div className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-[11px] font-bold text-cream min-w-0">
+          <Sparkles className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+          <span className="truncate">{locale === 'ur' ? 'زرعی ڈاکٹر' : 'Crop Doctor'}</span>
           <span className="opacity-40">•</span>
-          <Mic className="w-3.5 h-3.5 text-wheat" />
-          <span>{locale === 'ur' ? 'اردو آواز' : 'Urdu Voice'}</span>
+          <Mic className="w-3.5 h-3.5 text-wheat flex-shrink-0" />
+          <span className="truncate">{locale === 'ur' ? 'اردو آواز' : 'Urdu Voice'}</span>
         </div>
 
-        <div className="inline-flex rounded-full bg-white/10 p-1 border border-white/15">
+        <div className="inline-flex rounded-full bg-white/10 p-1 border border-white/15 flex-shrink-0">
           <button
             type="button"
             onClick={() => switchLanguage('ur')}
-            className={`px-3 py-1 rounded-full text-xs font-black transition-all ${
+            className={`min-h-[38px] px-3 py-1 rounded-full text-xs font-black transition-all ${
               locale === 'ur'
                 ? 'bg-olive text-white shadow-sm'
                 : 'text-white/75 hover:text-white'
@@ -297,7 +297,7 @@ export default function WelcomePage() {
           <button
             type="button"
             onClick={() => switchLanguage('en')}
-            className={`px-3 py-1 rounded-full text-xs font-black transition-all ${
+            className={`min-h-[38px] px-3 py-1 rounded-full text-xs font-black transition-all ${
               locale === 'en'
                 ? 'bg-olive text-white shadow-sm'
                 : 'text-white/75 hover:text-white'
@@ -313,13 +313,13 @@ export default function WelcomePage() {
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: 'easeOut' }}
-        className="relative z-10 px-4 pt-4 pb-2 flex flex-col items-center text-center"
+        className="relative z-10 w-full max-w-md mx-auto px-4 pt-3 pb-2 flex flex-col items-center text-center"
       >
         <motion.div
           initial={{ scale: 0.82, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-          className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-[28px] bg-[#062409] p-1.5 shadow-[0_0_45px_rgba(95,165,46,0.55)] border-2 border-emerald-400/50 overflow-hidden flex items-center justify-center"
+          className="relative w-24 h-24 min-[375px]:w-28 min-[375px]:h-28 sm:w-32 sm:h-32 landscape:w-20 landscape:h-20 sm:landscape:w-24 sm:landscape:h-24 rounded-[24px] sm:rounded-[28px] bg-[#062409] p-1.5 shadow-[0_0_45px_rgba(95,165,46,0.55)] border-2 border-emerald-400/50 overflow-hidden flex items-center justify-center"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -349,7 +349,7 @@ export default function WelcomePage() {
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.08, ease: 'easeOut' }}
-        className="relative z-10 px-4 pb-5 pt-1 w-full"
+        className="relative z-10 px-3.5 sm:px-4 pb-5 pt-1 w-full max-w-md mx-auto"
       >
         <div className="bg-white text-ink rounded-[26px] p-4 sm:p-5 shadow-2xl border border-white/20 space-y-3.5">
           {/* Returning Authenticated Farmer 1-Tap Continue Banner */}
@@ -484,7 +484,7 @@ export default function WelcomePage() {
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   placeholder="yourname@gmail.com"
-                  className="w-full min-h-[46px] ps-10 pe-3 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                  className="w-full min-h-[46px] ps-10 pe-3 rounded-xl bg-canvas border border-olive/25 text-base sm:text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
                 />
               </div>
             </div>
@@ -506,7 +506,7 @@ export default function WelcomePage() {
                       value={nameInput}
                       onChange={(e) => setNameInput(e.target.value)}
                       placeholder={locale === 'ur' ? 'مثلاً محمد اکرم' : 'e.g. Muhammad Akram'}
-                      className="w-full min-h-[46px] ps-10 pe-3 rounded-xl bg-canvas border border-olive/25 text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
+                      className="w-full min-h-[46px] ps-10 pe-3 rounded-xl bg-canvas border border-olive/25 text-base sm:text-sm font-bold text-ink focus:outline-none focus:ring-2 focus:ring-olive"
                     />
                   </div>
                 </div>
@@ -524,7 +524,7 @@ export default function WelcomePage() {
                           key={d.name}
                           type="button"
                           onClick={() => setSelectedDistrict(d)}
-                          className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
+                          className={`min-h-[38px] px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
                             active
                               ? 'bg-olive text-white shadow-sm'
                               : 'bg-canvas text-ink/70 border border-olive/20'

@@ -147,37 +147,37 @@ export default function DiaryPage() {
         </div>
       </header>
 
-      <main className="px-5 mt-5 space-y-5">
+      <main className="px-3.5 min-[375px]:px-5 mt-4 sm:mt-5 space-y-4 sm:space-y-5">
         {/* Monthly Summary Card with One Recharts Bar Chart (Section 11.2) */}
-        <section className="bg-white rounded-card p-5 shadow-soft border border-olive/10 space-y-4">
+        <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/10 space-y-4">
           <h2 className="font-extrabold text-base text-ink">
             {t('monthlySummary')}
           </h2>
 
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="bg-canvas rounded-tile p-2.5">
-              <span className="block text-[11px] text-ink/65">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2 text-center">
+            <div className="bg-canvas rounded-tile p-2 sm:p-2.5 min-w-0">
+              <span className="block text-[10px] sm:text-[11px] text-ink/65 truncate">
                 {t('totalIncome')}
               </span>
-              <bdi dir="ltr" className="font-extrabold text-sm text-olive-dark">
+              <bdi dir="ltr" className="block font-extrabold text-xs min-[360px]:text-sm text-olive-dark truncate">
                 Rs. {totalIncome.toLocaleString()}
               </bdi>
             </div>
-            <div className="bg-canvas rounded-tile p-2.5">
-              <span className="block text-[11px] text-ink/65">
+            <div className="bg-canvas rounded-tile p-2 sm:p-2.5 min-w-0">
+              <span className="block text-[10px] sm:text-[11px] text-ink/65 truncate">
                 {t('totalExpense')}
               </span>
-              <bdi dir="ltr" className="font-extrabold text-sm text-wheat">
+              <bdi dir="ltr" className="block font-extrabold text-xs min-[360px]:text-sm text-wheat truncate">
                 Rs. {totalExpense.toLocaleString()}
               </bdi>
             </div>
-            <div className="bg-canvas rounded-tile p-2.5">
-              <span className="block text-[11px] text-ink/65">
+            <div className="bg-canvas rounded-tile p-2 sm:p-2.5 min-w-0">
+              <span className="block text-[10px] sm:text-[11px] text-ink/65 truncate">
                 {t('netBalance')}
               </span>
               <bdi
                 dir="ltr"
-                className={`font-extrabold text-sm ${
+                className={`block font-extrabold text-xs min-[360px]:text-sm truncate ${
                   netBalance >= 0 ? 'text-olive-dark' : 'text-alert-red'
                 }`}
               >
@@ -203,44 +203,44 @@ export default function DiaryPage() {
         </section>
 
         {/* 3 Tabs: Expenses & Income, Notes, Saved Scans */}
-        <div className="grid grid-cols-3 gap-2 bg-white p-1.5 rounded-full shadow-soft border border-olive/10">
+        <div className="grid grid-cols-3 gap-1 sm:gap-2 bg-white p-1 sm:p-1.5 rounded-full shadow-soft border border-olive/10">
           <button
             type="button"
             onClick={() => setActiveTab('expenses')}
-            className={`min-h-[44px] rounded-full font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+            className={`min-h-[44px] px-1.5 sm:px-3 rounded-full font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 min-w-0 transition-all ${
               activeTab === 'expenses'
                 ? 'bg-olive text-white shadow-sm'
                 : 'text-ink/70 hover:text-ink'
             }`}
           >
-            <Wallet className="w-4 h-4" />
-            <span>{t('tabExpenses')}</span>
+            <Wallet className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span className="truncate">{t('tabExpenses')}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('notes')}
-            className={`min-h-[44px] rounded-full font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+            className={`min-h-[44px] px-1.5 sm:px-3 rounded-full font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 min-w-0 transition-all ${
               activeTab === 'notes'
                 ? 'bg-olive text-white shadow-sm'
                 : 'text-ink/70 hover:text-ink'
             }`}
           >
-            <BookOpen className="w-4 h-4" />
-            <span>{t('tabNotes')}</span>
+            <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span className="truncate">{t('tabNotes')}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('scans')}
-            className={`min-h-[44px] rounded-full font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${
+            className={`min-h-[44px] px-1.5 sm:px-3 rounded-full font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 min-w-0 transition-all ${
               activeTab === 'scans'
                 ? 'bg-olive text-white shadow-sm'
                 : 'text-ink/70 hover:text-ink'
             }`}
           >
-            <ScanLine className="w-4 h-4" />
-            <span>{t('tabScans')}</span>
+            <ScanLine className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span className="truncate">{t('tabScans')}</span>
           </button>
         </div>
 
@@ -292,7 +292,7 @@ export default function DiaryPage() {
                     <button
                       type="button"
                       onClick={() => handleDelete(item.id)}
-                      className="p-2 text-ink/40 hover:text-alert-red"
+                      className="min-w-[42px] min-h-[42px] flex items-center justify-center rounded-full text-ink/45 hover:text-alert-red hover:bg-alert-red/10"
                       aria-label={tApp('delete')}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -327,7 +327,7 @@ export default function DiaryPage() {
                   <button
                     type="button"
                     onClick={() => handleDelete(item.id)}
-                    className="p-2 text-ink/40 hover:text-alert-red"
+                    className="min-w-[42px] min-h-[42px] flex items-center justify-center rounded-full text-ink/45 hover:text-alert-red hover:bg-alert-red/10 flex-shrink-0"
                     aria-label={tApp('delete')}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -394,7 +394,7 @@ export default function DiaryPage() {
           setKind(activeTab === 'notes' ? 'note' : 'expense');
           setShowAddModal(true);
         }}
-        className="fixed bottom-24 end-6 z-40 w-14 h-14 rounded-full bg-olive hover:bg-olive-dark text-white shadow-2xl flex items-center justify-center transition-transform active:scale-95"
+        className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] end-4 sm:end-6 z-30 w-14 h-14 rounded-full bg-olive hover:bg-olive-dark text-white shadow-2xl flex items-center justify-center transition-transform active:scale-95"
         aria-label={t('addEntry')}
       >
         <Plus className="w-7 h-7" />
@@ -402,8 +402,8 @@ export default function DiaryPage() {
 
       {/* Add Diary Entry Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-          <div className="w-full max-w-[430px] bg-white rounded-card p-5 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-[75] bg-ink/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] overflow-y-auto">
+          <div className="w-full max-w-[430px] max-h-[90dvh] overflow-y-auto overscroll-contain bg-white rounded-card p-4 sm:p-5 shadow-2xl space-y-4">
             <h3 className="font-extrabold text-lg text-ink">
               {t('addEntry')}
             </h3>
@@ -431,15 +431,15 @@ export default function DiaryPage() {
               </div>
 
               {kind !== 'note' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
+                <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
+                  <div className="min-w-0">
                     <label className="block text-xs font-bold text-ink/75 mb-1">
                       {t('category')}
                     </label>
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="w-full min-h-[48px] px-3 rounded-tile bg-canvas border border-olive/25 text-sm font-bold"
+                      className="w-full min-w-0 min-h-[48px] px-3 rounded-tile bg-canvas border border-olive/25 text-base sm:text-sm font-bold"
                     >
                       <option value="Fertilizer">{t('catFertilizer')}</option>
                       <option value="Seed">{t('catSeed')}</option>
@@ -450,7 +450,7 @@ export default function DiaryPage() {
                     </select>
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <label className="block text-xs font-bold text-ink/75 mb-1">
                       {t('amountPkr')}
                     </label>
@@ -461,7 +461,7 @@ export default function DiaryPage() {
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="5000"
-                      className="w-full min-h-[48px] px-3.5 rounded-tile bg-canvas border border-olive/25 text-base font-extrabold"
+                      className="w-full min-w-0 min-h-[48px] px-3.5 rounded-tile bg-canvas border border-olive/25 text-base font-extrabold"
                     />
                   </div>
                 </div>
@@ -476,7 +476,7 @@ export default function DiaryPage() {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder={t('notePlaceholder')}
-                  className="w-full p-3.5 rounded-tile bg-canvas border border-olive/25 text-sm"
+                  className="w-full p-3.5 rounded-tile bg-canvas border border-olive/25 text-base sm:text-sm"
                 />
               </div>
 

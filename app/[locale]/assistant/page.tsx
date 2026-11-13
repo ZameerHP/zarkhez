@@ -135,6 +135,7 @@ export default function AssistantPage() {
     if (!next) {
       stopSpeaking();
       setAiSpeaking(false);
+      setVoicePhase('idle');
     }
     await saveProfile({ autoSpeakVoice: next });
   };
@@ -142,7 +143,7 @@ export default function AssistantPage() {
   const speakAssistantReply = (replyText: string, replyLang: VoiceLang = voiceLang) => {
     if (!autoSpeak || !replyText.trim()) return;
     setAiSpeaking(true);
-    setVoicePhase('speaking');
+    setVoicePhase('thinking');
     speakText(replyText, replyLang, {
       onPhaseChange: (p) => setVoicePhase(p),
       onStart: () => setAiSpeaking(true),
@@ -432,6 +433,7 @@ export default function AssistantPage() {
                 onClick={() => {
                   stopSpeaking();
                   setAiSpeaking(false);
+                  setVoicePhase('idle');
                   setVoiceLang(opt.id);
                   setMessages((prev) =>
                     prev.length === 1 && prev[0]?.id === 'welcome-turn'
@@ -537,6 +539,7 @@ export default function AssistantPage() {
               onClick={() => {
                 stopSpeaking();
                 setAiSpeaking(false);
+                setVoicePhase('idle');
               }}
               className="px-3 py-1 rounded-full bg-white text-ink text-xs font-extrabold flex items-center gap-1 flex-shrink-0"
             >
@@ -677,7 +680,7 @@ export default function AssistantPage() {
               placeholder={
                 voiceLang === 'sd' ? 'سنڌي ۾ لکو يا مائڪ دٻايو...' : t('inputPlaceholder')
               }
-              className="flex-1 min-h-[46px] px-3.5 rounded-full bg-transparent text-ink text-sm sm:text-base focus:outline-none min-w-0"
+              className="flex-1 min-h-[46px] px-3.5 rounded-full bg-transparent text-ink text-base focus:outline-none min-w-0"
             />
             <motion.button
               type="submit"

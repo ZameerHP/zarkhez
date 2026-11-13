@@ -21,7 +21,7 @@ export function LanguageToggle({ variant = 'glass' }: LanguageToggleProps) {
 
   return (
     <div
-      className={`inline-flex items-center p-1 rounded-full min-h-[48px] ${
+      className={`inline-flex items-center p-0.5 sm:p-1 rounded-full min-h-[44px] flex-shrink-0 ${
         variant === 'glass'
           ? 'glass text-white'
           : 'bg-white border border-olive/20 shadow-soft text-ink'
@@ -29,11 +29,11 @@ export function LanguageToggle({ variant = 'glass' }: LanguageToggleProps) {
       role="group"
       aria-label="Language Switcher"
     >
-      <Globe className="w-4 h-4 ms-2.5 me-1.5 opacity-75 flex-shrink-0" />
+      <Globe className="hidden min-[375px]:block w-3.5 h-3.5 sm:w-4 sm:h-4 ms-2 me-1 opacity-75 flex-shrink-0" />
       <button
         type="button"
         onClick={() => switchTo('ur')}
-        className={`min-h-[38px] px-3.5 py-1 rounded-full text-sm font-bold transition-all ${
+        className={`min-h-[38px] px-2.5 min-[375px]:px-3.5 py-1 rounded-full text-xs min-[375px]:text-sm font-bold whitespace-nowrap transition-all ${
           locale === 'ur'
             ? 'bg-olive text-white shadow-sm'
             : variant === 'glass'
@@ -46,7 +46,7 @@ export function LanguageToggle({ variant = 'glass' }: LanguageToggleProps) {
       <button
         type="button"
         onClick={() => switchTo('en')}
-        className={`min-h-[38px] px-3.5 py-1 rounded-full text-sm font-bold transition-all ${
+        className={`min-h-[38px] px-2.5 min-[375px]:px-3.5 py-1 rounded-full text-xs min-[375px]:text-sm font-bold whitespace-nowrap transition-all ${
           locale === 'en'
             ? 'bg-olive text-white shadow-sm'
             : variant === 'glass'

@@ -94,7 +94,7 @@ export function LocationPickerModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+          className="fixed inset-0 z-[75] bg-black/65 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 sm:p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] overflow-y-auto"
           onClick={onClose}
         >
           <motion.div
@@ -102,12 +102,12 @@ export function LocationPickerModal({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 40, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-[420px] bg-white rounded-card p-5 shadow-2xl space-y-4"
+            className="w-full max-w-[420px] max-h-[90dvh] overflow-y-auto overscroll-contain bg-white rounded-card p-4 sm:p-5 shadow-2xl space-y-4"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-olive" />
-                <h3 className="font-extrabold text-base text-ink">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <MapPin className="w-5 h-5 text-olive flex-shrink-0" />
+                <h3 className="font-extrabold text-base text-ink truncate">
                   {tWelcome('locationTitle')}
                 </h3>
               </div>
@@ -115,9 +115,9 @@ export function LocationPickerModal({
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="w-8 h-8 rounded-full bg-canvas flex items-center justify-center text-ink/60"
+                className="w-11 h-11 -me-2 rounded-full bg-canvas hover:bg-olive/10 flex items-center justify-center text-ink/65 flex-shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -139,11 +139,11 @@ export function LocationPickerModal({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={tWelcome('searchPlaceholder')}
-                className="flex-1 min-h-[44px] px-3.5 rounded-full bg-canvas border border-olive/25 text-ink text-sm"
+                className="flex-1 min-w-0 min-h-[44px] px-3.5 rounded-full bg-canvas border border-olive/25 text-ink text-base sm:text-sm"
               />
               <button
                 type="submit"
-                className="min-h-[44px] px-4 rounded-full bg-ink text-white text-xs font-bold"
+                className="min-h-[44px] px-4 rounded-full bg-ink text-white text-xs font-bold flex-shrink-0"
               >
                 {tWelcome('searchBtn')}
               </button>

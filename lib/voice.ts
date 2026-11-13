@@ -134,6 +134,8 @@ let audioUnlocked = false;
 let currentVoiceSession = 0;
 let activeFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 let activeWordTimer: ReturnType<typeof setInterval> | null = null;
+let activeSpeechWatchTimer: ReturnType<typeof setInterval> | null = null;
+let activeSpeakSession: { sessionId: number; callbacks?: SpeakCallbacks } | null = null;
 let lastPlaybackArgs: {
   text: string;
   lang: VoiceLang;
@@ -149,6 +151,32 @@ function clearTimers(): void {
   if (activeWordTimer) {
     clearInterval(activeWordTimer);
     activeWordTimer = null;
+  }
+  if (activeSpeechWatchTimer) {
+    clearInterval(activeSpeechWatchTimer);
+    activeSpeechWatchTimer = null;
+  }
+}
+
+function finishActivePlayback(
+  outcome: 'end' | 'error',
+  expectedSessionId?: number
+): void {
+  if (!activeSpeakSession) return;
+  if (
+    expectedSessionId !== undefined &&
+    activeSpeakSession.sessionId !== expectedSessionId
+  ) {
+    return;
+  }
+  clearTimers();
+  const cb = activeSpeakSession.callbacks;
+  activeSpeakSession = null;
+  cb?.onPhaseChange?.(outcome === 'error' ? 'error' : 'idle');
+  if (outcome === 'error') {
+    cb?.onError?.();
+  } else {
+    cb?.onEnd?.();
   }
 }
 
@@ -340,11 +368,40 @@ function speakWithOfflineFallback(
   callbacks?: SpeakCallbacks
 ): void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    callbacks?.onPhaseChange?.('error');
-    callbacks?.onError?.();
+    finishActivePlayback('error', sessionId);
     return;
   }
   if (sessionId !== currentVoiceSession) return;
+
+  const watchSpeechEnd = (getStarted: () => boolean) => {
+    if (activeSpeechWatchTimer) {
+      clearInterval(activeSpeechWatchTimer);
+      activeSpeechWatchTimer = null;
+    }
+    const startedAt = Date.now();
+    activeSpeechWatchTimer = setInterval(() => {
+      if (sessionId !== currentVoiceSession) {
+        if (activeSpeechWatchTimer) {
+          clearInterval(activeSpeechWatchTimer);
+          activeSpeechWatchTimer = null;
+        }
+        return;
+      }
+      if (!('speechSynthesis' in window)) {
+        finishActivePlayback('end', sessionId);
+        return;
+      }
+      const { speaking, pending, paused } = window.speechSynthesis;
+      if (paused) return;
+      if (getStarted() && !speaking && !pending) {
+        finishActivePlayback('end', sessionId);
+        return;
+      }
+      if (!getStarted() && !speaking && !pending && Date.now() - startedAt > 4000) {
+        finishActivePlayback('error', sessionId);
+      }
+    }, 400);
+  };
 
   try {
     const voices = window.speechSynthesis.getVoices();
@@ -354,8 +411,7 @@ function speakWithOfflineFallback(
       );
       if (!sindhiVoice) {
         // Strictly refuse sending Sindhi text to Urdu/Hindi/Arabic browser voices
-        callbacks?.onPhaseChange?.('error');
-        callbacks?.onError?.();
+        finishActivePlayback('error', sessionId);
         return;
       }
       window.speechSynthesis.cancel();
@@ -363,24 +419,21 @@ function speakWithOfflineFallback(
       u.voice = sindhiVoice;
       u.lang = sindhiVoice.lang;
       u.rate = speedMode === 'slow' ? 0.75 : 0.9;
+      let started = false;
       u.onstart = () => {
         if (sessionId !== currentVoiceSession) return;
+        started = true;
         callbacks?.onPhaseChange?.('speaking');
         callbacks?.onStart?.(false);
       };
       u.onend = () => {
-        if (sessionId === currentVoiceSession) {
-          callbacks?.onPhaseChange?.('idle');
-          callbacks?.onEnd?.();
-        }
+        finishActivePlayback('end', sessionId);
       };
       u.onerror = () => {
-        if (sessionId === currentVoiceSession) {
-          callbacks?.onPhaseChange?.('error');
-          callbacks?.onError?.();
-        }
+        finishActivePlayback('error', sessionId);
       };
       window.speechSynthesis.speak(u);
+      watchSpeechEnd(() => started);
       return;
     }
 
@@ -393,8 +446,7 @@ function speakWithOfflineFallback(
         null;
       if (!urduVoice) {
         // NEVER push Urdu Unicode script into a non-Urdu English OS voice (causes unintelligible gibberish)
-        callbacks?.onPhaseChange?.('error');
-        callbacks?.onError?.();
+        finishActivePlayback('error', sessionId);
         return;
       }
       utterance.voice = urduVoice;
@@ -409,30 +461,26 @@ function speakWithOfflineFallback(
     }
 
     utterance.rate = speedMode === 'slow' ? 0.75 : 0.9;
+    let started = false;
     utterance.onstart = () => {
       if (sessionId !== currentVoiceSession) {
         try { window.speechSynthesis.cancel(); } catch {}
         return;
       }
+      started = true;
       callbacks?.onPhaseChange?.('speaking');
       callbacks?.onStart?.(false);
     };
     utterance.onend = () => {
-      if (sessionId === currentVoiceSession) {
-        callbacks?.onPhaseChange?.('idle');
-        callbacks?.onEnd?.();
-      }
+      finishActivePlayback('end', sessionId);
     };
     utterance.onerror = () => {
-      if (sessionId === currentVoiceSession) {
-        callbacks?.onPhaseChange?.('error');
-        callbacks?.onError?.();
-      }
+      finishActivePlayback('error', sessionId);
     };
     window.speechSynthesis.speak(utterance);
+    watchSpeechEnd(() => started);
   } catch {
-    callbacks?.onPhaseChange?.('error');
-    callbacks?.onError?.();
+    finishActivePlayback('error', sessionId);
   }
 }
 
@@ -492,6 +540,7 @@ export async function speakText(
 
   stopSpeaking();
   const sessionId = currentVoiceSession;
+  activeSpeakSession = { sessionId, callbacks };
   const lang = normalizeVoiceLang(rawLang);
   const gender: VoiceGender = 'female';
   const speedMode = callbacks?.speedMode || getSavedVoiceSpeed();
@@ -505,8 +554,7 @@ export async function speakText(
       : cleanedRaw;
   const normalized = toSpokenText(scriptAligned, lang);
   if (!normalized.spokenText) {
-    callbacks?.onPhaseChange?.('idle');
-    callbacks?.onEnd?.();
+    finishActivePlayback('end', sessionId);
     return;
   }
 
@@ -594,6 +642,11 @@ export async function speakText(
       const done = (ok: boolean) => {
         if (resolved) return;
         resolved = true;
+        audio.onplay = null;
+        audio.onpause = null;
+        audio.onended = null;
+        audio.onerror = null;
+        audio.onabort = null;
         clearTimers();
         resolve(ok);
       };
@@ -643,6 +696,7 @@ export async function speakText(
 
       audio.onended = () => done(true);
       audio.onerror = () => done(false);
+      audio.onabort = () => done(false);
 
       audio.src = objUrl;
       const playPromise = audio.play();
@@ -657,8 +711,7 @@ export async function speakText(
     // splitting longer passages cleanly at sentence boundaries without mid-thought gaps.
     const chunks = splitSpeechIntoChunks(spokenText, lang, 900);
     if (chunks.length === 0) {
-      callbacks?.onPhaseChange?.('idle');
-      callbacks?.onEnd?.();
+      finishActivePlayback('end', sessionId);
       return;
     }
 
@@ -710,8 +763,7 @@ export async function speakText(
 
     if (sessionId === currentVoiceSession) {
       callbacks?.onWordHighlight?.(-1, words, spokenText);
-      callbacks?.onPhaseChange?.('idle');
-      callbacks?.onEnd?.();
+      finishActivePlayback('end', sessionId);
     }
   } catch {
     if (sessionId === currentVoiceSession) {
@@ -736,6 +788,7 @@ export function stopSpeaking(): void {
       sharedAudio.onpause = null;
       sharedAudio.onended = null;
       sharedAudio.onerror = null;
+      sharedAudio.onabort = null;
       sharedAudio.pause();
       sharedAudio.src = '';
     } catch {
@@ -750,6 +803,8 @@ export function stopSpeaking(): void {
       // ignore
     }
   }
+
+  finishActivePlayback('end');
 }
 
 export async function submitPronunciationReport(payload: {

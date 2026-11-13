@@ -145,18 +145,18 @@ export default function CalendarToolPage() {
         </div>
       </header>
 
-      <main className="px-5 mt-5 space-y-5">
+      <main className="px-3.5 min-[375px]:px-5 mt-4 sm:mt-5 space-y-4 sm:space-y-5">
         {/* Controls Card */}
-        <section className="bg-white rounded-card p-5 shadow-soft border border-olive/10 space-y-4">
+        <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/10 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-bold text-ink/75 mb-1">
                 {t('selectCrop')}
               </label>
               <select
                 value={selectedCrop}
                 onChange={(e) => setSelectedCrop(e.target.value)}
-                className="w-full min-h-[52px] px-4 rounded-tile bg-canvas border border-olive/25 font-bold text-base text-ink"
+                className="w-full min-w-0 min-h-[52px] px-3.5 sm:px-4 rounded-tile bg-canvas border border-olive/25 font-bold text-base text-ink"
               >
                 {crops.map((c) => (
                   <option key={c.key} value={c.key}>
@@ -166,7 +166,7 @@ export default function CalendarToolPage() {
               </select>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-bold text-ink/75 mb-1">
                 {t('sowingDate')}
               </label>
@@ -174,12 +174,12 @@ export default function CalendarToolPage() {
                 type="date"
                 value={sowingDate}
                 onChange={(e) => setSowingDate(e.target.value)}
-                className="w-full min-h-[52px] px-4 rounded-tile bg-canvas border border-olive/25 font-bold text-base text-ink"
+                className="w-full min-w-0 min-h-[52px] px-3.5 sm:px-4 rounded-tile bg-canvas border border-olive/25 font-bold text-base text-ink"
               />
             </div>
           </div>
 
-          <div className="bg-cream/65 rounded-tile p-3.5 flex items-center justify-between gap-3">
+          <div className="bg-cream/65 rounded-tile p-3.5 flex items-center justify-between flex-wrap gap-3">
             <div>
               <span className="block text-xs text-ink/70 font-semibold">
                 {t('harvestDateLabel')}
@@ -214,7 +214,7 @@ export default function CalendarToolPage() {
         </section>
 
         {/* Growth Stages Strip */}
-        <section className="bg-white rounded-card p-5 shadow-soft border border-olive/10 space-y-3">
+        <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/10 space-y-3">
           <h2 className="font-extrabold text-base text-ink">
             {t('stageTimeline')}
           </h2>
@@ -236,7 +236,7 @@ export default function CalendarToolPage() {
         </section>
 
         {/* Task Timeline with Tick Boxes */}
-        <section className="bg-white rounded-card p-5 shadow-soft border border-olive/10 space-y-3">
+        <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/10 space-y-3">
           <div className="space-y-2.5">
             {calendar.tasks.map((task) => {
               const isDone = completedIds.includes(task.id);

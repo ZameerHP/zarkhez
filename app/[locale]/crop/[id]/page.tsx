@@ -97,7 +97,7 @@ export default function CropDetailPage() {
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas flex flex-col">
       {/* Top Full-Bleed Crop Photo with Glass Controls (Section 11.2) */}
-      <div className="relative h-80 w-full overflow-hidden">
+      <div className="relative h-64 sm:h-80 landscape:h-52 md:landscape:h-72 w-full overflow-hidden">
         <img
           src={crop.photoUrl}
           alt={crop.name[locale]}
@@ -112,61 +112,61 @@ export default function CropDetailPage() {
         />
 
         {/* Top Bar: Glass Back Button + Glass Pill with Crop Thumbnail and Place */}
-        <div className="absolute top-5 inset-x-5 flex items-center justify-between gap-2">
+        <div className="absolute top-4 sm:top-5 inset-x-3.5 sm:inset-x-5 flex items-center justify-between gap-2">
           <Link
             href="/home"
-            className="w-12 h-12 rounded-full glass flex items-center justify-center text-white shadow-soft"
+            className="w-11 h-11 sm:w-12 sm:h-12 rounded-full glass flex items-center justify-center text-white shadow-soft flex-shrink-0"
             aria-label="Back"
           >
             <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
           </Link>
 
-          <div className="glass rounded-full ps-2 pe-4 py-1.5 flex items-center gap-2.5 text-white shadow-soft">
+          <div className="glass rounded-full ps-2 pe-3.5 sm:pe-4 py-1.5 flex items-center gap-2 text-white shadow-soft min-w-0 max-w-[calc(100%-60px)]">
             <img
               src={crop.photoUrl}
               alt=""
-              className="w-8 h-8 rounded-full object-cover border border-white/50"
+              className="w-8 h-8 rounded-full object-cover border border-white/50 flex-shrink-0"
             />
-            <div className="text-xs">
-              <span className="font-extrabold block leading-tight">
+            <div className="text-xs min-w-0">
+              <span className="font-extrabold block leading-tight truncate">
                 {crop.name[locale]}
               </span>
-              <span className="inline-flex items-center gap-1 text-[10px] text-white/90">
-                <MapPin className="w-3 h-3" />
-                {placeName}
+              <span className="inline-flex items-center gap-1 text-[10px] text-white/90 truncate max-w-full">
+                <MapPin className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{placeName}</span>
               </span>
             </div>
           </div>
         </div>
 
         {/* Glass Side Buttons (Scan, Calendar) */}
-        <div className="absolute bottom-10 end-5 flex flex-col gap-2.5">
+        <div className="absolute bottom-8 sm:bottom-10 end-3.5 sm:end-5 flex flex-row sm:flex-col gap-2">
           <Link
             href="/scan"
-            className="glass rounded-full px-4 py-2.5 min-h-[48px] text-white font-bold text-xs flex items-center gap-2 shadow-soft hover:bg-white/35"
+            className="glass rounded-full px-3.5 sm:px-4 py-2 min-h-[44px] sm:min-h-[48px] text-white font-bold text-xs flex items-center gap-1.5 sm:gap-2 shadow-soft hover:bg-white/35"
           >
-            <ScanLine className="w-4 h-4 text-cream" />
+            <ScanLine className="w-4 h-4 text-cream flex-shrink-0" />
             <span>{t('scanCrop')}</span>
           </Link>
           <Link
             href={`/tools/calendar?crop=${crop.key}`}
-            className="glass rounded-full px-4 py-2.5 min-h-[48px] text-white font-bold text-xs flex items-center gap-2 shadow-soft hover:bg-white/35"
+            className="glass rounded-full px-3.5 sm:px-4 py-2 min-h-[44px] sm:min-h-[48px] text-white font-bold text-xs flex items-center gap-1.5 sm:gap-2 shadow-soft hover:bg-white/35"
           >
-            <Calendar className="w-4 h-4 text-cream" />
+            <Calendar className="w-4 h-4 text-cream flex-shrink-0" />
             <span>{t('openCalendar')}</span>
           </Link>
         </div>
       </div>
 
       {/* Bottom White Card (Section 11.2) */}
-      <main className="flex-1 bg-white rounded-t-[32px] -mt-6 relative z-10 px-5 pt-6 pb-8 shadow-2xl space-y-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
+      <main className="flex-1 bg-white rounded-t-[32px] -mt-6 relative z-10 px-4 sm:px-5 pt-5 sm:pt-6 pb-8 shadow-2xl space-y-5">
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div className="min-w-0">
             <span className="text-xs font-bold uppercase tracking-wider text-wheat">
               {crop.season === 'rabi' ? t('seasonRabi') : t('seasonKharif')} •{' '}
               {t('durationDays', { days: crop.durationDays })}
             </span>
-            <h1 className="font-extrabold text-3xl text-olive-dark mt-1">
+            <h1 className="font-extrabold text-2xl sm:text-3xl text-olive-dark mt-1">
               {crop.name[locale]}
             </h1>
           </div>

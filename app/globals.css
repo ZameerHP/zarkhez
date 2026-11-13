@@ -17,15 +17,18 @@
     background-color: #F4F5EE;
     color: #111111;
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    overscroll-behavior-y: contain;
   }
 
   /* Enhanced Pakistani Urdu Typography (Nastaliq headings + Naskh body) */
   html[lang="ur"] body {
     font-family: var(--font-naskh), var(--font-nastaliq), var(--font-jakarta), sans-serif;
-    font-size: 18.5px;
-    line-height: 2.15;
-    word-spacing: 1.5px;
+    font-size: clamp(16px, 4.3vw, 18.5px);
+    line-height: 2.05;
+    word-spacing: 1px;
     letter-spacing: 0;
   }
 
@@ -98,12 +101,14 @@
    PWA / app-like experience
    ========================================================================== */
 
-/* Prevent accidental sideways scrolling / horizontal overscroll on phones. */
+/* Prevent accidental sideways scrolling, pull-to-refresh reloads, and pinch zoom. */
 html,
 body {
   max-width: 100%;
   overflow-x: hidden;
   overscroll-behavior-x: none;
+  overscroll-behavior-y: contain;
+  touch-action: pan-x pan-y;
 }
 @supports (overflow: clip) {
   /* `clip` avoids creating a scroll container, so sticky elements keep working. */
@@ -113,7 +118,13 @@ body {
   }
 }
 
-/* Snappier taps: removes double-tap-zoom delay on controls (pinch-zoom still works). */
+/* Fluid media safety */
+img,
+video {
+  max-width: 100%;
+}
+
+/* Disable compositor pinch-zoom & 300ms double-tap delay while keeping pan scrolling. */
 a,
 button,
 input,
@@ -122,7 +133,16 @@ select,
 textarea,
 summary,
 [role='button'] {
-  touch-action: manipulation;
+  touch-action: pan-x pan-y;
+}
+
+/* Prevent iOS Safari / PWA auto-zoom when focusing text inputs smaller than 16px. */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
 }
 
 /* Installed app (standalone): respect notches / status bar / rounded corners.

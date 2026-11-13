@@ -167,13 +167,13 @@ export function WeatherCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-cream flex items-center justify-center text-wheat">
-              <WeatherIcon className="w-6 h-6 sm:w-7 sm:h-7 stroke-[2.2px]" />
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-cream flex items-center justify-center text-wheat">
+              <WeatherIcon className="w-5 h-5 sm:w-7 sm:h-7 stroke-[2.2px]" />
             </div>
             <bdi
               dir="ltr"
-              className="text-3xl sm:text-4xl font-extrabold text-ink tracking-tight"
+              className="text-2xl min-[360px]:text-3xl sm:text-4xl font-extrabold text-ink tracking-tight"
             >
               {current.temperature}°C
             </bdi>
@@ -181,7 +181,7 @@ export function WeatherCard({
         </div>
 
         {/* 4 Stats Grid: 2x2 on narrow phones (< 400px), 4 cols on wider screens */}
-        <div className="grid grid-cols-2 xs:grid-cols-4 sm:grid-cols-4 gap-2 mt-4">
+        <div className="grid grid-cols-2 min-[400px]:grid-cols-4 gap-2 mt-4">
           <div className="bg-canvas rounded-tile p-2.5 flex items-center sm:flex-col justify-between sm:justify-center text-start sm:text-center gap-2">
             <div className="flex items-center sm:flex-col gap-1.5 sm:gap-1">
               <Thermometer className="w-4 h-4 text-olive flex-shrink-0" />

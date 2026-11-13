@@ -25,19 +25,19 @@ export function GuestPromptSheet({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4 bg-ink/65 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[75] flex items-end sm:items-center justify-center p-3 sm:p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-ink/65 backdrop-blur-sm overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 40 }}
-        className="w-full max-w-sm rounded-t-3xl sm:rounded-card bg-[#F4F5EE] border border-olive/30 shadow-2xl p-5 sm:p-6 space-y-4 text-start"
+        className="w-full max-w-sm max-h-[90dvh] overflow-y-auto overscroll-contain rounded-t-3xl sm:rounded-card bg-[#F4F5EE] border border-olive/30 shadow-2xl p-5 sm:p-6 space-y-4 text-start"
       >
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-10 h-10 rounded-full bg-olive/15 flex items-center justify-center flex-shrink-0">
               <ShieldCheck className="w-5 h-5 text-olive" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="text-sm sm:text-base font-black text-ink leading-tight">
                 {t('saveHistoryPrompt')}
               </h3>
@@ -49,9 +49,10 @@ export function GuestPromptSheet({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-olive/10 text-ink/50 hover:text-ink"
+            aria-label="Close"
+            className="min-w-[44px] min-h-[44px] -me-2 -mt-1 flex items-center justify-center rounded-full hover:bg-olive/10 text-ink/55 hover:text-ink flex-shrink-0"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 

@@ -96,24 +96,24 @@ export default function WeatherPage() {
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas">
       {/* Header */}
-      <header className="bg-gradient-to-b from-[#062409] to-olive-dark text-white rounded-b-[32px] px-4 sm:px-5 pt-4 pb-20 shadow-soft">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
+      <header className="bg-gradient-to-b from-[#062409] to-olive-dark text-white rounded-b-[32px] px-3.5 min-[375px]:px-4 sm:px-5 pt-4 pb-20 shadow-soft">
+        <div className="flex items-center justify-between gap-1.5 min-[375px]:gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <Link
               href="/home"
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full glass flex items-center justify-center text-white"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full glass flex items-center justify-center text-white flex-shrink-0"
               aria-label="Back"
             >
               <ArrowLeft className="w-5 h-5 rtl:rotate-180" />
             </Link>
             <ZarkhezLogo size={34} lightText showText={false} />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <LanguageToggle variant="glass" />
             <button
               type="button"
               onClick={() => fetchWeather(coords.lat, coords.lon)}
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full glass flex items-center justify-center text-white"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full glass flex items-center justify-center text-white flex-shrink-0"
               aria-label="Refresh"
             >
               <RefreshCw
@@ -126,12 +126,12 @@ export default function WeatherPage() {
         </div>
 
         <div className="mt-4">
-          <h1 className="font-extrabold text-2xl text-white">{t('title')}</h1>
+          <h1 className="font-extrabold text-xl sm:text-2xl text-white">{t('title')}</h1>
           <p className="text-xs text-white/80 mt-0.5">{t('subtitle')}</p>
         </div>
       </header>
 
-      <main className="px-5 -mt-12 space-y-5">
+      <main className="px-3.5 min-[375px]:px-4 sm:px-5 -mt-12 space-y-4 sm:space-y-5">
         {/* Main Weather Card + Active Alerts */}
         <WeatherCard
           placeName={placeName}
@@ -169,11 +169,11 @@ export default function WeatherPage() {
         </div>
 
         {/* Soil Section (0-1 cm temperature & moisture) */}
-        <section className="bg-white rounded-card p-5 shadow-soft border border-olive/10 space-y-3">
+        <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/10 space-y-3">
           <h2 className="font-extrabold text-base text-ink">
             {t('soilSection')}
           </h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 min-[340px]:grid-cols-2 gap-2.5 sm:gap-3">
             <div className="bg-canvas rounded-tile p-3.5 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-olive/15 text-olive-dark flex items-center justify-center flex-shrink-0">
                 <Thermometer className="w-5 h-5" />
@@ -207,7 +207,7 @@ export default function WeatherPage() {
 
         {/* Hourly Soil & Conditions Strip */}
         {weather?.hourlySoil && weather.hourlySoil.length > 0 && (
-          <section className="bg-white rounded-card p-5 shadow-soft border border-olive/10 space-y-3">
+          <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/10 space-y-3">
             <h2 className="font-extrabold text-base text-ink">
               {t('hourlyStrip')}
             </h2>
@@ -234,7 +234,7 @@ export default function WeatherPage() {
         )}
 
         {/* 7-Day Forecast List */}
-        <section className="bg-white rounded-card p-5 shadow-soft border border-olive/10 space-y-3">
+        <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/10 space-y-3">
           <h2 className="font-extrabold text-base text-ink">{t('sevenDay')}</h2>
           <div className="divide-y divide-olive/10">
             {(weather?.daily || []).map((day, idx) => {
@@ -257,30 +257,30 @@ export default function WeatherPage() {
               return (
                 <div
                   key={day.date}
-                  className="py-3 flex items-center justify-between gap-2"
+                  className="py-3 flex items-center justify-between gap-1.5 sm:gap-2"
                 >
-                  <div className="flex items-center gap-3 min-w-[115px]">
-                    <div className="w-9 h-9 rounded-xl bg-canvas flex items-center justify-center text-olive-dark flex-shrink-0">
-                      <DayIcon className="w-5 h-5" />
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-canvas flex items-center justify-center text-olive-dark flex-shrink-0">
+                      <DayIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
-                    <span className="font-bold text-sm text-ink">
+                    <span className="font-bold text-xs sm:text-sm text-ink truncate">
                       {dayLabel}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs text-ink/75">
-                    <span className="inline-flex items-center gap-1">
+                  <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-ink/75 flex-shrink-0">
+                    <span className="inline-flex items-center gap-0.5 sm:gap-1">
                       <CloudRain className="w-3.5 h-3.5 text-olive" />
                       <bdi dir="ltr">{day.precipitationProbMax}%</bdi>
                     </span>
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center gap-0.5 sm:gap-1">
                       <Wind className="w-3.5 h-3.5 text-wheat" />
                       <bdi dir="ltr">{day.windSpeedMax}m/s</bdi>
                     </span>
                   </div>
 
-                  <div className="text-end">
-                    <bdi dir="ltr" className="font-extrabold text-sm text-ink">
+                  <div className="text-end flex-shrink-0">
+                    <bdi dir="ltr" className="font-extrabold text-xs sm:text-sm text-ink whitespace-nowrap">
                       {day.tempMax}° /{' '}
                       <span className="text-ink/55 font-semibold">
                         {day.tempMin}°

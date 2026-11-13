@@ -110,10 +110,10 @@ export function PWAOverlays() {
   return (
     <>
       <div
-        className={`fixed inset-x-0 z-[70] pointer-events-none flex justify-center px-3 ${bottomPositionClass}`}
+        className={`fixed inset-x-0 z-[60] pointer-events-none flex justify-center px-3 ${bottomPositionClass}`}
         aria-live="polite"
       >
-        <div className="w-full max-w-[450px] flex flex-col gap-2">
+        <div className="w-full max-w-[450px] md:max-w-[600px] flex flex-col gap-2">
           <AnimatePresence initial={false}>
             {updateAvailable && !updateDismissed && (
               <motion.div

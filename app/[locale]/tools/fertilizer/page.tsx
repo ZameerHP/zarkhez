@@ -67,20 +67,20 @@ export default function FertilizerToolPage() {
         </div>
       </header>
 
-      <main className="px-5 mt-5 space-y-5">
+      <main className="px-3.5 min-[375px]:px-5 mt-4 sm:mt-5 space-y-4 sm:space-y-5">
         {/* Form Inputs */}
-        <section className="bg-white rounded-card p-5 shadow-soft border border-olive/10 space-y-4">
+        <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/10 space-y-4">
           <div>
             <label className="block text-xs font-bold text-ink/75 mb-1.5">
               {t('selectCrop')}
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 min-[380px]:grid-cols-3 gap-2">
               {crops.map((c) => (
                 <button
                   key={c.key}
                   type="button"
                   onClick={() => setCropKey(c.key)}
-                  className={`min-h-[48px] rounded-tile font-bold text-sm transition-all ${
+                  className={`min-h-[48px] px-2 rounded-tile font-bold text-xs sm:text-sm transition-all ${
                     cropKey === c.key
                       ? 'bg-olive text-white shadow-sm'
                       : 'bg-canvas text-ink hover:bg-olive/15'
@@ -134,10 +134,10 @@ export default function FertilizerToolPage() {
         </section>
 
         {/* Result Card with Large Green Numbers (Section 11.2) */}
-        <section className="bg-white rounded-card p-5 shadow-soft border border-olive/15 space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-extrabold text-lg text-ink flex items-center gap-2">
-              <Sprout className="w-5 h-5 text-olive" />
+        <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/15 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="font-extrabold text-base sm:text-lg text-ink flex items-center gap-2 min-w-0">
+              <Sprout className="w-5 h-5 text-olive flex-shrink-0" />
               <span>{t('totalForAcres', { acres: areaAcres })}</span>
             </h2>
             <ReadAloudButton text={spokenText} />
@@ -147,9 +147,9 @@ export default function FertilizerToolPage() {
             {result.items.map((item) => (
               <div
                 key={item.product}
-                className="bg-canvas rounded-card p-4 border border-olive/10 flex items-center justify-between gap-3"
+                className="bg-canvas rounded-card p-3.5 sm:p-4 border border-olive/10 flex items-center justify-between flex-wrap gap-2.5"
               >
-                <div>
+                <div className="min-w-0">
                   <span className="font-extrabold text-base text-ink block">
                     {item.product}
                   </span>

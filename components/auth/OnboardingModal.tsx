@@ -102,16 +102,16 @@ export function OnboardingModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[75] flex items-center justify-center p-3 sm:p-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-ink/70 backdrop-blur-sm overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, scale: 0.94, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.94 }}
-        className="w-full max-w-md rounded-card bg-[#F4F5EE] border border-olive/30 shadow-2xl p-5 sm:p-6 space-y-4 text-start overflow-hidden"
+        className="w-full max-w-md max-h-[90dvh] overflow-y-auto overscroll-contain rounded-card bg-[#F4F5EE] border border-olive/30 shadow-2xl p-4 sm:p-6 space-y-4 text-start"
       >
         {/* Header with Step Indicator */}
         <div className="flex items-center justify-between gap-3 border-b border-olive/15 pb-3">
-          <div>
+          <div className="min-w-0">
             <span className="text-[11px] font-extrabold tracking-wider uppercase text-olive">
               {locale === 'ur' ? `مرحلہ ${step} از 4` : `Step ${step} of 4`}
             </span>
@@ -125,7 +125,7 @@ export function OnboardingModal({
           <button
             type="button"
             onClick={onSkip}
-            className="text-xs font-bold text-ink/55 hover:text-ink px-3 py-1.5 rounded-full hover:bg-olive/10 transition-colors"
+            className="min-h-[40px] text-xs font-bold text-ink/55 hover:text-ink px-3 py-1.5 rounded-full hover:bg-olive/10 transition-colors flex-shrink-0"
           >
             {t('skipBtn')}
           </button>
@@ -148,7 +148,7 @@ export function OnboardingModal({
                 ? 'زرخیز آپ کو کس زبان میں مشورہ اور آواز فراہم کرے؟'
                 : 'Which language should Zarkhez use for text and voice guidance?'}
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 min-[340px]:grid-cols-2 gap-2.5 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setSelectedLang('ur')}
@@ -245,7 +245,7 @@ export function OnboardingModal({
               <label className="block text-xs font-bold text-ink/80 mb-2">
                 {locale === 'ur' ? 'کل زرعی رقبہ' : 'Cultivated Farm Size'}
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 min-[340px]:grid-cols-2 gap-2">
                 {LAND_BANDS.map((b) => {
                   const active = selectedLandBand === b.key;
                   return (
