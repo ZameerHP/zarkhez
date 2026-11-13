@@ -577,4 +577,64 @@ test.describe('Zarkhez Responsive & PWA Zoom Audit', () => {
 
     await context.close();
   });
+
+  test('whenever app opens at root / or /?source=pwa it defaults to English even with prior Urdu locale cookie or Accept-Language', async ({
+    browser,
+    baseURL,
+  }) => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      locale: 'ur-PK',
+      extraHTTPHeaders: {
+        'Accept-Language': 'ur-PK,ur;q=0.9,en;q=0.8',
+      },
+    });
+    const page = await context.newPage();
+
+    // 1. Fresh open at / -> resolves to /en with EN selected
+    await page.goto('/', { waitUntil: 'load' });
+    await expect(page).toHaveURL(/\/en$/);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+    await expect(page.getByRole('button', { name: 'EN', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    // 2. Switching manually to Urdu during session still works (sets NEXT_LOCALE=ur)
+    await page.getByRole('button', { name: 'اردو' }).click();
+    await expect(page).toHaveURL(/\/ur$/);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ur');
+
+    // 3. Re-opening app at PWA start_url /?source=pwa always opens English again
+    await page.goto('/?source=pwa', { waitUntil: 'load' });
+    await expect(page).toHaveURL(/\/en(\?|$)/);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.getByRole('button', { name: 'EN', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    // 4. Returning authenticated farmer previously on /ur/home re-opening /?source=pwa opens /en/home with English selected
+    await setupFarmerSession(page, 'ur');
+    await context.addCookies([
+      {
+        name: 'zarkhez_auth',
+        value: '1',
+        url: new URL(baseURL!).origin,
+        sameSite: 'Lax',
+      },
+    ]);
+    await page.goto('/ur/home', { waitUntil: 'load' });
+    await expect(page).toHaveURL(/\/ur\/home/);
+    await page.goto('/?source=pwa', { waitUntil: 'load' });
+    await expect(page).toHaveURL(/\/en\/home/);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.getByRole('button', { name: 'English', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    await context.close();
+  });
 });

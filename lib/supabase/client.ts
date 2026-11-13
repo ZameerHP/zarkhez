@@ -510,7 +510,7 @@ const DEFAULT_UNAUTHENTICATED_PROFILE: FarmerProfile = {
   avatarUrl: '',
   authProvider: 'none',
   isAuthenticated: false,
-  language: 'ur',
+  language: 'en',
   autoSpeakVoice: true,
   preferredVoice: 'ur-PK-UzmaNeural',
   voiceSpeed: 1.0,

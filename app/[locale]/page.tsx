@@ -286,6 +286,7 @@ export default function WelcomePage() {
           <button
             type="button"
             onClick={() => switchLanguage('ur')}
+            aria-pressed={locale === 'ur'}
             className={`min-h-[38px] px-3 py-1 rounded-full text-xs font-black transition-all ${
               locale === 'ur'
                 ? 'bg-olive text-white shadow-sm'
@@ -297,6 +298,7 @@ export default function WelcomePage() {
           <button
             type="button"
             onClick={() => switchLanguage('en')}
+            aria-pressed={locale === 'en'}
             className={`min-h-[38px] px-3 py-1 rounded-full text-xs font-black transition-all ${
               locale === 'en'
                 ? 'bg-olive text-white shadow-sm'

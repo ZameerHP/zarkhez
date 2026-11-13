@@ -24,7 +24,7 @@ export default function middleware(req: NextRequest) {
   const response = intlMiddleware(req);
   const authCookie = req.cookies.get('zarkhez_auth')?.value;
   const matchLocale = pathname.match(/^\/(en|ur)(?:\/|$)/);
-  const locale = matchLocale ? matchLocale[1] : 'ur';
+  const locale = matchLocale ? matchLocale[1] : routing.defaultLocale;
 
   // Returning authenticated farmers opening root welcome URL enter /home automatically (zero repeat login)
   const isRootWelcome =

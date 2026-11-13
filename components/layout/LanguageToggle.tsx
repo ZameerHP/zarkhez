@@ -33,6 +33,7 @@ export function LanguageToggle({ variant = 'glass' }: LanguageToggleProps) {
       <button
         type="button"
         onClick={() => switchTo('ur')}
+        aria-pressed={locale === 'ur'}
         className={`min-h-[38px] px-2.5 min-[375px]:px-3.5 py-1 rounded-full text-xs min-[375px]:text-sm font-bold whitespace-nowrap transition-all ${
           locale === 'ur'
             ? 'bg-olive text-white shadow-sm'
@@ -46,6 +47,7 @@ export function LanguageToggle({ variant = 'glass' }: LanguageToggleProps) {
       <button
         type="button"
         onClick={() => switchTo('en')}
+        aria-pressed={locale === 'en'}
         className={`min-h-[38px] px-2.5 min-[375px]:px-3.5 py-1 rounded-full text-xs min-[375px]:text-sm font-bold whitespace-nowrap transition-all ${
           locale === 'en'
             ? 'bg-olive text-white shadow-sm'

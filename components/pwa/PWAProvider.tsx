@@ -290,9 +290,9 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
       ? 'en'
       : pathname?.startsWith('/ur')
       ? 'ur'
-      : document.documentElement.lang === 'en'
-      ? 'en'
-      : 'ur';
+      : document.documentElement.lang === 'ur'
+      ? 'ur'
+      : 'en';
     const isAuth = document.cookie.includes('zarkhez_auth=1');
     const version = process.env.NEXT_PUBLIC_APP_BUILD_VERSION || 'v2';
     const warmKey = `${version}:${locale}:${isAuth ? '1' : '0'}`;

@@ -3,7 +3,7 @@
   "name": "ZARKHEZ",
   "short_name": "ZARKHEZ",
   "description": "ZARKHEZ (زرخیز) — AI-powered smart farming assistant for Pakistani farmers. Crop scanning, AI advisor, weather alerts and farm diary in Urdu, English and Sindhi.",
-  "lang": "ur",
+  "lang": "en",
   "dir": "auto",
   "start_url": "/?source=pwa",
   "scope": "/",
