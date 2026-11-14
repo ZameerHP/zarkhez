@@ -228,3 +228,24 @@ on storage.objects for all
 to authenticated
 using (bucket_id = 'scans' and (storage.foldername(name))[1] = auth.uid()::text)
 with check (bucket_id = 'scans' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- 11. GOVERNMENT SCHEMES LIVE AUTO-UPDATE & EXPIRY STORE
+create table if not exists public.schemes (
+  id text primary key,
+  status text not null check (status in ('ongoing', 'verify_on_portal', 'expired')),
+  expires_at date,
+  last_verified_at text not null,
+  auto_checked_at timestamptz,
+  payload jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_schemes_status_expires on public.schemes (status, expires_at);
+
+alter table public.schemes enable row level security;
+
+drop policy if exists "Public can read verified schemes" on public.schemes;
+create policy "Public can read verified schemes"
+  on public.schemes for select
+  to anon, authenticated
+  using (true);

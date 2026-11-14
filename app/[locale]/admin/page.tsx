@@ -317,7 +317,7 @@ export default function AdminDiagnosticsPage() {
             </section>
 
             {/* Admin Scheme Verification Queue */}
-            <AdminSchemeVerifier />
+            <AdminSchemeVerifier adminSecret={adminSecretInput} />
           </div>
         )}
       </div>
