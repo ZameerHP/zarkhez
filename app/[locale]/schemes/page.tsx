@@ -24,7 +24,7 @@ import {
   type GovernmentSchemeItem,
 } from '@/lib/schemes';
 
-const PROVINCES = ['all', 'Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'National'] as const;
+const PROVINCES = ['all', 'Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'Balochistan', 'National'] as const;
 
 export default function SchemesPage() {
   const rawLocale = useLocale() as 'en' | 'ur' | 'sd';
@@ -198,6 +198,11 @@ export default function SchemesPage() {
                         <span className="px-2 py-0.5 rounded-full bg-olive/12 text-olive-dark text-[10px] font-extrabold">
                           {scheme.province}
                         </span>
+                        {scheme.autoDiscovered && !isExpired && (
+                          <span className="px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-900 text-[10px] font-extrabold">
+                            {locale === 'ur' ? 'نئی خودکار اپ ڈیٹ' : 'Latest Auto-Update'}
+                          </span>
+                        )}
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold inline-flex items-center gap-1 ${
                             scheme.status === 'ongoing'

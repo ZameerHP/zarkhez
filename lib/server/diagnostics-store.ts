@@ -1,4 +1,5 @@
 import { redactSecrets, generateRequestId } from '../error-sanitizer';
+import { getGeminiPoolHealthSnapshot, type GeminiPoolSnapshot } from './gemini-pool';
 
 export type DiagnosticService =
   | 'vision'
@@ -123,10 +124,12 @@ export function recordDiagnosticEvent(input: {
 export function getInternalDiagnosticsSnapshot(): {
   generatedAt: string;
   envConfiguration: Record<string, { configured: boolean; masked: string }>;
+  geminiPool: GeminiPoolSnapshot;
   services: Record<DiagnosticService, ServiceHealthMetric>;
   recentEvents: InternalDiagnosticEvent[];
 } {
   const store = getStore();
+  const geminiPool = getGeminiPoolHealthSnapshot();
 
   const maskPresence = (envNames: string[]): { configured: boolean; masked: string } => {
     const isSet = envNames.some((n) => Boolean(process.env[n]?.trim()));
@@ -139,13 +142,20 @@ export function getInternalDiagnosticsSnapshot(): {
   return {
     generatedAt: new Date().toISOString(),
     envConfiguration: {
-      visionAiKey: maskPresence(['GEMINI_API_KEY', 'GOOGLE_API_KEY']),
+      visionAiKey: {
+        configured: geminiPool.enabledCount > 0,
+        masked:
+          geminiPool.enabledCount > 0
+            ? '•••••••• (Configured server-side)'
+            : 'Not configured',
+      },
       azureSpeechKey: maskPresence(['AZURE_SPEECH_KEY']),
       supabasePublicConfig: maskPresence(['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY']),
       supabaseServiceRole: maskPresence(['SUPABASE_SERVICE_ROLE_KEY']),
       upstashRateLimit: maskPresence(['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN']),
       adminAllowlist: maskPresence(['ADMIN_EMAILS', 'ADMIN_DIAGNOSTICS_SECRET']),
     },
+    geminiPool,
     services: JSON.parse(JSON.stringify(store.metrics)) as Record<DiagnosticService, ServiceHealthMetric>,
     recentEvents: store.events.slice(0, 60),
   };

@@ -15,12 +15,10 @@ import {
 import {
   isSchemesStateStale,
   SCHEMES_AUTO_REFRESH_TTL_MS,
+  validateDiscoveredSchemeCandidate,
 } from '../lib/server/schemes-store';
-import { GET as schemesGet, POST as schemesPost } from '../app/api/schemes/route';
-import {
-  GET as schemesRefreshGet,
-  POST as schemesRefreshPost,
-} from '../app/api/schemes/refresh/route';
+import { GET as schemesGet } from '../app/api/schemes/route';
+import { GET as schemesRefreshGet } from '../app/api/schemes/refresh/route';
 
 async function runTests() {
   let passed = 0;
@@ -38,7 +36,7 @@ async function runTests() {
     }
   }
 
-  console.log('\n=== Schemes Auto-Expiry & Auto-Update Suite ===');
+  console.log('\n=== Schemes Zero-Admin Auto-Expiry & Auto-Update Suite ===');
 
   const bundled = getBundledSchemes();
   const sampleBase: GovernmentSchemeItem = bundled[0];
@@ -147,31 +145,127 @@ async function runTests() {
     );
   });
 
-  await testCase('Protected /api/schemes & /api/schemes/refresh mutations reject unauthorized callers cleanly', async () => {
-    const unauthPost = await schemesPost(
-      new NextRequest('http://localhost/api/schemes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: sampleBase.id, status: 'expired' }),
-      })
-    );
-    assert.equal(unauthPost.status, 401);
-    assert.equal(unauthPost.headers.get('Cache-Control'), 'no-store, private');
+  await testCase('Automated /api/schemes/refresh cron endpoint rejects unauthenticated callers cleanly', async () => {
+    const prevCron = process.env.CRON_SECRET;
+    try {
+      process.env.CRON_SECRET = 'cron-secret-with-at-least-16-chars';
+      const unauthCron = await schemesRefreshGet(
+        new NextRequest('http://localhost/api/schemes/refresh', { method: 'GET' })
+      );
+      assert.equal(unauthCron.status, 401);
+      assert.equal(unauthCron.headers.get('Cache-Control'), 'no-store, private');
 
-    const unauthCron = await schemesRefreshGet(
-      new NextRequest('http://localhost/api/schemes/refresh', { method: 'GET' })
-    );
-    assert.equal(unauthCron.status, 401);
-
-    const unauthRefreshPost = await schemesRefreshPost(
-      new NextRequest('http://localhost/api/schemes/refresh', { method: 'POST' })
-    );
-    assert.equal(unauthRefreshPost.status, 401);
+      const badCron = await schemesRefreshGet(
+        new NextRequest('http://localhost/api/schemes/refresh', {
+          method: 'GET',
+          headers: { Authorization: 'Bearer wrong-token' },
+        })
+      );
+      assert.equal(badCron.status, 401);
+    } finally {
+      if (prevCron === undefined) {
+        delete process.env.CRON_SECRET;
+      } else {
+        process.env.CRON_SECRET = prevCron;
+      }
+    }
   });
 
-  await testCase('Authorized POST /api/schemes auto-expires past deadlines and GET /api/schemes serves updated list', async () => {
+  await testCase('validateDiscoveredSchemeCandidate accepts real .gov.pk launches and rejects unofficial/duplicate/expired ones', () => {
+    const validNew = validateDiscoveredSchemeCandidate(
+      {
+        id: 'balochistan_solar_agri_2027',
+        titleEn: 'Balochistan Agricultural Tube-Well Solarization Program',
+        titleUr: 'بلوچستان زرعی ٹیوب ویل سولرائزیشن پروگرام',
+        province: 'Balochistan',
+        department: 'Agriculture & Cooperatives Department Balochistan',
+        officialPortal: 'https://balochistan.gov.pk/',
+        status: 'ongoing',
+        expiresAt: '2099-12-31',
+        datesNoteEn: 'Open for registration on balochistan.gov.pk until 2099-12-31.',
+        datesNoteUr: 'رجسٹریشن 2099-12-31 تک کھلی ہے۔',
+        summaryEn: 'Solar conversion assistance for registered tube-wells in Balochistan.',
+        summaryUr: 'بلوچستان کے کسانوں کے لیے زرعی ٹیوب ویل سولر اسکیم۔',
+        eligibilityEn: ['Valid Balochistan CNIC & registered agricultural tube-well'],
+        eligibilityUr: ['بلوچستان کا شناختی کارڈ اور رجسٹرڈ ٹیوب ویل'],
+      },
+      bundled,
+      '2026-11-14'
+    );
+    assert.ok(validNew);
+    assert.equal(validNew.autoDiscovered, true);
+    assert.equal(validNew.province, 'Balochistan');
+
+    // Reject unofficial domain
+    const unofficial = validateDiscoveredSchemeCandidate(
+      {
+        id: 'fake_subsidy_scheme',
+        titleEn: 'Fake Farmer Bonus',
+        titleUr: 'جعلی بونس',
+        province: 'National',
+        department: 'Unofficial Blog',
+        officialPortal: 'https://farmer-news-blog.com/',
+        status: 'ongoing',
+        datesNoteEn: 'Apply today.',
+        datesNoteUr: 'آج اپلائی کریں۔',
+        summaryEn: 'Unofficial scheme summary for testing.',
+        summaryUr: 'ٹیسٹ خلاصہ۔',
+        eligibilityEn: ['CNIC'],
+        eligibilityUr: ['شناختی کارڈ'],
+      },
+      bundled,
+      '2026-11-14'
+    );
+    assert.equal(unofficial, null);
+
+    // Reject duplicate title against bundled catalog
+    const duplicate = validateDiscoveredSchemeCandidate(
+      {
+        id: 'duplicate_kissan_card',
+        titleEn: sampleBase.title.en,
+        titleUr: sampleBase.title.ur,
+        province: 'Punjab',
+        department: 'Agriculture Department',
+        officialPortal: 'https://agripunjab.gov.pk/',
+        status: 'ongoing',
+        datesNoteEn: 'Check portal.',
+        datesNoteUr: 'پورٹل چیک کریں۔',
+        summaryEn: 'Duplicate test summary.',
+        summaryUr: 'نقل ٹیسٹ خلاصہ۔',
+        eligibilityEn: ['CNIC'],
+        eligibilityUr: ['شناختی کارڈ'],
+      },
+      bundled,
+      '2026-11-14'
+    );
+    assert.equal(duplicate, null);
+
+    // Reject already expired discovery
+    const alreadyExpired = validateDiscoveredSchemeCandidate(
+      {
+        id: 'old_expired_scheme',
+        titleEn: 'Old 2021 Seed Package',
+        titleUr: 'پرانا بیج پیکج',
+        province: 'Sindh',
+        department: 'Agriculture Sindh',
+        officialPortal: 'https://sindh.gov.pk/',
+        status: 'ongoing',
+        expiresAt: '2021-01-01',
+        datesNoteEn: 'Closed in 2021.',
+        datesNoteUr: '2021 میں بند۔',
+        summaryEn: 'Expired test summary.',
+        summaryUr: 'پرانا ٹیسٹ خلاصہ۔',
+        eligibilityEn: ['CNIC'],
+        eligibilityUr: ['شناختی کارڈ'],
+      },
+      bundled,
+      '2026-11-14'
+    );
+    assert.equal(alreadyExpired, null);
+  });
+
+  await testCase('GET /api/schemes automatically expires past-deadline items and places them after active schemes', async () => {
     const tmpFile = path.join(os.tmpdir(), 'zarkhez-schemes-state.json');
-    const prevSecret = process.env.ADMIN_DIAGNOSTICS_SECRET;
     let backupTmp: string | null = null;
     try {
       backupTmp = await fs.readFile(tmpFile, 'utf8');
@@ -181,50 +275,57 @@ async function runTests() {
     const prevMemory = (globalThis as Record<string, unknown>).__zarkhezSchemesState;
 
     try {
-      process.env.ADMIN_DIAGNOSTICS_SECRET = 'test-admin-secret-at-least-16-chars';
+      const latestDiscovered = validateDiscoveredSchemeCandidate(
+        {
+          id: 'national_green_credit_2027',
+          titleEn: 'National Green Agri Credit Line',
+          titleUr: 'قومی گرین ایگری کریڈٹ لائن',
+          province: 'National',
+          department: 'State Bank / ZTBL',
+          officialPortal: 'https://www.ztbl.com.pk/',
+          status: 'ongoing',
+          expiresAt: '2099-12-31',
+          datesNoteEn: 'Applications open until 2099-12-31.',
+          datesNoteUr: 'درخواستیں 2099-12-31 تک کھلی ہیں۔',
+          summaryEn: 'Auto-discovered active federal farm credit facility.',
+          summaryUr: 'وفاقی زرعی قرض سہولت۔',
+          eligibilityEn: ['Registered Pakistani farmer with CNIC'],
+          eligibilityUr: ['رجسٹرڈ پاکستانی کسان مع شناختی کارڈ'],
+        },
+        bundled,
+        '2026-11-14'
+      );
+      assert.ok(latestDiscovered);
 
-      const resSave = await schemesPost(
-        new NextRequest('http://localhost/api/schemes', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-secret': 'test-admin-secret-at-least-16-chars',
-          },
-          body: JSON.stringify({
+      // Seed state with one past-deadline scheme AND one auto-discovered latest scheme
+      (globalThis as Record<string, unknown>).__zarkhezSchemesState = {
+        lastAutoCheckAt: new Date().toISOString(),
+        patches: {
+          [sampleBase.id]: {
             id: sampleBase.id,
             status: 'ongoing',
             expiresAt: '2021-06-30',
-            verifiedBy: 'Automated Test Runner',
-          }),
-        })
-      );
-      assert.equal(resSave.status, 200);
-      const saveJson = (await resSave.json()) as {
-        ok: boolean;
-        updatedScheme: GovernmentSchemeItem;
+            lastVerifiedAt: '2021-06-01',
+          },
+        },
+        discoveredSchemes: [latestDiscovered],
       };
-      assert.equal(saveJson.ok, true);
-      assert.equal(saveJson.updatedScheme.status, 'expired');
-      assert.equal(saveJson.updatedScheme.expiredAutoDetected, true);
 
       const resGet = await schemesGet();
       assert.equal(resGet.status, 200);
       const getJson = (await resGet.json()) as { schemes: GovernmentSchemeItem[] };
+      assert.equal(getJson.schemes[0].id, 'national_green_credit_2027');
+      assert.equal(getJson.schemes[0].autoDiscovered, true);
       const fetchedTarget = getJson.schemes.find((s) => s.id === sampleBase.id);
       assert.ok(fetchedTarget);
       assert.equal(fetchedTarget.status, 'expired');
-      // Expired item must be placed after non-expired items
+      assert.equal(fetchedTarget.expiredAutoDetected, true);
       assert.equal(getJson.schemes[getJson.schemes.length - 1].id, sampleBase.id);
     } finally {
       const pendingRefresh = (globalThis as Record<string, unknown>)
         .__zarkhezSchemesRefreshPromise as Promise<unknown> | undefined;
       if (pendingRefresh) {
         await pendingRefresh.catch(() => undefined);
-      }
-      if (prevSecret === undefined) {
-        delete process.env.ADMIN_DIAGNOSTICS_SECRET;
-      } else {
-        process.env.ADMIN_DIAGNOSTICS_SECRET = prevSecret;
       }
       (globalThis as Record<string, unknown>).__zarkhezSchemesState = prevMemory;
       if (backupTmp !== null) {

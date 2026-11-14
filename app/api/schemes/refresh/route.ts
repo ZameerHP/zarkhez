@@ -1,7 +1,5 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { checkRateLimit } from '@/lib/ratelimit';
-import { verifyAdminRequest } from '@/lib/server/admin-auth';
 import { refreshSchemesFromPortals } from '@/lib/server/schemes-store';
 
 export const dynamic = 'force-dynamic';
@@ -28,69 +26,15 @@ function isAuthorizedCronRequest(req: NextRequest): boolean {
 }
 
 /**
- * Automated daily Vercel Cron entrypoint (`GET`) + manual admin fallback.
+ * Automated daily Vercel Cron entrypoint (`GET /api/schemes/refresh`).
+ * Runs purely automatically without any Admin UI or manual intervention.
  */
 export async function GET(req: NextRequest) {
-  const cronOk = isAuthorizedCronRequest(req);
-  if (!cronOk) {
-    const adminAuth = await verifyAdminRequest(req);
-    if (!adminAuth.authorized) {
-      return NextResponse.json(
-        { error: 'Unauthorized schemes refresh access required.' },
-        {
-          status: adminAuth.status,
-          headers: { 'Cache-Control': 'no-store, private' },
-        }
-      );
-    }
-  }
-
-  try {
-    const result = await refreshSchemesFromPortals({ force: true });
+  if (!isAuthorizedCronRequest(req)) {
     return NextResponse.json(
+      { error: 'Unauthorized automated refresh request.' },
       {
-        ok: true,
-        ...result,
-      },
-      {
-        status: 200,
-        headers: { 'Cache-Control': 'no-store, private' },
-      }
-    );
-  } catch {
-    return NextResponse.json(
-      { error: 'Automated schemes check failed.' },
-      {
-        status: 500,
-        headers: { 'Cache-Control': 'no-store, private' },
-      }
-    );
-  }
-}
-
-/**
- * Manual admin-triggered live check of official portals.
- */
-export async function POST(req: NextRequest) {
-  const auth = await verifyAdminRequest(req);
-  if (!auth.authorized) {
-    return NextResponse.json(
-      { error: 'Unauthorized administrator access required.' },
-      {
-        status: auth.status,
-        headers: { 'Cache-Control': 'no-store, private' },
-      }
-    );
-  }
-
-  const forwarded = req.headers.get('x-forwarded-for') || '';
-  const ip = forwarded.split(',')[0]?.trim() || 'admin-schemes-refresh';
-  const rl = await checkRateLimit(`schemes-refresh:${ip}`);
-  if (!rl.success) {
-    return NextResponse.json(
-      { error: 'Too many refresh requests. Please wait a few minutes.' },
-      {
-        status: 429,
+        status: 401,
         headers: { 'Cache-Control': 'no-store, private' },
       }
     );
@@ -101,7 +45,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: true,
-        authorizedAdmin: auth.adminEmail,
         ...result,
       },
       {

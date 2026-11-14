@@ -23,6 +23,8 @@ export interface GovernmentSchemeItem {
   expiredAutoDetected?: boolean;
   /** Whether the official portal responded normally on the latest server check */
   portalReachable?: boolean;
+  /** True when automatically discovered from official .gov.pk portals */
+  autoDiscovered?: boolean;
   datesNote: {
     en: string;
     ur: string;
@@ -55,28 +57,7 @@ export interface SchemesCatalogResponse {
   source: SchemesStorageSource;
 }
 
-export interface AdminSchemeUpdatePayload {
-  id: string;
-  status: SchemeStatus;
-  expiresAt?: string | null;
-  datesNote?: {
-    en: string;
-    ur: string;
-  };
-  verifiedBy?: string;
-}
-
-export interface AdminSchemeActionResult {
-  ok: boolean;
-  source?: SchemesStorageSource;
-  lastAutoCheckAt?: string | null;
-  checkedCount?: number;
-  expiredCount?: number;
-  error?: string;
-}
-
 const BUNDLED_SCHEMES = rawSchemes as GovernmentSchemeItem[];
-const OVERRIDES_KEY = 'zarkhez_schemes_overrides_v1';
 
 const OFFICIAL_PORTAL_HOST_ALLOWLIST = [
   '.gov.pk',
@@ -105,7 +86,6 @@ export function getTodayPakistanIsoDate(now: Date = new Date()): string {
   if (year && month && day) {
     return `${year}-${month}-${day}`;
   }
-  // Deterministic UTC+5 fallback
   const pkt = new Date(now.getTime() + 5 * 60 * 60 * 1000);
   return pkt.toISOString().slice(0, 10);
 }
@@ -218,25 +198,6 @@ export function sortSchemesActiveFirst(
     .map((entry) => entry.item);
 }
 
-interface LegacySchemeOverride {
-  status: SchemeStatus;
-  lastVerifiedAt: string;
-  verifiedBy: string;
-  expiresAt?: string;
-}
-
-function readLegacyOverrides(): Record<string, LegacySchemeOverride> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(OVERRIDES_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, LegacySchemeOverride>;
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
 export function getBundledSchemes(): GovernmentSchemeItem[] {
   return sortSchemesActiveFirst(
     BUNDLED_SCHEMES.map((s) => applySchemeExpiryRules(s))
@@ -280,16 +241,8 @@ export async function fetchSchemesCatalog(): Promise<SchemesCatalogResponse> {
     // Fall back gracefully to bundled schemes evaluated against today's date
   }
 
-  const overrides = readLegacyOverrides();
-  const today = getTodayPakistanIsoDate();
-  const fallbackList = BUNDLED_SCHEMES.map((scheme) => {
-    const patch = overrides[scheme.id];
-    const merged = patch ? { ...scheme, ...patch } : scheme;
-    return applySchemeExpiryRules(merged, today);
-  });
-
   return {
-    schemes: sortSchemesActiveFirst(fallbackList),
+    schemes: getBundledSchemes(),
     lastAutoCheckAt: null,
     source: 'bundled',
   };
@@ -298,117 +251,4 @@ export async function fetchSchemesCatalog(): Promise<SchemesCatalogResponse> {
 export async function getAvailableSchemes(): Promise<GovernmentSchemeItem[]> {
   const catalog = await fetchSchemesCatalog();
   return catalog.schemes;
-}
-
-/**
- * Persists an admin verification/expiry update via `/api/schemes` so all users receive the update centrally.
- */
-export async function adminSaveSchemeUpdate(
-  payload: AdminSchemeUpdatePayload,
-  authHeaders: Record<string, string>
-): Promise<AdminSchemeActionResult> {
-  if (typeof window === 'undefined') {
-    return { ok: false, error: 'Client execution required.' };
-  }
-
-  try {
-    const res = await fetch('/api/schemes', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = (await res.json().catch(() => ({}))) as {
-      error?: string;
-      source?: SchemesStorageSource;
-      lastAutoCheckAt?: string | null;
-    };
-
-    if (!res.ok) {
-      return {
-        ok: false,
-        error: data.error || `Server rejected update (${res.status}).`,
-      };
-    }
-
-    return {
-      ok: true,
-      source: data.source,
-      lastAutoCheckAt: data.lastAutoCheckAt ?? null,
-    };
-  } catch {
-    return {
-      ok: false,
-      error: 'Unable to reach schemes server endpoint.',
-    };
-  }
-}
-
-/**
- * Triggers an immediate server-side auto-check of official `.gov.pk`/`.gos.pk` portals from `/admin`.
- */
-export async function adminTriggerSchemesRefresh(
-  authHeaders: Record<string, string>
-): Promise<AdminSchemeActionResult> {
-  if (typeof window === 'undefined') {
-    return { ok: false, error: 'Client execution required.' };
-  }
-
-  try {
-    const res = await fetch('/api/schemes/refresh', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-      },
-    });
-
-    const data = (await res.json().catch(() => ({}))) as {
-      error?: string;
-      source?: SchemesStorageSource;
-      lastAutoCheckAt?: string | null;
-      checkedCount?: number;
-      expiredCount?: number;
-    };
-
-    if (!res.ok) {
-      return {
-        ok: false,
-        error: data.error || `Auto-check failed (${res.status}).`,
-      };
-    }
-
-    return {
-      ok: true,
-      source: data.source,
-      lastAutoCheckAt: data.lastAutoCheckAt ?? null,
-      checkedCount: data.checkedCount,
-      expiredCount: data.expiredCount,
-    };
-  } catch {
-    return {
-      ok: false,
-      error: 'Unable to reach schemes refresh endpoint.',
-    };
-  }
-}
-
-export async function adminUpsertVerifiedScheme(
-  scheme: GovernmentSchemeItem,
-  authHeaders: Record<string, string> = {}
-): Promise<boolean> {
-  const result = await adminSaveSchemeUpdate(
-    {
-      id: scheme.id,
-      status: scheme.status,
-      expiresAt: scheme.expiresAt ?? null,
-      datesNote: scheme.datesNote,
-      verifiedBy: scheme.verifiedBy,
-    },
-    authHeaders
-  );
-  return result.ok;
 }

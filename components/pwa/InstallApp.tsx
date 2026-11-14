@@ -179,31 +179,13 @@ export function InstallInstructionsSheet({
   );
 }
 
-/** Persistent "Install App" entry point (used on the Profile screen). */
+/** Persistent "Install App" entry point (used on the Profile screen); completely hidden once installed. */
 export function InstallAppCard() {
   const t = useTranslations('pwa');
   const { ready, isInstalled } = usePWA();
   const { install, busy, showInstructions, closeInstructions } = useInstallAction();
 
-  if (!ready) return null;
-
-  if (isInstalled) {
-    return (
-      <section className="bg-white rounded-2xl p-4 shadow-soft border border-olive/15 flex items-center gap-3">
-        <div className="w-11 h-11 rounded-[13px] overflow-hidden border border-emerald-400/40 flex-shrink-0 bg-[#062409]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/icon-192.png" alt="" width={44} height={44} className="w-full h-full object-cover" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 text-sm font-extrabold text-olive-dark">
-            <CheckCircle2 className="w-4 h-4 text-olive-fresh" />
-            <span>{t('installedTitle')}</span>
-          </p>
-          <p className="text-[11px] text-ink/60">{t('installedSubtitle')}</p>
-        </div>
-      </section>
-    );
-  }
+  if (!ready || isInstalled) return null;
 
   return (
     <>

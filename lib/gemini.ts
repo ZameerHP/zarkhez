@@ -6,6 +6,11 @@ import { extractAndParseJson } from './json-extractor';
 import { normalizeAndValidateDiagnosis } from './diagnosis-normalizer';
 import { getCustomerErrorMessage, redactSecrets, sanitizeCustomerText } from './error-sanitizer';
 import {
+  executeGeminiWithFailover,
+  hasAnyConfiguredGeminiAccount,
+  loadConfiguredGeminiAccounts,
+} from './server/gemini-pool';
+import {
   Advice,
   AdviceSchema,
   SecondOpinion,
@@ -611,10 +616,12 @@ export function getGeminiApiKey(): string | undefined {
     // Strictly server-only: private vision keys must never be accessed in browser contexts
     return undefined;
   }
-  return readEnvLocalValue([
-    'GEMINI_API_KEY',
-    'GOOGLE_API_KEY',
-  ]);
+  const accounts = loadConfiguredGeminiAccounts();
+  const enabled = accounts.filter((acc) => acc.enabled);
+  if (enabled.length > 0) {
+    return enabled[0].apiKey;
+  }
+  return undefined;
 }
 
 export function extractImageMimeType(dataUrlOrBase64: string): string {
@@ -851,8 +858,7 @@ async function callGeminiApi({
   responseSchema?: Record<string, unknown>;
   timeoutMs?: number;
 }): Promise<{ text: string; modelUsed: string }> {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) {
+  if (!hasAnyConfiguredGeminiAccount()) {
     throw new GeminiVisionError(
       'Missing Cloud AI vision key in server environment.',
       503,
@@ -886,243 +892,205 @@ async function callGeminiApi({
     )
   ).slice(0, 5);
 
-  const overallDeadlineMs = Date.now() + 48000;
-  let lastError: GeminiVisionError | null = null;
+  const result = await executeGeminiWithFailover({
+    models: modelsToTry,
+    timeoutMs,
+    overallDeadlineMs: 48_000,
+    isSchemaErrorRetryable: (errText) =>
+      /response_schema|schema|generation_config|thinking/i.test(errText),
+    buildRequestBody: (candidateModel) => {
+      const isFlashThinkingModel =
+        candidateModel === 'gemini-3.6-flash' ||
+        candidateModel === 'gemini-3.5-flash';
 
-  for (let i = 0; i < modelsToTry.length; i++) {
-    const remainingBudgetMs = overallDeadlineMs - Date.now();
-    if (remainingBudgetMs < 3500) break;
-
-    const candidateModel = modelsToTry[i];
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${candidateModel}:generateContent?key=${apiKey}`;
-
-    const isFlashThinkingModel =
-      candidateModel === 'gemini-3.6-flash' ||
-      candidateModel === 'gemini-3.5-flash';
-
-    const generationConfig: Record<string, unknown> = {
-      temperature,
-      maxOutputTokens,
-      response_mime_type: 'application/json',
-      ...(isFlashThinkingModel ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
-      ...(responseSchema ? { response_schema: responseSchema } : {}),
-    };
-
-    const payload: Record<string, unknown> = {
-      contents,
-      generationConfig,
-    };
-
-    if (systemInstruction) {
-      payload.system_instruction = {
-        parts: [{ text: systemInstruction }],
+      const generationConfig: Record<string, unknown> = {
+        temperature,
+        maxOutputTokens,
+        response_mime_type: 'application/json',
+        ...(isFlashThinkingModel ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        ...(responseSchema ? { response_schema: responseSchema } : {}),
       };
+
+      const payload: Record<string, unknown> = {
+        contents,
+        generationConfig,
+      };
+
+      if (systemInstruction) {
+        payload.system_instruction = {
+          parts: [{ text: systemInstruction }],
+        };
+      }
+      return payload;
+    },
+    shouldRetryEmptyPayload: (json) => {
+      const data = json as {
+        promptFeedback?: { blockReason?: string };
+        candidates?: Array<{
+          finishReason?: string;
+          content?: { parts?: Array<{ text?: string }> };
+        }>;
+      } | null;
+      const blockReason =
+        data?.promptFeedback?.blockReason || data?.candidates?.[0]?.finishReason;
+      if (blockReason === 'SAFETY') {
+        return false; // Fail fast cleanly on safety filter without retrying
+      }
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      return !text || typeof text !== 'string' || !text.trim();
+    },
+  });
+
+  if (!result.ok) {
+    if (result.category === 'missing_credentials') {
+      throw new GeminiVisionError(
+        'Missing Cloud AI vision key in server environment.',
+        503,
+        'MISSING_API_KEY',
+        {
+          errorCategory: 'permanent_config_error',
+          retryable: false,
+          userMessage: getCustomerErrorMessage('permanent_config_error', 'scan'),
+        }
+      );
     }
 
-    try {
-      const modelBudgetMs = candidateModel.includes('-lite') ? Math.min(timeoutMs, 10000) : timeoutMs;
-      const attemptTimeoutMs = Math.min(modelBudgetMs, remainingBudgetMs);
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(attemptTimeoutMs),
-      });
-
-      if (!response.ok) {
-        const errorText = sanitizeErrorMessage(await response.text());
-
-        // Permanent config/auth errors (401/403): DO NOT retry or loop models!
-        if (response.status === 401 || response.status === 403) {
-          throw new GeminiVisionError(
-            `Cloud Vision authentication rejected [${response.status}]`,
-            response.status,
-            'INVALID_API_KEY',
-            {
-              errorCategory: 'permanent_config_error',
-              retryable: false,
-              userMessage: getCustomerErrorMessage('permanent_config_error', 'scan'),
-            }
-          );
-        }
-
-        // Bad input (400): distinguish bad image from schema rejection
-        if (response.status === 400) {
-          const isSchemaErr = /response_schema|schema|generation_config|thinking/i.test(errorText);
-          if (isSchemaErr && i < modelsToTry.length - 1) {
-            console.warn(`[Cloud Vision API] Model ${candidateModel} rejected schema, trying next model...`);
-            lastError = new GeminiVisionError(`Model schema incompatibility [${response.status}]`, 400, 'SCHEMA_NOT_SUPPORTED');
-            continue;
-          }
-          throw new GeminiVisionError(
-            `Invalid image or request rejected by Cloud Vision [${response.status}]: ${errorText.slice(0, 220)}`,
-            400,
-            'INVALID_IMAGE_REJECTED',
-            {
-              errorCategory: 'invalid_image_input',
-              retryable: false,
-              userMessage: {
-                en: 'The uploaded image could not be processed. Please upload a valid clear plant photo.',
-                ur: 'تصویر پروسیس نہیں ہو سکی۔ براہِ کرم واضح پودے کی تصویر دوبارہ اپلوڈ کریں۔',
-              },
-            }
-          );
-        }
-
-        // Rate limit or Quota (429): distinguish daily quota from per-minute spike
-        if (response.status === 429) {
-          const isQuotaExhausted = /quota|billing|exceeded your current quota/i.test(errorText);
-          if ((!isQuotaExhausted || (i > 0 && lastError?.code !== 'QUOTA_EXHAUSTED')) && i < modelsToTry.length - 1) {
-            console.warn(`[Cloud Vision API] Model ${candidateModel} returned 429. Trying next model...`);
-            lastError = new GeminiVisionError(
-              `Cloud Vision API rate limited [429]`,
-              429,
-              isQuotaExhausted ? 'QUOTA_EXHAUSTED' : 'RATE_LIMITED',
-              { errorCategory: isQuotaExhausted ? 'quota_exhausted' : 'rate_limited', retryable: true }
-            );
-            continue;
-          }
-          throw new GeminiVisionError(
-            `Cloud Vision API capacity reached [${response.status}]`,
-            429,
-            isQuotaExhausted ? 'QUOTA_EXHAUSTED' : 'RATE_LIMITED',
-            {
-              errorCategory: isQuotaExhausted ? 'quota_exhausted' : 'rate_limited',
-              retryable: !isQuotaExhausted,
-              userMessage: isQuotaExhausted
-                ? getCustomerErrorMessage('quota_exhausted', 'scan')
-                : getCustomerErrorMessage('rate_limited', 'scan'),
-            }
-          );
-        }
-
-        // Transient 404 (deprecated model) or 5xx (overloaded) -> cascade cleanly
-        if ((response.status === 404 || response.status >= 500) && i < modelsToTry.length - 1) {
-          console.warn(
-            `[Cloud Vision API] Model ${candidateModel} returned ${response.status}. Falling back to ${modelsToTry[i + 1]}...`
-          );
-          lastError = new GeminiVisionError(
-            `Cloud Vision engine temporarily unavailable [${response.status}]`,
-            503,
-            'MODEL_UNAVAILABLE',
-            {
-              errorCategory: 'temporary_service_failure',
-              retryable: true,
-              userMessage: getCustomerErrorMessage('temporary_service_failure', 'scan'),
-            }
-          );
-          continue;
-        }
-
-        throw new GeminiVisionError(
-          `Cloud Vision API error [${response.status}]: ${errorText.slice(0, 240)}`,
-          response.status >= 500 ? 503 : response.status,
-          'API_ERROR',
-          {
-            errorCategory: response.status >= 500 ? 'temporary_service_failure' : 'malformed_ai_response',
-            retryable: response.status >= 500,
-          }
-        );
-      }
-
-      const data = await response.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text || typeof text !== 'string' || !text.trim()) {
-        const blockReason = data?.promptFeedback?.blockReason || data?.candidates?.[0]?.finishReason;
-        if (blockReason === 'SAFETY') {
-          throw new GeminiVisionError(
-            'Vision analysis blocked by safety filter.',
-            422,
-            'SAFETY_BLOCKED',
-            {
-              errorCategory: 'invalid_image_input',
-              retryable: false,
-              userMessage: {
-                en: 'Please take a clearer close-up photo focused directly on the plant leaf or stem.',
-                ur: 'براہِ کرم صرف پودے یا پتے پر فوکس کر کے واضح تصویر دوبارہ لیں۔',
-              },
-            }
-          );
-        }
-        if (i < modelsToTry.length - 1) {
-          lastError = new GeminiVisionError('Empty response from Cloud Vision API', 502, 'EMPTY_RESPONSE', {
-            errorCategory: 'malformed_ai_response',
-            retryable: true,
-          });
-          continue;
-        }
-        throw new GeminiVisionError('Empty response received from Cloud Vision AI.', 502, 'EMPTY_RESPONSE', {
-          errorCategory: 'malformed_ai_response',
-          retryable: true,
-          userMessage: {
-            en: 'AI vision returned an empty response. Your photo is preserved — tap Retry.',
-            ur: 'اے آئی سروس نے خالی جواب بھیجا ہے۔ آپ کی تصویر محفوظ ہے — دوبارہ کوشش کریں۔',
-          },
-        });
-      }
-
-      return { text: text.trim(), modelUsed: candidateModel };
-    } catch (err: unknown) {
-      if (err instanceof GeminiVisionError) {
-        if (!err.retryable || (err.code !== 'MODEL_UNAVAILABLE' && err.code !== 'SCHEMA_NOT_SUPPORTED' && err.code !== 'RATE_LIMITED' && err.code !== 'EMPTY_RESPONSE')) {
-          throw err;
-        }
-        lastError = err;
-        if (i < modelsToTry.length - 1) continue;
-        throw err;
-      }
-
-      const isTimeout =
-        (err as { name?: string })?.name === 'TimeoutError' ||
-        (err as { name?: string })?.name === 'AbortError';
-
-      if (isTimeout) {
-        lastError = new GeminiVisionError(
-          `Cloud Vision request timed out`,
-          504,
-          'API_TIMEOUT',
-          {
-            errorCategory: 'network_or_timeout',
-            retryable: true,
-            userMessage: {
-              en: 'Cloud plant analysis took too long (Timeout). Tap Retry — your photo is preserved.',
-              ur: 'کلاؤڈ تجزیے میں معمول سے زیادہ وقت لگا۔ براہِ کرم دوبارہ کوشش کریں — آپ کی تصویر محفوظ ہے۔',
-            },
-          }
-        );
-        if (i < modelsToTry.length - 1) {
-          console.warn(`[Cloud Vision API] Attempt ${i + 1} timed out. Falling back...`);
-          continue;
-        }
-        throw lastError;
-      }
-
-      const msg = err instanceof Error ? err.message : String(err);
-      lastError = new GeminiVisionError(
-        `Network error connecting to Cloud Vision service: ${msg}`,
-        503,
-        'NETWORK_ERROR',
+    if (result.category === 'auth_failed') {
+      throw new GeminiVisionError(
+        `Cloud Vision authentication rejected [${result.statusCode}]`,
+        result.statusCode || 401,
+        'INVALID_API_KEY',
         {
-          errorCategory: 'network_or_timeout',
+          errorCategory: 'permanent_config_error',
+          retryable: false,
+          userMessage: getCustomerErrorMessage('permanent_config_error', 'scan'),
+        }
+      );
+    }
+
+    if (result.category === 'quota_exhausted') {
+      throw new GeminiVisionError(
+        `Cloud Vision API capacity reached [${result.statusCode}]`,
+        result.statusCode || 429,
+        'QUOTA_EXHAUSTED',
+        {
+          errorCategory: 'quota_exhausted',
+          retryable: false,
+          userMessage: getCustomerErrorMessage('quota_exhausted', 'scan'),
+        }
+      );
+    }
+
+    if (result.category === 'rate_limited') {
+      throw new GeminiVisionError(
+        `Cloud Vision API rate limited [429]`,
+        429,
+        'RATE_LIMITED',
+        {
+          errorCategory: 'rate_limited',
           retryable: true,
+          userMessage: getCustomerErrorMessage('rate_limited', 'scan'),
+        }
+      );
+    }
+
+    if (result.category === 'bad_request') {
+      throw new GeminiVisionError(
+        `Invalid image or request rejected by Cloud Vision [${result.statusCode}]: ${result.message.slice(0, 220)}`,
+        400,
+        'INVALID_IMAGE_REJECTED',
+        {
+          errorCategory: 'invalid_image_input',
+          retryable: false,
           userMessage: {
-            en: 'Could not reach cloud AI server. Check your internet connection and tap Retry.',
-            ur: 'انٹرنیٹ یا کلاؤڈ سرور سے رابطہ نہیں ہو سکا۔ کنکشن چیک کر کے دوبارہ کوشش کریں۔',
+            en: 'The uploaded image could not be processed. Please upload a valid clear plant photo.',
+            ur: 'تصویر پروسیس نہیں ہو سکی۔ براہِ کرم واضح پودے کی تصویر دوبارہ اپلوڈ کریں۔',
           },
         }
       );
-      if (i < modelsToTry.length - 1) continue;
-      throw lastError;
     }
+
+    if (result.category === 'timeout') {
+      throw new GeminiVisionError('Cloud Vision request timed out', 504, 'API_TIMEOUT', {
+        errorCategory: 'network_or_timeout',
+        retryable: true,
+        userMessage: {
+          en: 'Cloud plant analysis took too long (Timeout). Tap Retry — your photo is preserved.',
+          ur: 'کلاؤڈ تجزیے میں معمول سے زیادہ وقت لگا۔ براہِ کرم دوبارہ کوشش کریں — آپ کی تصویر محفوظ ہے۔',
+        },
+      });
+    }
+
+    if (result.category === 'network_error') {
+      throw new GeminiVisionError(result.message, 503, 'NETWORK_ERROR', {
+        errorCategory: 'network_or_timeout',
+        retryable: true,
+        userMessage: {
+          en: 'Could not reach cloud AI server. Check your internet connection and tap Retry.',
+          ur: 'انٹرنیٹ یا کلاؤڈ سرور سے رابطہ نہیں ہو سکا۔ کنکشن چیک کر کے دوبارہ کوشش کریں۔',
+        },
+      });
+    }
+
+    if (result.code === 'EMPTY_RESPONSE') {
+      throw new GeminiVisionError('Empty response received from Cloud Vision AI.', 502, 'EMPTY_RESPONSE', {
+        errorCategory: 'malformed_ai_response',
+        retryable: true,
+        userMessage: {
+          en: 'AI vision returned an empty response. Your photo is preserved — tap Retry.',
+          ur: 'اے آئی سروس نے خالی جواب بھیجا ہے۔ آپ کی تصویر محفوظ ہے — دوبارہ کوشش کریں۔',
+        },
+      });
+    }
+
+    throw new GeminiVisionError(
+      result.message || 'All Cloud Vision backends failed to respond',
+      503,
+      result.code || 'MODEL_UNAVAILABLE',
+      {
+        errorCategory: 'temporary_service_failure',
+        retryable: true,
+        userMessage: getCustomerErrorMessage('temporary_service_failure', 'scan'),
+      }
+    );
   }
 
-  throw (
-    lastError ||
-    new GeminiVisionError('All Cloud Vision backends failed to respond', 503, 'ALL_MODELS_FAILED', {
-      errorCategory: 'temporary_service_failure',
+  const data = result.data as {
+    promptFeedback?: { blockReason?: string };
+    candidates?: Array<{
+      finishReason?: string;
+      content?: { parts?: Array<{ text?: string }> };
+    }>;
+  };
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    const blockReason = data?.promptFeedback?.blockReason || data?.candidates?.[0]?.finishReason;
+    if (blockReason === 'SAFETY') {
+      throw new GeminiVisionError(
+        'Vision analysis blocked by safety filter.',
+        422,
+        'SAFETY_BLOCKED',
+        {
+          errorCategory: 'invalid_image_input',
+          retryable: false,
+          userMessage: {
+            en: 'Please take a clearer close-up photo focused directly on the plant leaf or stem.',
+            ur: 'براہِ کرم صرف پودے یا پتے پر فوکس کر کے واضح تصویر دوبارہ لیں۔',
+          },
+        }
+      );
+    }
+    throw new GeminiVisionError('Empty response received from Cloud Vision AI.', 502, 'EMPTY_RESPONSE', {
+      errorCategory: 'malformed_ai_response',
       retryable: true,
-    })
-  );
+      userMessage: {
+        en: 'AI vision returned an empty response. Your photo is preserved — tap Retry.',
+        ur: 'اے آئی سروس نے خالی جواب بھیجا ہے۔ آپ کی تصویر محفوظ ہے — دوبارہ کوشش کریں۔',
+      },
+    });
+  }
+
+  return { text: text.trim(), modelUsed: result.modelUsed };
 }
 
 /**

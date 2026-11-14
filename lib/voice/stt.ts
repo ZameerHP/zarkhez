@@ -1,9 +1,10 @@
 import type { STTRequest, STTResult, SttProviderId, VoiceLang } from './types';
 import { resolveExplicitLocale } from './script-guard';
-import { loadHotPronunciationLexicon, readServerEnv } from './server-lexicon';
+import { loadHotPronunciationLexicon } from './server-lexicon';
 import { getLexiconReplacement } from './lexicon-loader';
 import { redactSecrets } from '../error-sanitizer';
 import { recordDiagnosticEvent, recordDiagnosticSuccess } from '../server/diagnostics-store';
+import { executeGeminiWithFailover, hasAnyConfiguredGeminiAccount } from '../server/gemini-pool';
 
 function buildVocabularyBoostList(lang: VoiceLang, extraHints?: string[]): string[] {
   const entries = loadHotPronunciationLexicon();
@@ -19,8 +20,7 @@ async function transcribeWithGeminiStt(
   req: STTRequest,
   boostTerms: string[]
 ): Promise<STTResult | null> {
-  const apiKey = readServerEnv(['GEMINI_API_KEY', 'GOOGLE_API_KEY']);
-  if (!apiKey) return null;
+  if (!hasAnyConfiguredGeminiAccount()) return null;
 
   const startedAt = Date.now();
   const localeCode = resolveExplicitLocale(req.lang);
@@ -40,68 +40,60 @@ async function transcribeWithGeminiStt(
     'gemini-flash-latest',
   ];
 
-  for (const model of modelsToTry) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+  const extractTranscript = (data: unknown): string => {
+    const parts = ((data as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
+    })?.candidates?.[0]?.content?.parts || []);
+    return parts
+      .filter((p) => !p.thought && typeof p.text === 'string')
+      .map((p) => p.text!.trim())
+      .join(' ')
+      .trim()
+      .replace(/^["'«»“”`]+|["'«»“”`]+$/g, '')
+      .trim();
+  };
+
+  const result = await executeGeminiWithFailover({
+    models: modelsToTry,
+    timeoutMs: 14_000,
+    overallDeadlineMs: 32_000,
+    buildRequestBody: () => ({
+      contents: [
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    inlineData: {
-                      mimeType: req.mimeType || 'audio/webm',
-                      data: req.audioBase64,
-                    },
-                  },
-                  { text: prompt },
-                ],
+          parts: [
+            {
+              inlineData: {
+                mimeType: req.mimeType || 'audio/webm',
+                data: req.audioBase64,
               },
-            ],
-            generationConfig: { temperature: 0 },
-          }),
-          signal: AbortSignal.timeout(14000),
-        }
-      );
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) break;
-        continue;
-      }
-      const data = await res.json();
-      const parts = (data?.candidates?.[0]?.content?.parts || []) as Array<{
-        text?: string;
-        thought?: boolean;
-      }>;
-      const transcript = parts
-        .filter((p) => !p.thought && typeof p.text === 'string')
-        .map((p) => p.text!.trim())
-        .join(' ')
-        .trim();
-      const cleanedTx = transcript
-        .replace(/^["'«»“”`]+|["'«»“”`]+$/g, '')
-        .trim();
-      if (
-        !cleanedTx ||
-        /\[?\s*NO[_\s-]*SPEECH\s*\]?|^\s*silence\s*$/i.test(cleanedTx)
-      ) {
-        return null;
-      }
-      if (cleanedTx) {
-        return {
-          transcript: cleanedTx,
-          localeCode,
-          provider: 'gemini-audio-stt',
-          latencyMs: Date.now() - startedAt,
-        };
-      }
-    } catch {
-      // try next Gemini STT model
-    }
+            },
+            { text: prompt },
+          ],
+        },
+      ],
+      generationConfig: { temperature: 0 },
+    }),
+    shouldRetryEmptyPayload: (json) => !extractTranscript(json),
+  });
+
+  if (!result.ok) {
+    return null;
   }
-  return null;
+
+  const cleanedTx = extractTranscript(result.data);
+  if (
+    !cleanedTx ||
+    /\[?\s*NO[_\s-]*SPEECH\s*\]?|^\s*silence\s*$/i.test(cleanedTx)
+  ) {
+    return null;
+  }
+
+  return {
+    transcript: cleanedTx,
+    localeCode,
+    provider: 'gemini-audio-stt',
+    latencyMs: Date.now() - startedAt,
+  };
 }
 
 async function transcribeWithOpenAiWhisper(

@@ -174,9 +174,9 @@ test.describe('ZARKHEZ Production PWA Verification', () => {
     await expect(installBtn).toBeVisible();
     await installBtn.click();
 
-    // After accepting install, Install App button disappears and "App installed" is shown
+    // After accepting install, neither Install App button nor "App installed" is shown in Profile
     await expect(installBtn).toBeHidden();
-    await expect(page.getByText(/App installed/i)).toBeVisible();
+    await expect(page.getByText(/App installed/i)).toHaveCount(0);
 
     // Part B: Unsupported browser without beforeinstallprompt shows instructions sheet
     await page.evaluate(() => {
@@ -219,10 +219,10 @@ test.describe('ZARKHEZ Production PWA Verification', () => {
     await expect(page.locator('html')).toHaveAttribute('data-zk-standalone', '1');
     // Splash transitions to done after hydration fade-out
     await expect(page.locator('html')).toHaveAttribute('data-zk-splash', 'done', { timeout: 5000 });
-    // Install button must remain hidden when running standalone
+    // Neither Install button nor "App installed" banner is shown when running standalone
     await page.goto('/en/profile');
     await expect(page.getByRole('button', { name: /Install App/i })).toHaveCount(0);
-    await expect(page.getByText(/App installed/i)).toBeVisible();
+    await expect(page.getByText(/App installed/i)).toHaveCount(0);
   });
 
   test('5. Offline behavior: warmed pages work, API features show offline errors, uncached route shows branded offline page', async ({

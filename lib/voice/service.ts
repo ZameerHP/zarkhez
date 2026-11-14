@@ -22,6 +22,7 @@ import { buildVoiceSsml, resolveSpeakingRate } from './ssml-builder';
 import { loadHotPronunciationLexicon, readServerEnv } from './server-lexicon';
 import { redactSecrets } from '../error-sanitizer';
 import { recordDiagnosticEvent, recordDiagnosticSuccess } from '../server/diagnostics-store';
+import { executeGeminiWithFailover, hasAnyConfiguredGeminiAccount } from '../server/gemini-pool';
 
 interface MemoryAudioCacheEntry {
   buffer: Uint8Array;
@@ -257,8 +258,7 @@ async function synthesizeWithGeminiTts(params: {
   profile: VoiceProfileSpec;
   speedRate: number;
 }): Promise<{ buffer: Uint8Array; contentType: 'audio/wav' } | null> {
-  const apiKey = readServerEnv(['GEMINI_API_KEY', 'GOOGLE_API_KEY']);
-  if (!apiKey) return null;
+  if (!hasAnyConfiguredGeminiAccount()) return null;
 
   const ttsInputText = params.spokenText;
 
@@ -273,61 +273,67 @@ async function synthesizeWithGeminiTts(params: {
   const geminiLangCode =
     params.lang === 'ur' ? 'ur-PK' : params.lang === 'en' ? 'en-US' : undefined;
 
-  for (const model of modelsToTry) {
-    const promptText = buildGeminiTtsContentText({
-      spokenText: ttsInputText,
-      lang: params.lang,
-      model,
-    });
-    for (const includeLangCode of geminiLangCode ? [true, false] : [false]) {
-      try {
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: promptText }] }],
-              generationConfig: {
-                responseModalities: ['AUDIO'],
-                speechConfig: {
-                  ...(includeLangCode && geminiLangCode ? { languageCode: geminiLangCode } : {}),
-                  voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: params.profile.geminiVoice },
-                  },
-                },
+  for (const includeLangCode of geminiLangCode ? [true, false] : [false]) {
+    const result = await executeGeminiWithFailover({
+      models: modelsToTry,
+      timeoutMs: 22_000,
+      overallDeadlineMs: 44_000,
+      isSchemaErrorRetryable: () => false,
+      buildRequestBody: (model) => {
+        const promptText = buildGeminiTtsContentText({
+          spokenText: ttsInputText,
+          lang: params.lang,
+          model,
+        });
+        return {
+          contents: [{ parts: [{ text: promptText }] }],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              ...(includeLangCode && geminiLangCode ? { languageCode: geminiLangCode } : {}),
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: params.profile.geminiVoice },
               },
-            }),
-            signal: AbortSignal.timeout(22000),
-          }
-        );
+            },
+          },
+        };
+      },
+      shouldRetryEmptyPayload: (json) => {
+        const data = json as {
+          candidates?: Array<{
+            content?: { parts?: Array<{ inlineData?: { data?: string } }> };
+          }>;
+        } | null;
+        const parts = data?.candidates?.[0]?.content?.parts || [];
+        return !parts.some((p) => Boolean(p.inlineData?.data));
+      },
+    });
 
-        if (!res.ok) {
-          if (res.status === 400 && includeLangCode) continue;
-          if (res.status === 401 || res.status === 403) return null;
-          break;
-        }
-
-        const data = await res.json();
-        const parts = (data?.candidates?.[0]?.content?.parts || []) as Array<{
-          inlineData?: { mimeType?: string; data?: string };
-        }>;
-        const audioPart = parts.find((p) => Boolean(p.inlineData?.data))?.inlineData;
-        if (!audioPart?.data) break;
-
-        const rawBytes = new Uint8Array(Buffer.from(audioPart.data, 'base64'));
-        const mime = (audioPart.mimeType || '').toLowerCase();
-        if (mime.includes('wav') || (rawBytes[0] === 0x52 && rawBytes[1] === 0x49)) {
-          return { buffer: rawBytes, contentType: 'audio/wav' };
-        }
-        // PCM audio/L16;rate=24000 -> wrap as standard playable WAV
-        const rateMatch = mime.match(/rate=(\d+)/);
-        const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000;
-        return { buffer: wrapPcmAsWav(rawBytes, sampleRate, 1), contentType: 'audio/wav' };
-      } catch {
-        break;
+    if (!result.ok) {
+      if (result.category === 'bad_request' && includeLangCode) {
+        continue;
       }
+      break;
     }
+
+    const data = result.data as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ inlineData?: { mimeType?: string; data?: string } }> };
+      }>;
+    };
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const audioPart = parts.find((p) => Boolean(p.inlineData?.data))?.inlineData;
+    if (!audioPart?.data) continue;
+
+    const rawBytes = new Uint8Array(Buffer.from(audioPart.data, 'base64'));
+    const mime = (audioPart.mimeType || '').toLowerCase();
+    if (mime.includes('wav') || (rawBytes[0] === 0x52 && rawBytes[1] === 0x49)) {
+      return { buffer: rawBytes, contentType: 'audio/wav' };
+    }
+    // PCM audio/L16;rate=24000 -> wrap as standard playable WAV
+    const rateMatch = mime.match(/rate=(\d+)/);
+    const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000;
+    return { buffer: wrapPcmAsWav(rawBytes, sampleRate, 1), contentType: 'audio/wav' };
   }
   return null;
 }
@@ -444,32 +450,30 @@ async function convertRomanUrduIfNeeded(text: string, lang: VoiceLang): Promise<
   const cleaned = cleanTechnicalMetadataForSpeech(text);
   if (lang !== 'ur' || !looksLikeRomanUrdu(cleaned)) return cleaned;
 
-  const apiKey = readServerEnv(['GEMINI_API_KEY', 'GOOGLE_API_KEY']);
-  if (apiKey) {
+  if (hasAnyConfiguredGeminiAccount()) {
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [
-                  {
-                    text: `Convert this Roman Urdu farming text cleanly into natural Pakistani Urdu (Nastaliq script). Keep scientific names, crop varieties, chemical active ingredients (e.g. NPK, DAP, Tricyclazole, Alternaria solani), and numbers accurate without translating meanings away. Output ONLY pure Urdu script:\n\n${cleaned}`,
-                  },
-                ],
-              },
-            ],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 600 },
-          }),
-          signal: AbortSignal.timeout(6000),
-        }
-      );
-      if (res.ok) {
-        const j = await res.json();
+      const result = await executeGeminiWithFailover({
+        models: ['gemini-3.5-flash-lite'],
+        timeoutMs: 6000,
+        overallDeadlineMs: 9000,
+        buildRequestBody: () => ({
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: `Convert this Roman Urdu farming text cleanly into natural Pakistani Urdu (Nastaliq script). Keep scientific names, crop varieties, chemical active ingredients (e.g. NPK, DAP, Tricyclazole, Alternaria solani), and numbers accurate without translating meanings away. Output ONLY pure Urdu script:\n\n${cleaned}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 600 },
+        }),
+      });
+      if (result.ok) {
+        const j = result.data as {
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        };
         const out = String(j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
         if (out && /[\u0600-\u06FF]/.test(out) && !looksLikeRomanUrdu(out)) {
           return cleanTechnicalMetadataForSpeech(out);

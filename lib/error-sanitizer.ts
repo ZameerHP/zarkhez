@@ -29,7 +29,7 @@ const TECHNICAL_LEAK_INDICATORS: RegExp[] = [
   /\b(?:SyntaxError|TypeError|ReferenceError|RangeError|FetchError|AbortError|ENOTFOUND|ECONNREFUSED|ETIMEDOUT)\b/i,
   /at\s+[A-Za-z0-9_$.<>]+\s*\([^)]+:\d+:\d+\)/,
   /unexpected token|expected double-quoted|json at position|is not valid json/i,
-  /\b(?:GEMINI_API_KEY|AZURE_SPEECH_KEY|SUPABASE_SERVICE_ROLE_KEY|ANTHROPIC_API_KEY|RESEND_API_KEY|ADMIN_DIAGNOSTICS_SECRET|DATABASE_URL)\b/,
+  /\b(?:GEMINI_API_KEY(?:_[1-5])?|GEMINI_PROJECT_ID_[1-5]|GOOGLE_API_KEY|AZURE_SPEECH_KEY|SUPABASE_SERVICE_ROLE_KEY|ANTHROPIC_API_KEY|RESEND_API_KEY|ADMIN_DIAGNOSTICS_SECRET|DATABASE_URL)\b/,
   /\b(?:pg_catalog|postgrest|row-level security|violates constraint|syntax error at or near|select \* from)\b/i,
   /generativelanguage\.googleapis\.com|speech\.microsoft\.com|open-meteo\.com/i,
   /AIza[0-9A-Za-z_-]{10,}|AQ\.[0-9A-Za-z_-]{10,}|sk-[0-9A-Za-z_-]{10,}|re_[0-9A-Za-z_]{10,}/,
