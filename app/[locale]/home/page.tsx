@@ -16,18 +16,12 @@ import {
   CheckCircle2,
   User,
   Landmark,
-  HardDriveDownload,
 } from 'lucide-react';
 import { ZarkhezLogo } from '@/components/layout/ZarkhezLogo';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { WeatherCard } from '@/components/weather/WeatherCard';
 import { LocationPickerModal } from '@/components/weather/LocationPickerModal';
-import { OfflineStatusChip } from '@/components/offline/OfflineStatusChip';
-import {
-  getWeatherSnapshotOffline,
-  saveWeatherSnapshotOffline,
-} from '@/lib/offline/weather-cache';
 import {
   getAllCrops,
   generateCropCalendar,
@@ -68,7 +62,6 @@ export default function HomePage() {
   const [weather, setWeather] = useState<WeatherForecastResponse | null>(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [isOfflineCached, setIsOfflineCached] = useState(false);
-  const [offlineWeatherTimestamp, setOfflineWeatherTimestamp] = useState<number | null>(null);
   const [weatherUnavailable, setWeatherUnavailable] = useState(false);
   const [fields, setFields] = useState<FarmField[]>([]);
   const [showAddField, setShowAddField] = useState(false);
@@ -84,7 +77,7 @@ export default function HomePage() {
 
   const crops = getAllCrops();
 
-  const loadWeather = useCallback(async (lat: number, lon: number, placeLabel?: string) => {
+  const loadWeather = useCallback(async (lat: number, lon: number) => {
     setLoadingWeather(true);
     try {
       const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
@@ -92,27 +85,16 @@ export default function HomePage() {
       const data = (await res.json()) as WeatherForecastResponse;
       setWeather(data);
       setIsOfflineCached(false);
-      setOfflineWeatherTimestamp(null);
       setWeatherUnavailable(false);
       saveWeatherToCache(data);
-      void saveWeatherSnapshotOffline(placeLabel || getSavedProfile().placeName, lat, lon, data);
     } catch {
-      const offlineSnap = await getWeatherSnapshotOffline(lat, lon, placeLabel);
-      if (offlineSnap) {
-        setWeather(offlineSnap.weather);
+      const cached = getCachedWeather();
+      if (cached) {
+        setWeather(cached);
         setIsOfflineCached(true);
-        setOfflineWeatherTimestamp(offlineSnap.fetchedAt);
         setWeatherUnavailable(false);
       } else {
-        const cached = getCachedWeather();
-        if (cached) {
-          setWeather(cached);
-          setIsOfflineCached(true);
-          setOfflineWeatherTimestamp(cached.updatedAt ? Date.parse(cached.updatedAt) : null);
-          setWeatherUnavailable(false);
-        } else {
-          setWeatherUnavailable(true);
-        }
+        setWeatherUnavailable(true);
       }
     } finally {
       setLoadingWeather(false);
@@ -220,12 +202,11 @@ export default function HomePage() {
         <div className="relative z-10 flex items-center justify-between gap-1.5 min-[375px]:gap-2">
           <ZarkhezLogo size={36} lightText />
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            <OfflineStatusChip compact variant="glass" />
             <LanguageToggle variant="glass" />
             <motion.button
               type="button"
               whileTap={{ scale: 0.9, rotate: 90 }}
-              onClick={() => loadWeather(profile.lat, profile.lon, profile.placeName)}
+              onClick={() => loadWeather(profile.lat, profile.lon)}
               className="w-10 h-10 sm:w-11 sm:h-11 rounded-full glass flex items-center justify-center text-white hover:bg-white/25 transition-all"
               aria-label={t('refresh')}
             >
@@ -313,9 +294,8 @@ export default function HomePage() {
           weather={weather}
           loading={loadingWeather}
           isOfflineCached={isOfflineCached}
-          offlineFetchedAt={offlineWeatherTimestamp}
           weatherUnavailable={weatherUnavailable}
-          onRefresh={() => loadWeather(profile.lat, profile.lon, profile.placeName)}
+          onRefresh={() => loadWeather(profile.lat, profile.lon)}
           onChangeLocation={() => setShowLocationModal(true)}
         />
 
@@ -387,7 +367,7 @@ export default function HomePage() {
 
             <Link
               href="/schemes"
-              className="bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md border border-olive/12 flex items-center gap-3 min-h-[76px] hover:border-olive hover:-translate-y-0.5 transition-all active:scale-95"
+              className="col-span-2 bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md border border-olive/12 flex items-center gap-3 min-h-[76px] hover:border-olive hover:-translate-y-0.5 transition-all active:scale-95"
             >
               <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-olive-dark flex items-center justify-center flex-shrink-0">
                 <Landmark className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -397,24 +377,7 @@ export default function HomePage() {
                   {locale === 'ur' ? 'سرکاری اسکیمیں' : 'Govt Schemes'}
                 </span>
                 <span className="block text-[11px] text-ink/65 mt-0.5 truncate">
-                  {locale === 'ur' ? 'آف لائن تصدیق شدہ فہرست' : 'Verified portals & aid'}
-                </span>
-              </div>
-            </Link>
-
-            <Link
-              href="/offline-center"
-              className="bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md border border-olive/12 flex items-center gap-3 min-h-[76px] hover:border-olive hover:-translate-y-0.5 transition-all active:scale-95"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-olive/12 text-olive-dark flex items-center justify-center flex-shrink-0">
-                <HardDriveDownload className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <div className="min-w-0">
-                <span className="block font-extrabold text-sm sm:text-base leading-tight truncate">
-                  {locale === 'ur' ? 'آف لائن سینٹر' : 'Offline Pack'}
-                </span>
-                <span className="block text-[11px] text-ink/65 mt-0.5 truncate">
-                  {locale === 'ur' ? 'ماڈلز و محفوظ گائیڈز' : 'Models & saved data'}
+                  {locale === 'ur' ? 'تصدیق شدہ پورٹلز اور امداد' : 'Verified portals & aid'}
                 </span>
               </div>
             </Link>

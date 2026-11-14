@@ -14,7 +14,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { getSupabaseClient } from '@/lib/supabase/client';
-import { AdminSchemeVerifier } from '@/components/offline/AdminSchemeVerifier';
+import { AdminSchemeVerifier } from '@/components/schemes/AdminSchemeVerifier';
 
 interface MaskedConfigItem {
   configured: boolean;

@@ -35,10 +35,6 @@ import {
   saveProfile,
 } from '@/lib/supabase/client';
 import { getCachedWeather } from '@/lib/weather';
-import {
-  answerOfflineChatQuestion,
-  saveOfflineChatTurn,
-} from '@/lib/offline/chat-kb';
 
 interface ChatTurn {
   id: string;
@@ -46,8 +42,6 @@ interface ChatTurn {
   content: string;
   spokenContent?: string;
   voiceLang?: VoiceLang;
-  sourceType?: 'cloud_gemini' | 'offline_knowledge_base';
-  sourceAttribution?: string;
 }
 
 /**
@@ -201,35 +195,6 @@ export default function AssistantPage() {
     setStreaming(true);
 
     try {
-      // Offline mode: use honest local Knowledge Base without making failing cloud requests
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-        const kbReply = await answerOfflineChatQuestion(question, effectiveVoiceLang);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantTurnId
-              ? {
-                  ...m,
-                  content: kbReply.answerText,
-                  spokenContent: kbReply.answerText,
-                  voiceLang: effectiveVoiceLang,
-                  sourceType: 'offline_knowledge_base',
-                  sourceAttribution: kbReply.sourceAttribution,
-                }
-              : m
-          )
-        );
-        void saveOfflineChatTurn({
-          id: assistantTurnId,
-          role: 'assistant',
-          content: kbReply.answerText,
-          voiceLang: effectiveVoiceLang,
-          sourceType: 'offline_knowledge_base',
-          updatedAt: Date.now(),
-        });
-        speakAssistantReply(kbReply.answerText, effectiveVoiceLang);
-        return;
-      }
-
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -301,27 +266,13 @@ export default function AssistantPage() {
       const isOffline =
         (typeof navigator !== 'undefined' && navigator.onLine === false) ||
         err instanceof TypeError;
-      if (isOffline) {
-        const kbReply = await answerOfflineChatQuestion(question, effectiveVoiceLang);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantTurnId
-              ? {
-                  ...m,
-                  content: kbReply.answerText,
-                  spokenContent: kbReply.answerText,
-                  voiceLang: effectiveVoiceLang,
-                  sourceType: 'offline_knowledge_base',
-                  sourceAttribution: kbReply.sourceAttribution,
-                }
-              : m
-          )
-        );
-        speakAssistantReply(kbReply.answerText, effectiveVoiceLang);
-        return;
-      }
-      const errText =
-        effectiveVoiceLang === 'sd'
+      const errText = isOffline
+        ? effectiveVoiceLang === 'sd'
+          ? 'معاف ڪجو هاري ڀاءُ، هن وقت انٽرنيٽ ڪونهي. AI صلاحڪار لاءِ انٽرنيٽ ضروري آهي — رابطو بحال ڪري ٻيهر پڇو.'
+          : effectiveVoiceLang === 'ur'
+          ? 'معاف کیجیے کسان بھائی، آپ آف لائن ہیں۔ AI مشیر کے لیے انٹرنیٹ ضروری ہے — رابطہ بحال کر کے دوبارہ پوچھیں۔'
+          : 'You are offline. The AI advisor needs internet — please reconnect and ask again.'
+        : effectiveVoiceLang === 'sd'
           ? 'معاف ڪجو هاري ڀاءُ، رابطي ۾ عارضي رنڊڪ آهي. مهرباني ڪري ٻيهر پڇو.'
           : effectiveVoiceLang === 'ur'
           ? 'معاف کیجیے کسان بھائی، رابطے میں عارضی رکاوٹ آئی ہے۔ براہ کرم دوبارہ پوچھیں۔'
@@ -663,15 +614,6 @@ export default function AssistantPage() {
                       : 'bg-white text-ink border border-olive/12'
                   }`}
                 >
-                  {!isUser && msg.sourceType === 'offline_knowledge_base' && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 text-amber-900 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-extrabold">
-                      {msg.voiceLang === 'sd'
-                        ? 'آف لائن زرعي گائيڊ (لائیو AI ناهي)'
-                        : msg.voiceLang === 'ur'
-                        ? 'آف لائن زرعی گائیڈ (مقامی نالج بیس — لائیو AI نہیں)'
-                        : 'Offline Farming Guide (Local KB — Non-Generative)'}
-                    </span>
-                  )}
                   <p className="whitespace-pre-line text-sm sm:text-base leading-relaxed">
                     {msg.content || (streaming ? t('thinking') : '')}
                   </p>

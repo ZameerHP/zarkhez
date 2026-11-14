@@ -565,7 +565,7 @@ export async function speakText(
     typeof Audio !== 'undefined' ||
     typeof (window as unknown as { Audio?: unknown }).Audio !== 'undefined';
 
-  if (!hasAudioPlayback) {
+  if (!hasAudioPlayback || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
     speakWithOfflineFallback(spokenText, lang, sessionId, speedMode, callbacks);
     return;
   }
@@ -584,11 +584,6 @@ export async function speakText(
     if (persistentHit) {
       preloadedBlobs.set(key, persistentHit);
       return persistentHit;
-    }
-
-    // Never fire network /api/tts requests while offline; fall back cleanly after cache lookup
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      return null;
     }
 
     const controller = new AbortController();

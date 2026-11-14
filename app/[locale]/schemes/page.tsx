@@ -17,12 +17,10 @@ import { Link } from '@/i18n/routing';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
 import { ZarkhezLogo } from '@/components/layout/ZarkhezLogo';
-import { OfflineStatusChip } from '@/components/offline/OfflineStatusChip';
 import {
-  getAvailableSchemesOffline,
-  syncSchemesToOfflineDb,
+  getAvailableSchemes,
   type GovernmentSchemeItem,
-} from '@/lib/offline/schemes';
+} from '@/lib/schemes';
 
 const PROVINCES = ['all', 'Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'National'] as const;
 
@@ -33,8 +31,7 @@ export default function SchemesPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    void syncSchemesToOfflineDb();
-    getAvailableSchemesOffline()
+    getAvailableSchemes()
       .then(setSchemes)
       .catch(() => undefined);
   }, []);
@@ -64,7 +61,6 @@ export default function SchemesPage() {
             <ZarkhezLogo size={32} lightText showText={false} />
           </div>
           <div className="flex items-center gap-1.5">
-            <OfflineStatusChip compact variant="glass" />
             <LanguageToggle variant="glass" />
           </div>
         </div>

@@ -16,17 +16,12 @@ import { useLocale, useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import { WeatherForecastResponse } from '@/lib/weather';
 import { ReadAloudButton } from '@/components/voice/ReadAloudButton';
-import {
-  formatWeatherAgeLabel,
-  WEATHER_STALE_WARN_MS,
-} from '@/lib/offline/weather-cache';
 
 interface WeatherCardProps {
   placeName: string;
   weather: WeatherForecastResponse | null;
   loading: boolean;
   isOfflineCached?: boolean;
-  offlineFetchedAt?: number | null;
   weatherUnavailable?: boolean;
   onRefresh?: () => void;
   onChangeLocation?: () => void;
@@ -42,7 +37,6 @@ export function WeatherCard({
   weather,
   loading,
   isOfflineCached = false,
-  offlineFetchedAt = null,
   weatherUnavailable = false,
   onRefresh,
   onChangeLocation,
@@ -143,19 +137,8 @@ export function WeatherCard({
                     : 'Offline — live weather needs internet'}
                 </span>
               ) : isOfflineCached ? (
-                <span className="text-alert-amber font-bold inline-flex items-center gap-1 flex-wrap">
-                  <span>{tHome('cachedOffline')}</span>
-                  {offlineFetchedAt ? (
-                    <span className="text-ink/70 font-semibold">
-                      ({formatWeatherAgeLabel(offlineFetchedAt, locale)}
-                      {Date.now() - offlineFetchedAt >= WEATHER_STALE_WARN_MS
-                        ? locale === 'ur'
-                          ? ' • پرانا ڈیٹا'
-                          : ' • Stale'
-                        : ''}
-                      )
-                    </span>
-                  ) : null}
+                <span className="text-alert-amber font-bold">
+                  {tHome('cachedOffline')}
                 </span>
               ) : (
                 <span>

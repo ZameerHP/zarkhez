@@ -30,8 +30,6 @@ const PRECACHE = `${PREFIX}precache-${VERSION}`;
 const STATIC_CACHE = `${PREFIX}static-${VERSION}`;
 const PAGES_CACHE = `${PREFIX}pages-${VERSION}`;
 const CURRENT_CACHES = [PRECACHE, STATIC_CACHE, PAGES_CACHE];
-// Versioned offline & voice caches live in separate persistent namespaces so deploy updates never wipe downloaded models or KBs.
-const PROTECTED_CACHE_PREFIXES = ['zarkhez-offline-', 'zarkhez-tts-'];
 
 const OFFLINE_URL = '/offline.html';
 const PRECACHE_URLS = [
@@ -47,11 +45,10 @@ const PRECACHE_URLS = [
   '/model/model.json',
   '/model/weights.bin',
   '/model/metadata.json',
-  '/workers/plant-disease.worker.js',
 ];
 
 const MAX_STATIC_ENTRIES = 300;
-const MAX_PAGE_ENTRIES = 50;
+const MAX_PAGE_ENTRIES = 40;
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -75,13 +72,8 @@ self.addEventListener('activate', (event) => {
       const keys = await caches.keys();
       await Promise.all(
         keys
-          // Removes every older ZARKHEZ cache except active shell caches & protected offline model/KB/voice namespaces.
-          .filter(
-            (key) =>
-              key.startsWith(PREFIX) &&
-              !CURRENT_CACHES.includes(key) &&
-              !PROTECTED_CACHE_PREFIXES.some((p) => key.startsWith(p))
-          )
+          // Removes every older ZARKHEZ cache, including the legacy "zarkhez-pwa-v1".
+          .filter((key) => key.startsWith(PREFIX) && !CURRENT_CACHES.includes(key))
           .map((key) => caches.delete(key))
       );
       if (self.registration.navigationPreload) {
@@ -113,29 +105,24 @@ async function warmShellUrls(urls) {
     .filter((u) => typeof u === 'string' && u.startsWith('/') && !u.startsWith('/api/') && !u.includes('/admin'))
     .slice(0, 12);
 
-  // Batch up to 3 shell fetches concurrently to avoid saturating low-end Android connections
-  const WARM_CONCURRENCY = 3;
-  for (let i = 0; i < safeUrls.length; i += WARM_CONCURRENCY) {
-    const batch = safeUrls.slice(i, i + WARM_CONCURRENCY);
-    await Promise.all(
-      batch.map(async (path) => {
-        try {
-          const key = new Request(self.location.origin + path);
-          const existing = await cache.match(key);
-          if (existing) return;
-          const res = await fetch(key, {
-            headers: { Accept: 'text/html' },
-            credentials: 'same-origin',
-          });
-          if (isCacheablePage(res)) {
-            await cache.put(key, res);
-          }
-        } catch (_) {
-          /* ignore offline/failed warmup for individual routes */
+  await Promise.all(
+    safeUrls.map(async (path) => {
+      try {
+        const key = new Request(self.location.origin + path);
+        const existing = await cache.match(key);
+        if (existing) return;
+        const res = await fetch(key, {
+          headers: { Accept: 'text/html' },
+          credentials: 'same-origin',
+        });
+        if (isCacheablePage(res)) {
+          await cache.put(key, res);
         }
-      })
-    );
-  }
+      } catch (_) {
+        /* ignore offline/failed warmup for individual routes */
+      }
+    })
+  );
   await trimCache(PAGES_CACHE, MAX_PAGE_ENTRIES);
 }
 
@@ -165,7 +152,6 @@ function isRuntimeAsset(path) {
     path.startsWith('/icons/') ||
     path.startsWith('/images/') ||
     path.startsWith('/model/') ||
-    path.startsWith('/onnxruntime/') ||
     path.startsWith('/workers/') ||
     path === '/manifest.json' ||
     path === '/icon.svg'
@@ -239,10 +225,10 @@ async function handleNavigation(event, url) {
       candidates.push(`/ur${url.pathname}`, `/en${url.pathname}`);
     }
     for (const path of candidates) {
-      const cached = await cache.match(new Request(url.origin + path), { ignoreSearch: true });
+      const cached = await cache.match(new Request(url.origin + path));
       if (cached) return cached;
     }
-    const offline = await caches.match(OFFLINE_URL, { ignoreSearch: true });
+    const offline = await caches.match(OFFLINE_URL);
     return (
       offline ||
       new Response('<h1>ZARKHEZ — Offline</h1>', {
@@ -257,25 +243,19 @@ async function cacheFirst(event, request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) return cached;
-  try {
-    const response = await fetch(request);
-    if (response && response.ok && response.type === 'basic') {
-      const copy = response.clone();
-      event.waitUntil(
-        cache.put(request, copy).then(() => trimCache(cacheName, MAX_STATIC_ENTRIES))
-      );
-    }
-    return response;
-  } catch (_) {
-    return new Response('', { status: 504, statusText: 'Offline' });
+  const response = await fetch(request);
+  if (response && response.ok && response.type === 'basic') {
+    const copy = response.clone();
+    event.waitUntil(
+      cache.put(request, copy).then(() => trimCache(cacheName, MAX_STATIC_ENTRIES))
+    );
   }
+  return response;
 }
 
 async function staleWhileRevalidate(event, request) {
   const cache = await caches.open(STATIC_CACHE);
-  const cached =
-    (await cache.match(request, { ignoreVary: true })) ||
-    (await caches.match(request, { ignoreVary: true }));
+  const cached = (await cache.match(request)) || (await caches.match(request));
   const network = fetch(request)
     .then((response) => {
       if (response && response.ok && response.type === 'basic') {

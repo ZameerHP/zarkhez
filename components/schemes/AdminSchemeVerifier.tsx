@@ -4,17 +4,17 @@ import React, { useEffect, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import {
   adminUpsertVerifiedScheme,
-  getAvailableSchemesOffline,
+  getAvailableSchemes,
   type GovernmentSchemeItem,
   type SchemeStatus,
-} from '@/lib/offline/schemes';
+} from '@/lib/schemes';
 
 export function AdminSchemeVerifier() {
   const [schemes, setSchemes] = useState<GovernmentSchemeItem[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
-    getAvailableSchemesOffline()
+    getAvailableSchemes()
       .then(setSchemes)
       .catch(() => undefined);
   }, []);
@@ -27,7 +27,7 @@ export function AdminSchemeVerifier() {
       verifiedBy: 'Admin Portal Operator',
     };
     await adminUpsertVerifiedScheme(updated);
-    const refreshed = await getAvailableSchemesOffline();
+    const refreshed = await getAvailableSchemes();
     setSchemes(refreshed);
     setSavingId(null);
   };
