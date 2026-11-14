@@ -55,7 +55,14 @@ import {
   compressAndAssessLeafImage,
   ImageQualityReport,
 } from '@/lib/image-quality';
-import { buildOfflinePreliminaryAssessment } from '@/lib/offline-assessment';
+import {
+  disposeOfflineVisionWorker,
+  runOfflineCropDiseaseScan,
+  warmOfflineVisionWorker,
+} from '@/lib/offline/crop-scanner';
+import { isLikelyLowEndDevice, OFFLINE_STATE_CHANGED_EVENT } from '@/lib/offline/config';
+import { isVisionModelReadyOffline } from '@/lib/offline/model-manager';
+import { isCropSupportedByPlantVillageOnnx } from '@/lib/offline/plantvillage-catalog';
 import {
   formatProblemCategoryLabel,
   TechnicalDetailsDrawer,
@@ -587,16 +594,50 @@ export default function ScanPage() {
     runAnalysisPipeline(previewUrl, selectedCrop, false, preservedQuality || undefined);
   };
 
-  const handleRunOfflinePreliminary = () => {
-    if (!previewUrl) return;
-    const offlineReport = buildOfflinePreliminaryAssessment(
-      selectedCrop,
-      preservedQuality || undefined
-    );
-    setScanError(null);
-    setDiagnosis(offlineReport);
-    setScanStage('diagnosis_ready');
-    triggerSpokenDiagnosis(offlineReport);
+  const [scanningOfflineOnnx, setScanningOfflineOnnx] = useState(false);
+  const [offlineModelInstalled, setOfflineModelInstalled] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const checkOfflineModel = () => {
+      isVisionModelReadyOffline()
+        .then((ready) => {
+          if (!active) return;
+          setOfflineModelInstalled(ready);
+          if (ready && !isLikelyLowEndDevice()) {
+            void warmOfflineVisionWorker();
+          }
+        })
+        .catch(() => {
+          if (active) setOfflineModelInstalled(false);
+        });
+    };
+
+    checkOfflineModel();
+    window.addEventListener(OFFLINE_STATE_CHANGED_EVENT, checkOfflineModel);
+    return () => {
+      active = false;
+      window.removeEventListener(OFFLINE_STATE_CHANGED_EVENT, checkOfflineModel);
+      disposeOfflineVisionWorker();
+    };
+  }, []);
+
+  const handleRunOfflinePreliminary = async () => {
+    if (!previewUrl || scanningOfflineOnnx) return;
+    setScanningOfflineOnnx(true);
+    try {
+      const outcome = await runOfflineCropDiseaseScan(
+        previewUrl,
+        selectedCrop,
+        preservedQuality || undefined
+      );
+      setScanError(null);
+      setDiagnosis(outcome.diagnosis);
+      setScanStage('diagnosis_ready');
+      triggerSpokenDiagnosis(outcome.diagnosis);
+    } finally {
+      setScanningOfflineOnnx(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1314,23 +1355,53 @@ export default function ScanPage() {
                 </button>
               )}
 
-              {/* Honest Offline Preliminary Check ONLY when online fails and image exists */}
+              {/* On-device ONNX AI / Honest Offline Preliminary Check ONLY when online fails and image exists */}
               {previewUrl &&
                 scanError.error_category !== 'invalid_image_input' && (
-                  <button
-                    type="button"
-                    onClick={handleRunOfflinePreliminary}
-                    className="w-full min-h-[46px] rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-950 font-extrabold text-xs flex items-center justify-center gap-2 border border-amber-500/35 transition-all"
-                  >
-                    <Eye className="w-4 h-4 text-amber-700" />
-                    <span>
-                      {pickUi(
-                        'View Offline Preliminary Check',
-                        'ابتدائی آف لائن تصویر چیک دیکھیں (غیر حتمی)',
-                        'آف لائن شروعاتي چڪاس ڏسو'
-                      )}
-                    </span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={scanningOfflineOnnx}
+                      onClick={() => void handleRunOfflinePreliminary()}
+                      className="w-full min-h-[46px] rounded-full bg-amber-500/15 hover:bg-amber-500/25 text-amber-950 font-extrabold text-xs flex items-center justify-center gap-2 border border-amber-500/35 transition-all disabled:opacity-60"
+                    >
+                      <Eye className="w-4 h-4 text-amber-700" />
+                      <span>
+                        {scanningOfflineOnnx
+                          ? pickUi(
+                              'Running Local On-Device Scan...',
+                              'فون پر آف لائن معائنہ جاری ہے...',
+                              'فون تي آف لائن معائنو جاري آهي...'
+                            )
+                          : offlineModelInstalled &&
+                            isCropSupportedByPlantVillageOnnx(selectedCrop)
+                          ? pickUi(
+                              'Run On-Device Offline AI Scan (ONNX)',
+                              'فون پر آف لائن AI اسکین چلائیں (ONNX)',
+                              'فون تي آف لائن AI اسڪين هلايو (ONNX)'
+                            )
+                          : pickUi(
+                              'View Offline Preliminary Check',
+                              'ابتدائی آف لائن تصویر چیک دیکھیں (غیر حتمی)',
+                              'آف لائن شروعاتي چڪاس ڏسو'
+                            )}
+                      </span>
+                    </button>
+                    {!offlineModelInstalled && (
+                      <Link
+                        href="/offline-center"
+                        className="w-full min-h-[38px] rounded-full bg-emerald-50 hover:bg-emerald-100 text-olive-dark font-bold text-[11px] flex items-center justify-center gap-1.5 border border-emerald-200 transition-all"
+                      >
+                        <span>
+                          {pickUi(
+                            'Want Offline Leaf AI? Install 2.6 MB Model in Offline Center →',
+                            'آف لائن AI ماڈل ڈاؤن لوڈ کرنے کے لیے آف لائن سینٹر کھولیں ←',
+                            'آف لائن AI ماڊل لاءِ آف لائن سينٽر کوليو →'
+                          )}
+                        </span>
+                      </Link>
+                    )}
+                  </>
                 )}
 
               <button

@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "npx tsx tests/tools-and-alerts.test.ts && npx tsx tests/crop-scanner.test.ts && npx tsx tests/advisor-intelligence.test.ts && npx tsx tests/scanner-reliability.test.ts && npx tsx tests/security.test.ts && npx tsx tests/voice-pipeline.test.ts && npx tsx tests/vision-evaluation.test.ts",
+    "test": "npx tsx tests/tools-and-alerts.test.ts && npx tsx tests/crop-scanner.test.ts && npx tsx tests/advisor-intelligence.test.ts && npx tsx tests/scanner-reliability.test.ts && npx tsx tests/security.test.ts && npx tsx tests/voice-pipeline.test.ts && npx tsx tests/vision-evaluation.test.ts && npx tsx tests/offline-modules.test.ts",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "eval:model": "npx tsx scripts/evaluate-model.ts"
@@ -32,6 +32,7 @@
     "lucide-react": "^0.468.0",
     "next": "14.2.25",
     "next-intl": "^3.26.3",
+    "onnxruntime-web": "1.31.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.15.0",

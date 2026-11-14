@@ -1093,6 +1093,23 @@ export function getSavedFields(): FarmField[] {
   return [];
 }
 
+function isClientOffline(): boolean {
+  return typeof navigator !== 'undefined' && navigator.onLine === false;
+}
+
+function queueOfflineSyncDeferred(
+  entity: 'field' | 'scan' | 'diary',
+  action: 'upsert' | 'delete' | 'create',
+  recordId: string,
+  payload: Record<string, unknown>
+): void {
+  import('@/lib/offline/sync')
+    .then(({ enqueueSyncOperation }) =>
+      enqueueSyncOperation({ entity, action, recordId, payload })
+    )
+    .catch(() => {});
+}
+
 export async function addFarmField(
   field: Omit<FarmField, 'id' | 'created_at' | 'completedTaskIds'>
 ): Promise<FarmField> {
@@ -1116,6 +1133,15 @@ export async function addFarmField(
         data: { session },
       } = await supabase.auth.getSession();
       if (session?.user?.id) {
+        if (isClientOffline()) {
+          queueOfflineSyncDeferred(
+            'field',
+            'upsert',
+            newField.id,
+            newField as unknown as Record<string, unknown>
+          );
+          return newField;
+        }
         const { error: dbError } = await supabase.from('fields').insert({
           id: newField.id,
           user_id: session.user.id,
@@ -1127,10 +1153,21 @@ export async function addFarmField(
         });
         if (dbError) {
           console.warn('[Sync] Field save deferred; saved locally.');
+          queueOfflineSyncDeferred(
+            'field',
+            'upsert',
+            newField.id,
+            newField as unknown as Record<string, unknown>
+          );
         }
       }
     } catch {
-      // ignore offline error
+      queueOfflineSyncDeferred(
+        'field',
+        'upsert',
+        newField.id,
+        newField as unknown as Record<string, unknown>
+      );
     }
   }
   return newField;
@@ -1144,18 +1181,29 @@ export function deleteFarmField(fieldId: string): FarmField[] {
   }
   const supabase = getSupabaseClient();
   if (supabase && isValidUuid(fieldId)) {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.id) {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (!session?.user?.id) return;
+        if (isClientOffline()) {
+          queueOfflineSyncDeferred('field', 'delete', fieldId, { id: fieldId });
+          return;
+        }
         supabase
           .from('fields')
           .delete()
           .eq('id', fieldId)
           .eq('user_id', session.user.id)
           .then(({ error }) => {
-            if (error) console.warn('[Sync] Field delete deferred; removed locally.');
+            if (error) {
+              console.warn('[Sync] Field delete deferred; removed locally.');
+              queueOfflineSyncDeferred('field', 'delete', fieldId, { id: fieldId });
+            }
           });
-      }
-    }).catch(() => {});
+      })
+      .catch(() => {
+        queueOfflineSyncDeferred('field', 'delete', fieldId, { id: fieldId });
+      });
   }
   return updated;
 }
@@ -1226,6 +1274,7 @@ export async function saveScanRecord(
 
   const supabase = getSupabaseClient();
   if (supabase) {
+    let cachedImagePath: string | undefined;
     try {
       const {
         data: { session },
@@ -1233,35 +1282,62 @@ export async function saveScanRecord(
       if (session?.user?.id) {
         const userId = session.user.id;
         const imagePath = `${userId}/${record.id}.jpg`;
-        if (scan.thumbnailDataUrl && scan.thumbnailDataUrl.startsWith('data:image')) {
-          try {
-            const res = await fetch(scan.thumbnailDataUrl);
-            const blob = await res.blob();
-            await supabase.storage.from('scans').upload(imagePath, blob, {
-              contentType: 'image/jpeg',
-              upsert: true,
-            });
-          } catch {
-            console.warn('[Sync] Thumbnail upload deferred; saved locally.');
-          }
-        }
-        const { error: dbError } = await supabase.from('scans').insert({
-          user_id: userId,
-          field_id: isValidUuid(scan.field_id) ? scan.field_id : null,
-          image_path: imagePath,
-          label: scan.label,
-          confidence: scan.confidence,
-          advice: scan.advice,
-        });
-        if (dbError) {
-          console.warn('[Sync] Scan record save deferred; preserved locally.');
+        cachedImagePath = imagePath;
+
+        if (isClientOffline()) {
           cloudSynced = false;
+          queueOfflineSyncDeferred('scan', 'create', record.id, {
+            field_id: scan.field_id || null,
+            image_path: imagePath,
+            label: scan.label,
+            confidence: scan.confidence,
+            advice: scan.advice,
+          });
         } else {
-          cloudSynced = true;
+          if (scan.thumbnailDataUrl && scan.thumbnailDataUrl.startsWith('data:image')) {
+            try {
+              const res = await fetch(scan.thumbnailDataUrl);
+              const blob = await res.blob();
+              await supabase.storage.from('scans').upload(imagePath, blob, {
+                contentType: 'image/jpeg',
+                upsert: true,
+              });
+            } catch {
+              console.warn('[Sync] Thumbnail upload deferred; saved locally.');
+            }
+          }
+          const { error: dbError } = await supabase.from('scans').insert({
+            user_id: userId,
+            field_id: isValidUuid(scan.field_id) ? scan.field_id : null,
+            image_path: imagePath,
+            label: scan.label,
+            confidence: scan.confidence,
+            advice: scan.advice,
+          });
+          if (dbError) {
+            console.warn('[Sync] Scan record save deferred; preserved locally.');
+            cloudSynced = false;
+            queueOfflineSyncDeferred('scan', 'create', record.id, {
+              field_id: scan.field_id || null,
+              image_path: imagePath,
+              label: scan.label,
+              confidence: scan.confidence,
+              advice: scan.advice,
+            });
+          } else {
+            cloudSynced = true;
+          }
         }
       }
     } catch {
       console.warn('[Sync] Offline mode active; scan preserved locally.');
+      queueOfflineSyncDeferred('scan', 'create', record.id, {
+        field_id: scan.field_id || null,
+        ...(cachedImagePath ? { image_path: cachedImagePath } : {}),
+        label: scan.label,
+        confidence: scan.confidence,
+        advice: scan.advice,
+      });
     }
   }
 
@@ -1308,6 +1384,15 @@ export async function addDiaryEntry(
         data: { session },
       } = await supabase.auth.getSession();
       if (session?.user?.id) {
+        if (isClientOffline()) {
+          queueOfflineSyncDeferred(
+            'diary',
+            'create',
+            record.id,
+            record as unknown as Record<string, unknown>
+          );
+          return record;
+        }
         const { error: dbError } = await supabase.from('diary_entries').insert({
           id: record.id,
           user_id: session.user.id,
@@ -1320,10 +1405,21 @@ export async function addDiaryEntry(
         });
         if (dbError) {
           console.warn('[Sync] Diary save deferred; saved locally.');
+          queueOfflineSyncDeferred(
+            'diary',
+            'create',
+            record.id,
+            record as unknown as Record<string, unknown>
+          );
         }
       }
     } catch {
-      // ignore offline error
+      queueOfflineSyncDeferred(
+        'diary',
+        'create',
+        record.id,
+        record as unknown as Record<string, unknown>
+      );
     }
   }
   return record;
@@ -1342,14 +1438,21 @@ export async function deleteDiaryEntry(id: string): Promise<DiaryEntry[]> {
         data: { session },
       } = await supabase.auth.getSession();
       if (session?.user?.id) {
-        await supabase
+        if (isClientOffline()) {
+          queueOfflineSyncDeferred('diary', 'delete', id, { id });
+          return existing;
+        }
+        const { error: delError } = await supabase
           .from('diary_entries')
           .delete()
           .eq('id', id)
           .eq('user_id', session.user.id);
+        if (delError) {
+          queueOfflineSyncDeferred('diary', 'delete', id, { id });
+        }
       }
     } catch {
-      // ignore offline error
+      queueOfflineSyncDeferred('diary', 'delete', id, { id });
     }
   }
   return existing;

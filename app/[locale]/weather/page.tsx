@@ -25,6 +25,10 @@ import {
   saveWeatherToCache,
   WeatherForecastResponse,
 } from '@/lib/weather';
+import {
+  getWeatherSnapshotOffline,
+  saveWeatherSnapshotOffline,
+} from '@/lib/offline/weather-cache';
 import { getSavedProfile, saveProfile } from '@/lib/supabase/client';
 
 /**
@@ -41,10 +45,11 @@ export default function WeatherPage() {
   const [weather, setWeather] = useState<WeatherForecastResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
+  const [offlineFetchedAt, setOfflineFetchedAt] = useState<number | null>(null);
   const [weatherUnavailable, setWeatherUnavailable] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
 
-  const fetchWeather = useCallback(async (lat: number, lon: number) => {
+  const fetchWeather = useCallback(async (lat: number, lon: number, label?: string) => {
     setLoading(true);
     try {
       const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
@@ -52,16 +57,27 @@ export default function WeatherPage() {
       const data = (await res.json()) as WeatherForecastResponse;
       setWeather(data);
       setIsOffline(false);
+      setOfflineFetchedAt(null);
       setWeatherUnavailable(false);
       saveWeatherToCache(data);
+      void saveWeatherSnapshotOffline(label || getSavedProfile().placeName, lat, lon, data);
     } catch {
-      const cached = getCachedWeather();
-      if (cached) {
-        setWeather(cached);
+      const offlineSnap = await getWeatherSnapshotOffline(lat, lon, label);
+      if (offlineSnap) {
+        setWeather(offlineSnap.weather);
         setIsOffline(true);
+        setOfflineFetchedAt(offlineSnap.fetchedAt);
         setWeatherUnavailable(false);
       } else {
-        setWeatherUnavailable(true);
+        const cached = getCachedWeather();
+        if (cached) {
+          setWeather(cached);
+          setIsOffline(true);
+          setOfflineFetchedAt(cached.updatedAt ? Date.parse(cached.updatedAt) : null);
+          setWeatherUnavailable(false);
+        } else {
+          setWeatherUnavailable(true);
+        }
       }
     } finally {
       setLoading(false);
@@ -138,8 +154,9 @@ export default function WeatherPage() {
           weather={weather}
           loading={loading}
           isOfflineCached={isOffline}
+          offlineFetchedAt={offlineFetchedAt}
           weatherUnavailable={weatherUnavailable}
-          onRefresh={() => fetchWeather(coords.lat, coords.lon)}
+          onRefresh={() => fetchWeather(coords.lat, coords.lon, placeName)}
           onChangeLocation={() => setShowLocationModal(true)}
         />
 

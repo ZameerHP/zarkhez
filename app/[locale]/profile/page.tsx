@@ -443,6 +443,32 @@ export default function ProfilePage() {
           </form>
         )}
 
+        {/* Quick Access: Offline Center & Verified Govt Schemes */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <Link
+            href="/offline-center"
+            className="rounded-2xl bg-white border border-olive/15 p-3.5 shadow-soft flex flex-col gap-1 hover:border-olive transition-all"
+          >
+            <span className="font-extrabold text-xs text-olive-dark">
+              {locale === 'ur' ? 'آف لائن ڈاؤن لوڈ سینٹر' : 'Offline Downloads'}
+            </span>
+            <span className="text-[11px] text-ink/65 leading-snug">
+              {locale === 'ur' ? 'ماڈلز، گائیڈز اور سنک' : 'ONNX AI, guides & sync'}
+            </span>
+          </Link>
+          <Link
+            href="/schemes"
+            className="rounded-2xl bg-white border border-olive/15 p-3.5 shadow-soft flex flex-col gap-1 hover:border-olive transition-all"
+          >
+            <span className="font-extrabold text-xs text-olive-dark">
+              {locale === 'ur' ? 'کسان سرکاری اسکیمیں' : 'Govt Schemes'}
+            </span>
+            <span className="text-[11px] text-ink/65 leading-snug">
+              {locale === 'ur' ? 'تصدیق شدہ پورٹلز اور اہلیت' : 'Verified portals & aid'}
+            </span>
+          </Link>
+        </div>
+
         {/* Install ZARKHEZ as an app (PWA) — hidden once installed */}
         <InstallAppCard />
 

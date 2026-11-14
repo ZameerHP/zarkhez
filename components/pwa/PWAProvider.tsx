@@ -124,6 +124,9 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
     setReady(true);
     setPlatform(detectPlatform());
     setIsOnline(typeof navigator.onLine === 'boolean' ? navigator.onLine : true);
+    import('@/lib/offline/sync')
+      .then(({ bindForegroundSyncListeners }) => bindForegroundSyncListeners())
+      .catch(() => undefined);
 
     const standalone = detectStandalone();
     setIsStandalone(standalone);
@@ -205,7 +208,11 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
         caches
           .keys()
           .then((keys) =>
-            keys.filter((k) => k.startsWith('zarkhez-')).forEach((k) => caches.delete(k))
+            keys
+              .filter(
+                (k) => k.startsWith('zarkhez-') && !k.startsWith('zarkhez-offline-')
+              )
+              .forEach((k) => caches.delete(k))
           )
           .catch(() => undefined);
       }
@@ -313,8 +320,10 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
           `/${locale}/profile`,
           `/${locale}/tools/calendar`,
           `/${locale}/tools/fertilizer`,
+          `/${locale}/schemes`,
+          `/${locale}/offline-center`,
         ]
-      : [`/${locale}`];
+      : [`/${locale}`, `/${locale}/schemes`, `/${locale}/offline-center`];
 
     let cancelled = false;
     const timer = window.setTimeout(() => {

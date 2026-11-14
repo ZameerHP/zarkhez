@@ -4,13 +4,20 @@ import React, { useState, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, Sprout, Scale, BookOpenCheck } from 'lucide-react';
+import { ArrowLeft, Sprout, Scale, BookOpenCheck, Clock3, BookmarkPlus, Trash2 } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
 import { ZarkhezLogo } from '@/components/layout/ZarkhezLogo';
 import { ReadAloudButton } from '@/components/voice/ReadAloudButton';
 import { getAllCrops } from '@/lib/calendar';
 import { calculateFertilizer, SoilType } from '@/lib/fertilizer';
+import {
+  deleteFertilizerHistoryItem,
+  getFertilizerRecommendationHistory,
+  getOfflineFertilizerSchedule,
+  saveFertilizerRecommendationHistory,
+} from '@/lib/offline/fertilizer-guide';
+import type { FertilizerHistoryRecord } from '@/lib/offline/db';
 
 /**
  * Fertilizer Calculator Screen (Section 9.5 & Section 11.2 of SPEC.md):
@@ -26,6 +33,8 @@ export default function FertilizerToolPage() {
   const [cropKey, setCropKey] = useState('wheat');
   const [soil, setSoil] = useState<SoilType>('medium');
   const [acresInput, setAcresInput] = useState('3');
+  const [savedHistory, setSavedHistory] = useState<FertilizerHistoryRecord[]>([]);
+  const [planSavedToast, setPlanSavedToast] = useState(false);
 
   useEffect(() => {
     const qCrop = searchParams.get('crop');
@@ -34,9 +43,36 @@ export default function FertilizerToolPage() {
     }
   }, [searchParams, crops]);
 
+  useEffect(() => {
+    getFertilizerRecommendationHistory()
+      .then(setSavedHistory)
+      .catch(() => undefined);
+  }, []);
+
   const areaAcres = Math.max(0, parseFloat(acresInput) || 0);
   const result = calculateFertilizer(cropKey, soil, areaAcres);
   const currentCrop = crops.find((c) => c.key === cropKey) || crops[0];
+  const stageSchedule = getOfflineFertilizerSchedule(cropKey);
+
+  const handleSaveOfflinePlan = async () => {
+    const saved = await saveFertilizerRecommendationHistory(
+      result,
+      currentCrop.name.en,
+      currentCrop.name.ur
+    );
+    if (saved) {
+      setPlanSavedToast(true);
+      setTimeout(() => setPlanSavedToast(false), 2500);
+      const refreshed = await getFertilizerRecommendationHistory();
+      setSavedHistory(refreshed);
+    }
+  };
+
+  const handleDeleteHistory = async (id: string) => {
+    await deleteFertilizerHistoryItem(id);
+    const refreshed = await getFertilizerRecommendationHistory();
+    setSavedHistory(refreshed);
+  };
 
   const spokenText = `${currentCrop.name[locale]} (${areaAcres} acres). ${result.items
     .map((it) => `${it.product}: ${it.totalKg} kg (${it.bags50Kg} bags)`)
@@ -187,7 +223,113 @@ export default function FertilizerToolPage() {
               <strong>{t('sourceLabel')}</strong> {result.source}
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={handleSaveOfflinePlan}
+            className="w-full min-h-[46px] rounded-full bg-olive text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-soft hover:bg-olive-dark transition-all"
+          >
+            <BookmarkPlus className="w-4 h-4" />
+            <span>
+              {planSavedToast
+                ? locale === 'ur'
+                  ? 'آف لائن محفوظ ہو گیا!'
+                  : 'Saved Offline!'
+                : locale === 'ur'
+                ? 'یہ پلان آف لائن محفوظ کریں'
+                : 'Save Plan Offline'}
+            </span>
+          </button>
         </section>
+
+        {/* Offline Growth Stages, Split Schedule & Nutrient Roles */}
+        <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/10 space-y-3.5">
+          <div className="flex items-center gap-2">
+            <Clock3 className="w-4 h-4 text-olive-dark flex-shrink-0" />
+            <h2 className="font-extrabold text-sm sm:text-base text-ink">
+              {locale === 'ur'
+                ? 'فصل کے مراحل اور قسطوں میں کھاد شیڈول (آف لائن گائیڈ)'
+                : 'Growth-Stage Split Schedule (Offline Guide)'}
+            </h2>
+          </div>
+
+          <p className="text-[11px] text-ink/70 bg-canvas rounded-tile p-3 leading-relaxed border border-olive/10">
+            <strong className="text-ink">
+              {locale === 'ur' ? 'حسابی مفروضہ: ' : 'Assumptions: '}
+            </strong>
+            {stageSchedule.assumptions[locale]}
+          </p>
+
+          <div className="space-y-2.5">
+            {stageSchedule.stages.map((st, idx) => (
+              <div
+                key={idx}
+                className="rounded-tile bg-canvas p-3 border border-olive/10 space-y-1"
+              >
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="font-extrabold text-xs text-olive-dark">
+                    {locale === 'ur' ? st.stageUr : st.stageEn}
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cream text-ink/75">
+                    {locale === 'ur' ? st.timingUr : st.timingEn}
+                  </span>
+                </div>
+                <p className="text-xs text-ink/80 leading-relaxed">
+                  {locale === 'ur' ? st.guidanceUr : st.guidanceEn}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-1 space-y-2">
+            <h3 className="font-bold text-xs text-ink/75">
+              {locale === 'ur' ? 'اہم غذائی اجزاء کا کردار' : 'Nutrient Role Summary'}
+            </h3>
+            {stageSchedule.nutrientNotes.map((n, idx) => (
+              <div key={idx} className="text-xs bg-emerald-50/60 border border-olive/10 rounded-xl p-2.5">
+                <span className="font-extrabold text-olive-dark">{n.nutrient}: </span>
+                <span className="text-ink/80">{locale === 'ur' ? n.ur : n.en}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Saved Offline Fertilizer History */}
+        {savedHistory.length > 0 && (
+          <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/10 space-y-3">
+            <h2 className="font-extrabold text-sm text-ink">
+              {locale === 'ur'
+                ? 'آف لائن محفوظ شدہ کھاد پلانز'
+                : 'Saved Offline Fertilizer Plans'}
+            </h2>
+            <div className="space-y-2">
+              {savedHistory.slice(0, 5).map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-canvas rounded-tile p-3 border border-olive/10 flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0">
+                    <p className="font-extrabold text-xs text-ink truncate">
+                      {locale === 'ur' ? item.cropNameUr : item.cropNameEn} •{' '}
+                      <bdi dir="ltr">{item.areaAcres} acres</bdi> ({item.soil})
+                    </p>
+                    <p className="text-[11px] text-ink/65 truncate mt-0.5">
+                      {item.items.map((x) => `${x.product}: ${x.totalKg} kg`).join(' | ')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteHistory(item.id)}
+                    aria-label="Delete saved plan"
+                    className="w-8 h-8 rounded-full bg-white text-alert-red/80 hover:bg-alert-red/10 flex items-center justify-center flex-shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
 
       <BottomNav />

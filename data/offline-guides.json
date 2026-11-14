@@ -1,0 +1,358 @@
+[
+  {
+    "id": "wheat_cultivation_pakistan",
+    "category": "cultivation",
+    "cropKey": "wheat",
+    "tags": ["wheat", "gandum", "گندم", "ڪڻڪ", "sowing", "bijai", "variety", "seed rate"],
+    "title": {
+      "en": "Wheat Cultivation & Sowing Plan (Rabi)",
+      "ur": "گندم کی کاشت اور بوائی کا مکمل منصوبہ",
+      "sd": "ڪڻڪ جي پوک ۽ بيجائي جو مڪمل منصوبو"
+    },
+    "summary": {
+      "en": "Use 45–50 kg certified seed/acre (Nov 1–20 ideal window) after fine laser-leveled seedbed.",
+      "ur": "1 تا 20 نومبر موزوں وقت ہے؛ فی ایکڑ 45 تا 50 کلو تصدیق شدہ بیج لیزر لیول زمین میں کاشت کریں۔",
+      "sd": "1 کان 20 نومبر تائين سٺو وقت آهي؛ في ايڪڙ 45 کان 50 ڪلو تصديق ٿيل ٻج ليزر ليول زمين ۾ پوکيو."
+    },
+    "steps": {
+      "en": [
+        "Seed rate: 45–50 kg/acre for timely November sowing; increase to 55–60 kg/acre for late December sowing.",
+        "Seed treatment: Treat seed with a registered fungicide before sowing to prevent smut and early root rot.",
+        "Basal dose: Mix 100% DAP and Potash (SOP) into root zone before sowing.",
+        "First irrigation (Kor): Critical at 20–25 days after sowing (crown root initiation)."
+      ],
+      "ur": [
+        "شرح بیج: نومبر کی بروقت کاشت میں 45 تا 50 کلو اور دسمبر کی پچھیتی کاشت میں 55 تا 60 کلو فی ایکڑ بیج استعمال کریں۔",
+        "بیج کو پھپھوندی کش زہر لگا کر کاشت کریں تاکہ کانگیاری اور جڑ گلنے سے بچاؤ ہو۔",
+        "بوائی کے وقت پوری ڈی اے پی اور پوٹاش زمین میں ملائیں۔",
+        "پہلا پانی (کور) بوائی کے 20 سے 25 دن بعد لازمی لگائیں جب جڑیں بن رہی ہوں۔"
+      ],
+      "sd": [
+        "ٻج جو مقدار: نومبر جي وقتائتي پوک ۾ 45 کان 50 ڪلو ۽ ڊسمبر ۾ 55 کان 60 ڪلو في ايڪڙ استعمال ڪريو.",
+        "پوک کان اڳ ٻج کي دوائون هڻو ته جيئن جڙن جي سڙڻ کان بچي سگهي.",
+        "پوک وقت پوري ڊي اي پي ۽ پوٽاش زمين ۾ ملايو.",
+        "پهريون پاڻي پوک کان 20 کان 25 ڏينهن بعد لازمي ڏيو."
+      ]
+    },
+    "source": "Agriculture Department Punjab & PARC Wheat Plan"
+  },
+  {
+    "id": "wheat_yellow_rust",
+    "category": "diseases",
+    "cropKey": "wheat",
+    "tags": ["wheat", "rust", "kungi", "yellow rust", "کنگی", "زرد کنگی", "ڪڻڪ", "yellow", "stripe"],
+    "title": {
+      "en": "Wheat Yellow & Brown Rust (Kungi)",
+      "ur": "گندم کی زرد اور بھوری کنگی (رسٹ)",
+      "sd": "ڪڻڪ جي پيلي ۽ ڀوري ڪنگي"
+    },
+    "summary": {
+      "en": "Yellow powdery stripes between veins on cool humid mornings. Isolate hotspots early.",
+      "ur": "سرد اور مرطوب موسم میں پتوں پر پیلے پاؤڈر کی دھاریاں نظر آتی ہیں۔ متاثرہ ٹکڑیوں پر فوری توجہ دیں۔",
+      "sd": "ٿڌي ۽ گهميل موسم ۾ پنن تي پيلي پائوڊر جون ليڪون ظاهر ٿين ٿيون."
+    },
+    "steps": {
+      "en": [
+        "Scout fields weekly from January to March, especially cool damp corners.",
+        "Inspect yellow pustules formed in linear stripes (Yellow Rust) or scattered orange dots (Brown Rust).",
+        "If spreading across hot-spots, consult a local agriculture officer before selecting a triazole/strobilurin fungicide.",
+        "Avoid excess nitrogen late in season and plant rust-resistant certified varieties next year."
+      ],
+      "ur": [
+        "جنوری سے مارچ تک ہفتہ وار معائنہ کریں، خاص طور پر ٹھنڈے اور سایہ دار حصوں میں۔",
+        "اگر پتوں پر پیلے رنگ کا پاؤڈر دھاریوں کی صورت میں جھڑے تو یہ زرد کنگی کی علامت ہے۔",
+        "پھیلاؤ روکنے کے لیے مقامی زرعی افسر کے مشورے سے متاثرہ حصوں پر مناسب پھپھوندی کش سپرے کریں۔",
+        "آخری مرحلے پر زیادہ یوریا سے پرہیز کریں اور آئندہ سال کنگی سے محفوظ اقسام کاشت کریں۔"
+      ],
+      "sd": [
+        "جنوري کان مارچ تائين هفتيوار معائنو ڪريو.",
+        "جيڪڏهن پنن تي پيلو پائوڊر ليڪن ۾ ڇڻي ته اها پيلي ڪنگي آهي.",
+        "زرعي ماهر جي مشوري سان متاثر هنڌن تي مناسب دوا اسپري ڪريو."
+      ]
+    },
+    "source": "PARC Cereal Diseases Research Institute"
+  },
+  {
+    "id": "rice_cultivation_awd",
+    "category": "irrigation",
+    "cropKey": "rice",
+    "tags": ["rice", "paddy", "dhan", "چاول", "دھان", "ساريون", "awd", "irrigation", "zinc"],
+    "title": {
+      "en": "Rice Water Management (AWD) & Zinc Care",
+      "ur": "دھان میں پانی کا بہتر انتظام اور زنک کا استعمال",
+      "sd": "سارين ۾ پاڻي جو انتظام ۽ زنڪ جو استعمال"
+    },
+    "summary": {
+      "en": "Alternate Wetting and Drying saves 20–30% water without hurting yield; Zinc prevents Khaira spots.",
+      "ur": "وقفے وقفے سے تر و خشک آبپاشی (AWD) سے 20 تا 30 فیصد پانی کی بچت ہوتی ہے؛ زنک کھائرا بیماری روکتی ہے۔",
+      "sd": "وقفي وقفي سان پاڻي ڏيڻ سان 20 کان 30 سيڪڙو پاڻي بچي ٿو ۽ زنڪ داغن کان بچائي ٿو."
+    },
+    "steps": {
+      "en": [
+        "Keep 2–3 cm shallow water for 10 days after transplanting to suppress early weeds.",
+        "Allow water level to drop up to 10–15 cm below soil surface before re-irrigating, except during flowering when standing moisture must not drop.",
+        "Apply 5–6 kg Zinc Sulfate (33%) 15–20 days after transplanting; never mix Zinc directly with DAP fertilizer.",
+        "Drain the paddy 10–14 days before harvesting to achieve uniform ripening."
+      ],
+      "ur": [
+        "پنیری لگانے کے 10 دن تک کھیت میں 2 سے 3 سینٹی میٹر ہلکا پانی کھڑا رکھیں۔",
+        "پھر وقفے سے پانی لگائیں (جب سطح کے نیچے 10 تا 15 سینٹی میٹر نمی کم ہو) سوائے پھول آوری کے وقت جب نمی ضروری ہے۔",
+        "منتقلی کے 15 تا 20 دن بعد 5 تا 6 کلو زنک سلفیٹ (%33) ڈالیں؛ زنک کو ڈی اے پی کے ساتھ کبھی نہ ملائیں۔",
+        "کٹائی سے 10 تا 14 دن پہلے کھیت سے پانی خشک کر لیں۔"
+      ],
+      "sd": [
+        "ٻيڙي لڳائڻ کان پوءِ 10 ڏينهن تائين 2 کان 3 سينٽي ميٽر پاڻي رکو.",
+        "پوکي کان 15 کان 20 ڏينهن بعد 5 کان 6 ڪلو زنڪ سلفيٽ (%33) وجھو پر ڊي اي پي سان نه ملايو.",
+        "لاباري کان 10 کان 14 ڏينهن اڳ ٻني مان پاڻي سڪايو."
+      ]
+    },
+    "source": "RRI Kala Shah Kaku & IRRI Water Guidelines"
+  },
+  {
+    "id": "cotton_whitefly_clcv",
+    "category": "pests",
+    "cropKey": "cotton",
+    "tags": ["cotton", "kapas", "کپاس", "وونئڻ", "whitefly", "safed makhi", "سفید مکھی", "clcv", "curl", "virus"],
+    "title": {
+      "en": "Cotton Whitefly & Leaf Curl Virus (CLCV) Control",
+      "ur": "کپاس میں سفید مکھی اور پتہ مروڑ وائرس کا تدارک",
+      "sd": "وونئڻن ۾ سفيد مک ۽ پن مڙڻ جي وائرس جو علاج"
+    },
+    "summary": {
+      "en": "Whitefly spreads CLCV and produces sticky honeydew/sooty mold. Never spray blindly below ETL.",
+      "ur": "سفید مکھی پتہ مروڑ وائرس پھیلاتی اور پتوں پر چپچپا مادہ بناتی ہے۔ معاشی نقصان کی حد سے پہلے سپرے نہ کریں۔",
+      "sd": "سفيد مک پن مڙڻ جو وائرس پکيڙي ٿي. معاشي نقصان جي حد کان اڳ انڌو اسپري نه ڪريو."
+    },
+    "steps": {
+      "en": [
+        "Economic Threshold Level (ETL): 5 adults or nymphs per leaf. Check early morning on leaf undersides.",
+        "Remove roadside weeds and infected early volunteer plants so whitefly cannot shelter.",
+        "Conserve beneficial insects (ladybird beetles, chrysopa); rotate modes of action if threshold is crossed.",
+        "Never apply sprays in midday heat above 36°C — spray early morning or dusk."
+      ],
+      "ur": [
+        "معاشی نقصان کی حد (ETL): فی پتہ 5 بالغ سفید مکھی یا بچے۔ صبح سویرے پتوں کی نچلی سطح دیکھیں۔",
+        "کھیت کی منڈھیروں سے جڑی بوٹیاں اور ابتدائی متاثرہ پودے تلف کریں۔",
+        "دوست کیڑوں (لیڈی برڈ بیٹل، کرائسوپا) کو بچائیں اور حد پار ہونے پر ہی زہر بدل بدل کر سپرے کریں۔",
+        "دوپہر کی تیز دھوپ (36 ڈگری سے زیادہ) میں ہرگز سپرے نہ کریں؛ صبح یا شام سپرے کریں۔"
+      ],
+      "sd": [
+        "في پن 5 سفيد مکيون يا ٻچا ڏسجن ته علاج جي حد اچي وئي آهي.",
+        "ٻني جي ڪنارن تان گند گاهه ۽ شروعاتي متاثر ٻوٽا ختم ڪريو.",
+        "دوست جيتن کي بچايو ۽ گرميءَ ۾ منجھند جو اسپري نه ڪريو."
+      ]
+    },
+    "source": "CCRI Multan & Sindh Agriculture Extension"
+  },
+  {
+    "id": "tomato_blight_guidance",
+    "category": "diseases",
+    "cropKey": "tomato",
+    "tags": ["tomato", "tamatar", "ٹماٹر", "ٽماٽر", "blight", "early blight", "late blight", "leaf curl", "spots"],
+    "title": {
+      "en": "Tomato Early/Late Blight & Leaf Sanitation",
+      "ur": "ٹماٹر کا اگیتا اور پچھیتا جھلساؤ (بلائٹ)",
+      "sd": "ٽماٽر جو اڳوڻو ۽ پويون جھلساءُ"
+    },
+    "summary": {
+      "en": "Remove lower infected leaves touching wet soil; improve airflow and avoid overhead evening watering.",
+      "ur": "زمین کو چھونے والے نچلے متاثرہ پتے ہٹا دیں؛ شام کے وقت اوپر سے پانی دینے سے گریز کریں۔",
+      "sd": "زمين کي ڇهندڙ هيٺيان بيمار پن لاهي ڇڏيو ۽ شام جو مٿان پاڻي نه وجھو."
+    },
+    "steps": {
+      "en": [
+        "Early Blight: Concentric dark rings (target-like spots) on older lower leaves.",
+        "Late Blight: Water-soaked dark patches with white fuzz underneath in cool humid weather — progresses rapidly.",
+        "Prune diseased bottom foliage, stake/mulch beds to prevent soil splash, and irrigate furrows only in mornings.",
+        "Seek qualified agricultural advice before fungicide application and honor pre-harvest waiting periods."
+      ],
+      "ur": [
+        "اگیتا جھلساؤ: نچلے پرانے پتوں پر گول دائروں جیسے سیاہ/بھورے دھبے۔",
+        "پچھیتا جھلساؤ: ٹھنڈے مرطوب موسم میں پانی سے بھرے گہرے دھبے جن کے نیچے سفید روئی جیسی تہہ ہو۔",
+        "متاثرہ نچلے پتے کاٹ کر کھیت سے باہر تلف کریں، پودوں کو سہارا دیں اور صبح کھیلیوں میں پانی لگائیں۔",
+        "سپرے سے پہلے زرعی ماہر سے مشورہ کریں اور برداشت سے پہلے انتظار کی مدت لازمی پوری کریں۔"
+      ],
+      "sd": [
+        "هيٺيان داغدار پن ڪٽي ٻاهر ڦٽا ڪريو ۽ صبح جو رڳو خالين ۾ پاڻي ڏيو.",
+        "تيز پکيڙ صورت ۾ زرعي ماهر جي مشوري سان دوا استعمال ڪريو."
+      ]
+    },
+    "source": "AARI Vegetable Research Institute Faisalabad"
+  },
+  {
+    "id": "soil_salinity_reclamation",
+    "category": "soil",
+    "cropKey": "general",
+    "tags": ["soil", "salinity", "kallar", "gypsum", "کلر", "زمین", "زراعت", "کلراٹھی", "ڪلر"],
+    "title": {
+      "en": "Saline & Kallar Soil Reclamation with Gypsum",
+      "ur": "کلراٹھی اور شور زدہ زمین کی جپسم کے ذریعے اصلاح",
+      "sd": "ڪلراٺي زمين جي جپسم ذريعي سڌارو"
+    },
+    "summary": {
+      "en": "Level land, test soil pH/EC, incorporate agricultural gypsum before heavy leaching irrigation.",
+      "ur": "لیزر لیولنگ، مٹی ٹیسٹ کے مطابق جپسم ملا کر بھاری آبپاشی (لیچنگ) کریں اور ڈھانچہ (سبز کھاد) دبائیں۔",
+      "sd": "ليزر ليولنگ کان پوءِ مٽي ٽيسٽ موجب جپسم وجھي ڳرو پاڻي ڏيو."
+    },
+    "steps": {
+      "en": [
+        "First obtain a soil salinity test report from your district Soil Testing Laboratory to know exact gypsum requirement.",
+        "Laser-level fields cleanly into smaller bunds so water stands uniformly instead of running off.",
+        "Incorporate powdered gypsum well into top 15 cm soil, then leach salts downward with 2–3 heavy irrigations.",
+        "Grow salt-tolerant pioneer crops like Sesbania (Dhancha) for green manuring and add farmyard manure."
+      ],
+      "ur": [
+        "سب سے پہلے ضلعی سوائل ٹیسٹنگ لیب سے مٹی کا تجزیہ کروائیں تاکہ جپسم کی درست مقدار معلوم ہو۔",
+        "کھیت کو چھوٹے کیاروں میں بانٹ کر لیزر لیول کروائیں تاکہ پانی یکساں کھڑا ہو۔",
+        "باریک پسی ہوئی زرعی جپسم اوپری 15 سینٹی میٹر مٹی میں ملا کر 2 سے 3 بھاری پانی لگائیں تاکہ نمکیات نیچے بیٹھ جائیں۔",
+        "ابتدائی طور پر ڈھانچہ (سبز کھاد) کاشت کر کے زمین میں دبائیں اور گوبر کی گلی سڑی کھاد استعمال کریں۔"
+      ],
+      "sd": [
+        "پهرين ليبارٽري مان مٽي ٽيسٽ ڪرايو ته جپسم جي صحيح مقدار معلوم ٿئي.",
+        "زمين کي ننڍن حصن ۾ ورهائي جپسم ملايو ۽ ڳرو پاڻي ڏئي ڪلر هيٺ لاهيو."
+      ]
+    },
+    "source": "Soil Fertility Research Institute Punjab & NIAB"
+  },
+  {
+    "id": "pesticide_safety_rules",
+    "category": "safety",
+    "cropKey": "general",
+    "tags": ["spray", "pesticide", "safety", "ppe", "mask", "poison", "سپرے", "زہر", "حفاظت", "اسپري"],
+    "title": {
+      "en": "Safe Spray & Pesticide Handling Checklist",
+      "ur": "زرعی زہروں کے محفوظ سپرے کے لازمی اصول",
+      "sd": "زرعي دوائن جي محفوظ اسپري جا اصول"
+    },
+    "summary": {
+      "en": "Never mix unknown chemicals; spray against wind with mask/gloves; honor pre-harvest waiting days.",
+      "ur": "مختلف زہریں بلا ضرورت نہ ملائیں؛ ماسک اور دستانے پہن کر ہوا کے رخ پر سپرے کریں۔",
+      "sd": "مختلف دوائون بنا مشوري نه ملايو؛ ماسڪ ۽ دستانا پائي هوا جي رخ سان اسپري ڪريو."
+    },
+    "steps": {
+      "en": [
+        "Read bottle label dosage and Pre-Harvest Interval (PHI) before mixing.",
+        "Wear long sleeves, mask/cloth cover, waterproof gloves, and closed shoes; never eat, drink, or smoke while spraying.",
+        "Spray during calm morning or late afternoon hours; never spray against wind or before expected rain.",
+        "Store bottles locked away from children, food, and animal feed, and triple-rinse empty containers without dumping in canals."
+      ],
+      "ur": [
+        "بوتل پر لکھی مقدار اور برداشت سے قبل انتظار کے دن (PHI) لازمی پڑھیں۔",
+        "سپرے کے وقت پوری آستین، ماسک، دستانے اور بند جوتے پہنیں؛ اس دوران کھانے پینے یا سگریٹ نوشی سے پرہیز کریں۔",
+        "پرسکون صبح یا شام کو ہوا کے رخ میں سپرے کریں؛ تیز ہوا یا متوقع بارش سے پہلے سپرے ہرگز نہ کریں۔",
+        "دوائیں بچوں اور مویشیوں کے چارے سے دور تالے میں رکھیں اور خالی بوتلیں نہر یا کھالے میں نہ پھینکیں۔"
+      ],
+      "sd": [
+        "دوا جي بوتل تي لکيل مقدار ۽ لاباري کان اڳ انتظار جا ڏينهن لازمي پڙهو.",
+        "ماسڪ، دستانا ۽ پورا ڪپڙا پائي صبح يا شام جو اسپري ڪريو.",
+        "دوائون ٻارن ۽ مال جي چاري کان پري رکو ۽ خالي بوتلون واهه ۾ نه اڇلايو."
+      ]
+    },
+    "source": "FAO International Code of Conduct & Plant Protection Pakistan"
+  },
+  {
+    "id": "sugarcane_sowing_red_rot",
+    "category": "cultivation",
+    "cropKey": "sugarcane",
+    "tags": ["sugarcane", "ganna", "kamad", "کماد", "گنا", "ڪمند", "red rot", "ratta", "sowing"],
+    "title": {
+      "en": "Sugarcane Sowing & Red Rot Prevention",
+      "ur": "کماد (گنے) کی کاشت اور رتا روگ سے بچاؤ",
+      "sd": "ڪمند جي پوک ۽ ڳاڙهي روڳ کان بچاءُ"
+    },
+    "summary": {
+      "en": "Select healthy seed setts from disease-free plots; avoid waterlogging and ratoon of infected fields.",
+      "ur": "صحت مند کھیت سے صاف سمے (بیج) منتخب کریں؛ متاثرہ فصل کا مونڈھا نہ رکھیں اور کھیت میں پانی کھڑا نہ ہونے دیں۔",
+      "sd": "صحتمند فصل مان ٻج چونڊيو ۽ متاثر ٻني جو مونڍو نه رکو."
+    },
+    "steps": {
+      "en": [
+        "Split sugarcane stalks lengthwise to verify pith is clean creamy white — reject any stalks showing red discoloration with sour smell (Red Rot).",
+        "Treat 2–3 budded setts in recommended fungicide dip prior to trench placement.",
+        "Plant September/Autumn or February–March in 4-foot deep trenches for better tillering and lower lodging.",
+        "Never keep ratoon from red-rot infected plots; rotate with green manure or cereal crops."
+      ],
+      "ur": [
+        "بیج کے لیے گنے کو لمبائی کے رخ چیر کر دیکھیں؛ اگر اندر سرخی یا کھٹی بو ہو (رتا روگ) تو ہرگز بیج نہ بنائیں۔",
+        "دو سے تین آنکھوں والے سموں کو بوائی سے پہلے پھپھوندی کش محلول میں ڈبو کر لگائیں۔",
+        "4 فٹ کے فاصلے پر گہری کھیلیوں میں کاشت کریں تاکہ جھاڑ زیادہ بنے اور فصل کم گرے۔",
+        "رتا روگ سے متاثرہ کھیت کا مونڈھا ہرگز نہ رکھیں بلکہ فصلوں کا ہیر پھیر کریں۔"
+      ],
+      "sd": [
+        "ٻج لاءِ ڪمند کي ڦاڙي چيڪ ڪريو؛ جيڪڏهن اندر ڳاڙهاڻ هجي ته اهو ٻج استعمال نه ڪريو.",
+        "متاثر ٻني جو مونڍو نه رکو بلڪه فصل مٽايو."
+      ]
+    },
+    "source": "Sugarcane Research Institute AARI Faisalabad"
+  },
+  {
+    "id": "maize_fall_armyworm_sowing",
+    "category": "pests",
+    "cropKey": "maize",
+    "tags": ["maize", "corn", "makai", "مکئی", "مڪئي", "armyworm", "faw", "fall armyworm", "لشکری سنڈی", "sundi"],
+    "title": {
+      "en": "Maize Fall Armyworm Scouting & Early Control",
+      "ur": "مکئی کی فال آرمی ورم (لشکری سنڈی) کی پہچان اور تدارک",
+      "sd": "مڪئي جي لشڪري سونڊيءَ جي سڃاڻپ ۽ بچاءُ"
+    },
+    "summary": {
+      "en": "Look for ragged whorl window-paning and wet sawdust frass inside maize funnels; check inverted 'Y' on head.",
+      "ur": "گوبھ کے پتوں میں کھرچے ہوئے سوراخ اور تازہ برادے جیسا فضلہ فال آرمی ورم کی نشانی ہے؛ سنڈی کے سر پر الٹا 'Y' نشان ہوتا ہے۔",
+      "sd": "گوبھ جي پنن ۾ سوراخ ۽ تازو ڀورو فضل سونڊي جي نشاني آهي."
+    },
+    "steps": {
+      "en": [
+        "Inspect 20–30 whorls across the field twice weekly from germination until tasseling.",
+        "Look for translucent leaf 'windows', jagged holes, and moist yellowish sawdust-like frass inside central whorls.",
+        "Early hand-crushing of small egg masses or selective whorl-directed treatment reduces crop damage markedly.",
+        "Avoid planting consecutive maize crops side-by-side out of season and manage alternate grass hosts cleanly."
+      ],
+      "ur": [
+        "اگاؤ سے لے کر جھنڈا نکلنے تک ہفتے میں دو بار کھیت کے مختلف حصوں سے 20 تا 30 پودوں کی گوبھ دیکھیں۔",
+        "پتوں پر جھلی جیسے شفاف دھبے اور مرکزی گوبھ میں گیلے برادے جیسا فضلہ موجود ہونا سنڈی کی علامت ہے۔",
+        "انڈوں کے گچھوں کو شروع ہی میں ضائع کریں یا زرعی افسر کے مشورے سے صرف گوبھ کے اندر ٹارگٹڈ تدارک کریں۔",
+        "بے موسمی مکئی مسلسل نہ لگائیں اور کھیت سے گھاس فوس صاف رکھیں۔"
+      ],
+      "sd": [
+        "هفتي ۾ ٻه دفعا 20 کان 30 ٻوٽن جي گوبھ چيڪ ڪريو.",
+        "پنن تي سوراخ ۽ گوبھ ۾ گند ڏسي شروعاتي مرحلي ۾ زرعي ماهر کان مشورو وٺو."
+      ]
+    },
+    "source": "MMRI Yusafwala & CABI Fall Armyworm Portal"
+  },
+  {
+    "id": "grain_harvest_safe_storage",
+    "category": "sowing_harvest",
+    "cropKey": "general",
+    "tags": ["harvest", "storage", "moisture", "weevil", "گودام", "سٹور", "ذخیرہ", "کٹائی", "سنڀال", "لابارو"],
+    "title": {
+      "en": "Harvest Moisture & Safe Grain Storage",
+      "ur": "کٹائی کا صحیح وقت اور اناج کی محفوظ ذخیرہ اندوزی",
+      "sd": "لاباري جو صحيح وقت ۽ اناج جي محفوظ سنڀال"
+    },
+    "summary": {
+      "en": "Dry grain below 10–12% moisture before bagging; use clean hermetic bags/silos to block weevils & aflatoxin.",
+      "ur": "ذخیرہ کرنے سے پہلے دانے میں نمی 10 تا 12 فیصد سے کم رکھیں اور صاف ایئرٹائٹ بیگز/بھڑولے استعمال کریں۔",
+      "sd": "اناج رکڻ کان اڳ نمي 10 کان 12 سيڪڙو کان گھٽ رکو ۽ صاف ايئرٽائٽ ٻورا استعمال ڪريو."
+    },
+    "steps": {
+      "en": [
+        "Sun-dry freshly threshed wheat, maize, or paddy cleanly on tarps/concrete — avoid bare dirt to keep fungus/aflatoxin low.",
+        "Teeth-bite crispness check: grain should crack cleanly without denting like wax before bagging.",
+        "Clean old bins completely before storing new grain and seal cracks to eliminate Khapra beetle & lesser grain borer.",
+        "For home seed storage, airtight triple-layer bags prevent oxygen entry and suffocate storage insects safely without toxic tablets inside grain."
+      ],
+      "ur": [
+        "تازہ گاہے ہوئے گندم، مکئی یا دھان کو کچی مٹی کے بجائے ترپال یا پکی جگہ پر اچھی طرح سکھائیں۔",
+        "بوری بھرنے سے پہلے دانت سے دانا توڑ کر چیک کریں: اگر کڑک کی آواز سے ٹوٹے (دبے نہیں) تو نمی مناسب ہے۔",
+        "پرانے گودام اور بھڑولے نیا اناج رکھنے سے پہلے مکمل صاف اور دراڑیں بند کریں تاکہ کھپرا اور سسری نہ لگے۔",
+        "گھریلو یا بیج کے اناج کے لیے ایئرٹائٹ (تین تہہ والے) بیگ استعمال کریں تاکہ گولیوں کے بغیر محفوظ رہے۔"
+      ],
+      "sd": [
+        "نئون اناج ترپال تي سٺي طرح سڪايو ۽ پوءِ صاف جڳھ تي رکو.",
+        "ايئرٽائٽ ٻورن جو استعمال سسري کان بنا دوائن جي بچائي ٿو."
+      ]
+    },
+    "source": "PARC Post-Harvest Research & FAO Grain Storage"
+  }
+]

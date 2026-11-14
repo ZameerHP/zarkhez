@@ -14,6 +14,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { AdminSchemeVerifier } from '@/components/offline/AdminSchemeVerifier';
 
 interface MaskedConfigItem {
   configured: boolean;
@@ -314,6 +315,9 @@ export default function AdminDiagnosticsPage() {
                 </div>
               )}
             </section>
+
+            {/* Admin Scheme Verification Queue */}
+            <AdminSchemeVerifier />
           </div>
         )}
       </div>

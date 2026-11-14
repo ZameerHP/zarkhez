@@ -1,0 +1,354 @@
+[
+  {
+    "id": "cm_punjab_kissan_card",
+    "title": {
+      "en": "CM Punjab Kissan Card Program",
+      "ur": "وزیر اعلیٰ پنجاب کسان کارڈ پروگرام",
+      "sd": "پنجاب ڪسان ڪارڊ پروگرام"
+    },
+    "province": "Punjab",
+    "department": "Agriculture Department Punjab & Bank of Punjab (BOP)",
+    "officialPortal": "https://agripunjab.gov.pk/",
+    "helpline": "0800-17000 (Agri Helpline Punjab) / SMS: PKC <CNIC> to 8070",
+    "status": "verify_on_portal",
+    "lastVerifiedAt": "2026-11-14",
+    "datesNote": {
+      "en": "Operates in seasonal Kharif/Rabi input credit cycles — check active enrollment phase via 8070 or BOP/AgriPunjab.",
+      "ur": "یہ پروگرام خریف اور ربیع کے سیزن کے مطابق کھاد و بیج کے بلاسود قرض کے لیے چلتا ہے؛ تازہ رجسٹریشن فیز کی تصدیق 8070 یا پورٹل سے کریں۔"
+    },
+    "summary": {
+      "en": "Provides seasonal interest-free agricultural input financing (seed, fertilizer, diesel) through Bank of Punjab digital Kissan Cards.",
+      "ur": "بینک آف پنجاب کے ذریعے تصدیق شدہ کاشتکاروں کو بیج، کھاد اور ڈیزل کی خریداری کے لیے بلاسود زرعی قرض فراہم کرتا ہے۔"
+    },
+    "eligibility": {
+      "en": [
+        "Verified agricultural landowner registered in Punjab Land Records Authority (PLRA).",
+        "Original tiers cover 1 to 12.5 acres with updated phases expanding coverage tiers (verify current acre ceiling on official portal).",
+        "Valid CNIC with mobile SIM registered in applicant's own name (PMD verified).",
+        "Clean credit standing without active institutional loan defaults."
+      ],
+      "ur": [
+        "پنجاب لینڈ ریکارڈز اتھارٹی (PLRA) میں بطور کاشتکار تصدیق شدہ اراضی۔",
+        "بنیادی طور پر 1 تا 12.5 ایکڑ کے چھوٹے کاشتکار (تازہ فیز میں توسیعی حد کی پورٹل پر تصدیق کریں)۔",
+        "درست شناختی کارڈ اور درخواست گزار کے اپنے نام رجسٹرڈ موبائل سم۔",
+        "کسی بینک یا مالیاتی ادارے کا نادہندہ نہ ہونا۔"
+      ]
+    },
+    "documents": {
+      "en": [
+        "Valid Computerized National Identity Card (CNIC)",
+        "PLRA Arazi record / computerized Fard verification",
+        "Active SIM registered on applicant CNIC"
+      ],
+      "ur": [
+        "اصل قومی شناختی کارڈ",
+        "پنجاب لینڈ ریکارڈ (PLRA) فرد/اراضی ریکارڈ",
+        "اپنے نام رجسٹرڈ موبائل نمبر"
+      ]
+    },
+    "steps": {
+      "en": [
+        "Send SMS 'PKC <space> CNIC number' (without dashes) to 8070 OR visit your Tehsil Agriculture Officer / Bank of Punjab branch.",
+        "Complete biometric verification at designated Bank of Punjab branch upon SMS approval.",
+        "Purchase inputs from registered fertilizer/seed dealers using the activated Kissan Card."
+      ],
+      "ur": [
+        "اپنے موبائل سے PKC <اسپیس> شناختی کارڈ نمبر لکھ کر 8070 پر ایس ایم ایس کریں یا تحصیل زرعی آفس جائیں۔",
+        "منظوری کا میسج ملنے پر بینک آف پنجاب کی نامزد برانچ سے بایومیٹرک تصدیق اور کارڈ حاصل کریں۔",
+        "رجسٹرڈ ڈیلرز سے کھاد اور بیج کسان کارڈ کے ذریعے خریدیں۔"
+      ]
+    },
+    "verifiedBy": "Zarkhez Editorial Review (Official Portal & BOP Records)"
+  },
+  {
+    "id": "cm_punjab_green_tractor",
+    "title": {
+      "en": "CM Punjab Green Tractor Scheme",
+      "ur": "وزیر اعلیٰ پنجاب گرین ٹریکٹر اسکیم",
+      "sd": "پنجاب گرين ٽريڪٽر اسڪيم"
+    },
+    "province": "Punjab",
+    "department": "Agriculture Department Punjab",
+    "officialPortal": "https://gts.punjab.gov.pk/",
+    "helpline": "0800-17000",
+    "status": "verify_on_portal",
+    "lastVerifiedAt": "2026-11-14",
+    "datesNote": {
+      "en": "Conducted in announced phases via digital balloting — verify whether Phase applications are currently open on gts.punjab.gov.pk.",
+      "ur": "قرعہ اندازی اور درخواستیں سرکاری فیز کے مطابق کھلتی ہیں؛ موجودہ فیز کی تاریخ gts.punjab.gov.pk پر چیک کریں۔"
+    },
+    "summary": {
+      "en": "Provincial mechanization subsidy reducing purchase cost on approved tractor horsepower models through transparent district balloting.",
+      "ur": "فصلوں کی میکانائزیشن کے لیے منظور شدہ ٹریکٹرز پر حکومتِ پنجاب کی جانب سے لاکھوں روپے سبسڈی دی جاتی ہے۔"
+    },
+    "eligibility": {
+      "en": [
+        "Permanent resident of Punjab with valid CNIC.",
+        "Minimum landholding varies by tractor HP category (e.g., 5+ acres for medium HP tiers, 7+ acres for higher HP tiers per official phase notice).",
+        "Cross-verification through PLRA and NADRA prior to district e-balloting."
+      ],
+      "ur": [
+        "پنجاب کا مستقل رہائشی اور درست شناختی کارڈ۔",
+        "کم از کم اراضی کی شرط ٹریکٹر ہارس پاور کیٹگری کے مطابق ہوتی ہے (عموماً 5 سے 7+ ایکڑ تک)۔",
+        "قرعہ اندازی سے قبل NADRA اور PLRA اراضی ریکارڈ کی تصدیق لازمی ہے۔"
+      ]
+    },
+    "documents": {
+      "en": [
+        "Valid Punjab CNIC",
+        "Verified agricultural land ownership record (PLRA)",
+        "Active registered mobile number"
+      ],
+      "ur": [
+        "پنجاب کا شناختی کارڈ",
+        "تصدیق شدہ اراضی ملکیت کا ریکارڈ",
+        "فعال موبائل نمبر"
+      ]
+    },
+    "steps": {
+      "en": [
+        "Check active phase announcement at gts.punjab.gov.pk or agripunjab.gov.pk.",
+        "Submit online application choosing eligible tractor brand/horsepower tier.",
+        "Wait for district-level transparent digital balloting and submit verified allotment paperwork at dealer/department office."
+      ],
+      "ur": [
+        "آفیشل پورٹل gts.punjab.gov.pk پر نئے فیز کی تصدیق کریں۔",
+        "اپنی اراضی کے مطابق مناسب ہارس پاور ٹریکٹر منتخب کر کے آن لائن درخواست جمع کریں۔",
+        "قرعہ اندازی میں نام آنے پر اصل دستاویزات کی تصدیق کروائیں۔"
+      ]
+    },
+    "verifiedBy": "Zarkhez Editorial Review (gts.punjab.gov.pk)"
+  },
+  {
+    "id": "sindh_benazir_hari_card",
+    "title": {
+      "en": "Sindh Benazir Hari Card",
+      "ur": "سندھ بینظیر ہاری کارڈ",
+      "sd": "سنڌ بينظير هاري ڪارڊ"
+    },
+    "province": "Sindh",
+    "department": "Agriculture, Supply & Prices Department, Government of Sindh",
+    "officialPortal": "https://benazirharicard.gos.pk/",
+    "helpline": "District Agriculture Extension Offices Sindh",
+    "status": "verify_on_portal",
+    "lastVerifiedAt": "2026-11-14",
+    "datesNote": {
+      "en": "Status tracking and enrollment rounds are managed on benazirharicard.gos.pk and district Sindh Bank / Extension counters.",
+      "ur": "درخواستوں کی جانچ اور نئے مراحل کی معلومات سرکاری پورٹل benazirharicard.gos.pk اور ضلعی زرعی دفاتر پر دستیاب ہیں۔"
+    },
+    "summary": {
+      "en": "Digital farmer identity and relief mechanism supporting registered Sindh growers with targeted agricultural subsidies and disaster/input packages.",
+      "ur": "سندھ کے رجسٹرڈ کاشتکاروں اور ہاریوں کے لیے کھاد، بیج اور زرعی امدادی پیکجز کی براہِ راست ترسیل کا ڈیجیٹل کارڈ۔"
+    },
+    "eligibility": {
+      "en": [
+        "Resident grower / landowner / verified farmer in Sindh.",
+        "Specific package tiers prioritize smallholders (e.g., up to 25 acres for targeted input subsidies).",
+        "Valid CNIC and field/revenue verification by Sindh Agriculture Department and partner bank (Sindh Bank)."
+      ],
+      "ur": [
+        "صوبہ سندھ کا مستقل کاشتکار یا رجسٹرڈ ہاری۔",
+        "عموماً چھوٹے کاشتکاروں (مثال کے طور پر 25 ایکڑ تک) کو امدادی پیکجز میں ترجیح دی جاتی ہے۔",
+        "شناختی کارڈ، اراضی/کاشت دستاویز اور فیلڈ ویریفکیشن لازمی ہے۔"
+      ]
+    },
+    "documents": {
+      "en": [
+        "Valid CNIC",
+        "Revenue Form VII / Khata or recognized tenancy/grower proof",
+        "Mobile number & biometric check at designated Sindh Bank center"
+      ],
+      "ur": [
+        "اصل شناختی کارڈ",
+        "فارم 7 / کھاتہ یا تصدیق شدہ کاشتکاری کا ثبوت",
+        "موبائل نمبر اور سندھ بینک مرکز پر بایومیٹرک تصدیق"
+      ]
+    },
+    "steps": {
+      "en": [
+        "Verify registration eligibility or CNIC status on https://benazirharicard.gos.pk/.",
+        "Submit physical grower forms through your Taluka/District Agriculture Extension Office if offline verification is open.",
+        "Complete biometric verification at assigned Sindh Bank branch when SMS confirmation arrives."
+      ],
+      "ur": [
+        "آفیشل پورٹل benazirharicard.gos.pk پر اپنے شناختی کارڈ کا اسٹیٹس چیک کریں۔",
+        "نئے اندراج کے لیے اپنے تعلقہ/ضلعی محکمہ زراعت کے دفتر میں کاغذات جمع کروائیں۔",
+        "تصدیق کے بعد سندھ بینک سے کارڈ وصول کریں۔"
+      ]
+    },
+    "verifiedBy": "Zarkhez Editorial Review (benazirharicard.gos.pk)"
+  },
+  {
+    "id": "punjab_tubewell_solarization",
+    "title": {
+      "en": "Punjab Agricultural Tubewell Solarization Scheme",
+      "ur": "پنجاب زرعی ٹیوب ویل سولرائزیشن پروگرام",
+      "sd": "پنجاب ٽيوب ويل سولرائيزيشن پروگرام"
+    },
+    "province": "Punjab",
+    "department": "Agriculture Department Punjab",
+    "officialPortal": "https://agripunjab.gov.pk/",
+    "helpline": "0800-17000",
+    "status": "verify_on_portal",
+    "lastVerifiedAt": "2026-11-14",
+    "datesNote": {
+      "en": "Subsidy tiers (10 kW, 15 kW, 20 kW) open periodically by district quota — verify current registration dates on agripunjab.gov.pk.",
+      "ur": "10 کلو واٹ، 15 کلو واٹ اور 20 کلو واٹ کے سولر پیکجز ضلعی کوٹے کے تحت کھلتے ہیں؛ موجودہ تاریخ پورٹل پر چیک کریں۔"
+    },
+    "summary": {
+      "en": "Helps cut diesel and electricity irrigation expenses by subsidizing conversion of existing electric/diesel agricultural tube wells to solar PV systems.",
+      "ur": "ڈیزل اور مہنگی بجلی کا خرچ کم کرنے کے لیے موجودہ زرعی ٹیوب ویلوں کو شمسی توانائی (سولر) پر منتقل کرنے کی سبسڈی اسکیم۔"
+    },
+    "eligibility": {
+      "en": [
+        "Valid CNIC and ownership of eligible agricultural land with an operational registered electric/diesel tube well.",
+        "Minimum acre and water-table eligibility checks conducted per district notification.",
+        "Selection through transparent provincial/district balloting during open application phases."
+      ],
+      "ur": [
+        "پنجاب کا شناختی کارڈ اور فعال ڈیزل یا الیکٹرک زرعی ٹیوب ویل کی ملکیت۔",
+        "ضلعی نوٹیفکیشن کے مطابق اراضی اور زیرِ زمین پانی کی سطح کی جانچ۔",
+        "انتخاب مقررہ مراحل میں شفاف قرعہ اندازی کے ذریعے ہوتا ہے۔"
+      ]
+    },
+    "documents": {
+      "en": [
+        "CNIC & Land ownership documents",
+        "Electricity reference/bill (for electric tube wells) or local extension verification",
+        "Applicant mobile number & bank details for farmer share contribution"
+      ],
+      "ur": [
+        "شناختی کارڈ اور اراضی ریکارڈ",
+        "بجلی کے ٹیوب ویل کا بل/حوالہ نمبر یا محکمہ زراعت کی تصدیق",
+        "کاشتکار کے حصے کی رقم کے لیے بینک تفصیلات"
+      ]
+    },
+    "steps": {
+      "en": [
+        "Check agripunjab.gov.pk for the latest active phase notice and online/e-portal submission.",
+        "Select required solar capacity (10 kW, 15 kW, or 20 kW) matching your bore depth/motor.",
+        "If selected in ballot, install strictly through pre-qualified Agriculture Department solar vendors after verification."
+      ],
+      "ur": [
+        "agripunjab.gov.pk پر جاری فیز کی تفصیلات دیکھیں اور آن لائن فارم بھریں۔",
+        "اپنے بور اور موٹر کے مطابق 10، 15 یا 20 کلو واٹ کیٹگری منتخب کریں۔",
+        "کامیاب ہونے پر محکمہ زراعت کے منظور شدہ وینڈر سے انسٹالیشن کروائیں۔"
+      ]
+    },
+    "verifiedBy": "Zarkhez Editorial Review (agripunjab.gov.pk)"
+  },
+  {
+    "id": "ztbl_solar_tractor_finance",
+    "title": {
+      "en": "ZTBL Farm Mechanization & Solar Irrigation Financing",
+      "ur": "زرعی ترقیاتی بینک (ZTBL) ٹریکٹر اور سولر ٹیوب ویل قرض اسکیم",
+      "sd": "زرعي ترقياتي بئنڪ (ZTBL) ٽريڪٽر ۽ سولر قرض"
+    },
+    "province": "National (All Pakistan)",
+    "department": "Zarai Taraqiati Bank Limited (ZTBL)",
+    "officialPortal": "https://www.ztbl.com.pk/",
+    "helpline": "0800-07000 / ZTBL Nearest Branch",
+    "status": "ongoing",
+    "lastVerifiedAt": "2026-11-14",
+    "datesNote": {
+      "en": "Ongoing institutional financing schemes nationwide — current markup rates and security margins must be confirmed at your nearest ZTBL branch.",
+      "ur": "یہ ملکی سطح پر مستقل بینکنگ اسکیمیں ہیں؛ تازہ ترین مارک اپ اور شرائط قریبی ZTBL برانچ سے معلوم کریں۔"
+    },
+    "summary": {
+      "en": "Countrywide agricultural credit facilities including tractor/farm equipment financing, high-efficiency solar irrigation, and Islamic agricultural products.",
+      "ur": "پاکستان بھر کے کاشتکاروں کے لیے ٹریکٹر، زرعی آلات، سولر واٹر پمپس اور اسلامی زرعی فنانسنگ کی سہولیات۔"
+    },
+    "eligibility": {
+      "en": [
+        "Pakistani farmer possessing valid CNIC and acceptable collateral/passbook land security.",
+        "Subject to ZTBL Mobile Credit Officer (MCO) field appraisal and State Bank / eCIB credit clearance.",
+        "Available across Punjab, Sindh, KP, Balochistan, AJK & GB branches."
+      ],
+      "ur": [
+        "پاکستانی شہری اور درست شناختی کارڈ + منظور شدہ زرعی پاس بک/ضمانت۔",
+        "ZTBL کے موبائل کریڈٹ آفیسر (MCO) کی فیلڈ تصدیق اور کلیئر کریڈٹ ہسٹری۔",
+        "پنجاب، سندھ، کے پی، بلوچستان، آزاد کشمیر اور گلگت بلتستان میں دستیاب۔"
+      ]
+    },
+    "documents": {
+      "en": [
+        "Valid CNIC and 2 passport photographs",
+        "Agriculture Passbook (Zarai Passbook) or Revenue ownership Fard",
+        "Dealer proforma invoice (for tractor/solar equipment financing)"
+      ],
+      "ur": [
+        "شناختی کارڈ اور 2 پاسپورٹ سائز تصاویر",
+        "زرعی پاس بک یا مصدقہ فردِ ملکیت",
+        "ٹریکٹر یا سولر سسٹم کے لیے ڈیلر انوائس/کوٹیشن"
+      ]
+    },
+    "steps": {
+      "en": [
+        "Visit your nearest ZTBL branch or review official product terms on https://www.ztbl.com.pk/.",
+        "Meet the Area Mobile Credit Officer (MCO) with your Agriculture Passbook.",
+        "Submit formal credit file; disbursements occur directly after legal/field verification."
+      ],
+      "ur": [
+        "قریبی ZTBL برانچ تشریف لے جائیں یا ztbl.com.pk پر اسکیموں کی تفصیل پڑھیں۔",
+        "اپنی زرعی پاس بک کے ساتھ علاقائی کریڈٹ آفیسر (MCO) سے رابطہ کریں۔",
+        "تصدیقی مراحل مکمل ہونے پر فنانسنگ جاری کی جاتی ہے۔"
+      ]
+    },
+    "verifiedBy": "Zarkhez Editorial Review (ztbl.com.pk)"
+  },
+  {
+    "id": "kp_farmer_registry_extension",
+    "title": {
+      "en": "KP Agriculture Department Farmer Registry & Support",
+      "ur": "خیبر پختونخوا محکمہ زراعت کسان رجسٹری و توسیعی امداد",
+      "sd": "خيبر پختونخوا هاري رجسٽريشن پروگرام"
+    },
+    "province": "Khyber Pakhtunkhwa",
+    "department": "Agriculture Extension Department, Government of KP",
+    "officialPortal": "https://zarat.kp.gov.pk/",
+    "helpline": "0348-1117070 / info@zarat.kp.gov.pk",
+    "status": "verify_on_portal",
+    "lastVerifiedAt": "2026-11-14",
+    "datesNote": {
+      "en": "Consult zarat.kp.gov.pk or kissan.kp.gov.pk via District Extension Office for currently open seed/machinery subsidies.",
+      "ur": "موجودہ بیج، کھاد یا مشینری سبسڈی مراحل کے لیے zarat.kp.gov.pk یا ضلعی زرعی آفس سے تصدیق کریں۔"
+    },
+    "summary": {
+      "en": "Official Khyber Pakhtunkhwa agriculture extension & farmer database connecting verified KP farmers to seed programs, water management, and technical advisories.",
+      "ur": "خیبر پختونخوا کے کاشتکاروں کے لیے سرکاری رجسٹریشن اور بیج، آبپاشی اور زرعی مشاورتی پروگراموں تک رسائی کا نظام۔"
+    },
+    "eligibility": {
+      "en": [
+        "Active grower residing in Khyber Pakhtunkhwa with valid CNIC.",
+        "Verification via District Agriculture Extension Officer / Revenue Fard."
+      ],
+      "ur": [
+        "خیبر پختونخوا کا رہائشی کاشتکار اور درست شناختی کارڈ۔",
+        "ضلعی زرعی توسیعی دفتر اور اراضی کاغذات سے تصدیق۔"
+      ]
+    },
+    "documents": {
+      "en": [
+        "Valid CNIC",
+        "Land ownership / lease proof",
+        "Registered mobile number"
+      ],
+      "ur": [
+        "شناختی کارڈ",
+        "اراضی ملکیت یا ٹھیکہ کا ثبوت",
+        "رجسٹرڈ موبائل نمبر"
+      ]
+    },
+    "steps": {
+      "en": [
+        "Check active advisories at https://zarat.kp.gov.pk/ or call helpline 0348-1117070.",
+        "Register through your nearest Tehsil/District Agriculture Extension Center."
+      ],
+      "ur": [
+        "zarat.kp.gov.pk پر سرکاری اعلانات دیکھیں یا ہیلپ لائن 7070-111-0348 پر رابطہ کریں۔",
+        "قریبی تحصیل زرعی دفتر سے اپنی کسان رجسٹریشن مکمل کروائیں۔"
+      ]
+    },
+    "verifiedBy": "Zarkhez Editorial Review (zarat.kp.gov.pk)"
+  }
+]
