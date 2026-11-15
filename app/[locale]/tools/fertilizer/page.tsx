@@ -44,7 +44,7 @@ export default function FertilizerToolPage() {
 
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas">
-      <header className="bg-gradient-to-br from-amber-700 via-amber-600 to-orange-500 text-white rounded-b-[32px] px-4 sm:px-5 pt-4 pb-7 shadow-soft">
+      <header className="bg-gradient-to-b from-[#062409] to-olive-dark text-white rounded-b-[32px] px-4 sm:px-5 pt-4 pb-7 shadow-soft">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <Link
@@ -69,7 +69,7 @@ export default function FertilizerToolPage() {
 
       <main className="px-3.5 min-[375px]:px-5 mt-4 sm:mt-5 space-y-4 sm:space-y-5">
         {/* Form Inputs */}
-        <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border-2 border-amber-200/75 space-y-4">
+        <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/10 space-y-4">
           <div>
             <label className="block text-xs font-bold text-ink/75 mb-1.5">
               {t('selectCrop')}
@@ -82,8 +82,8 @@ export default function FertilizerToolPage() {
                   onClick={() => setCropKey(c.key)}
                   className={`min-h-[48px] px-2 rounded-tile font-bold text-xs sm:text-sm transition-all ${
                     cropKey === c.key
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm'
-                      : 'bg-amber-50/60 text-ink hover:bg-amber-100/80 border border-amber-200/60'
+                      ? 'bg-olive text-white shadow-sm'
+                      : 'bg-canvas text-ink hover:bg-olive/15'
                   }`}
                 >
                   {c.name[locale]}
@@ -133,8 +133,8 @@ export default function FertilizerToolPage() {
           </div>
         </section>
 
-        {/* Result Card with Vivid Warm Gold & Emerald Highlights */}
-        <section className="bg-gradient-to-br from-amber-50/75 via-white to-orange-50/40 rounded-card p-4 sm:p-5 shadow-soft border-2 border-amber-200/80 space-y-4">
+        {/* Result Card with Large Green Numbers (Section 11.2) */}
+        <section className="bg-white rounded-card p-4 sm:p-5 shadow-soft border border-olive/15 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="font-extrabold text-base sm:text-lg text-ink flex items-center gap-2 min-w-0">
               <Sprout className="w-5 h-5 text-olive flex-shrink-0" />

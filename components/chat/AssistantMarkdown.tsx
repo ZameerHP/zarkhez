@@ -19,7 +19,7 @@ function renderInline(text: string): React.ReactNode[] {
     if (!part) return null;
     if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
       return (
-        <strong key={idx} className="font-extrabold text-slate-900">
+        <strong key={idx} className="font-extrabold text-ink">
           {part.slice(2, -2)}
         </strong>
       );
@@ -28,7 +28,7 @@ function renderInline(text: string): React.ReactNode[] {
       return (
         <code
           key={idx}
-          className="px-1.5 py-0.5 mx-0.5 rounded bg-emerald-50 border border-emerald-200/80 text-emerald-900 font-semibold text-[0.9em]"
+          className="px-1.5 py-0.5 mx-0.5 rounded bg-cream border border-olive/20 text-[#062409] font-semibold text-[0.9em]"
         >
           {part.slice(1, -1)}
         </code>
@@ -36,7 +36,7 @@ function renderInline(text: string): React.ReactNode[] {
     }
     if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
       return (
-        <em key={idx} className="italic text-slate-700">
+        <em key={idx} className="italic text-ink/80">
           {part.slice(1, -1)}
         </em>
       );
@@ -75,7 +75,7 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
 
     // Horizontal rule
     if (/^(-{3,}|\*{3,})$/.test(trimmed)) {
-      blocks.push(<hr key={`hr-${i}`} className="my-2.5 border-slate-200/90" />);
+      blocks.push(<hr key={`hr-${i}`} className="my-2.5 border-olive/15" />);
       i += 1;
       continue;
     }
@@ -87,10 +87,10 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
       const headingText = headingMatch[2];
       const cls =
         level === 1
-          ? 'text-base sm:text-lg font-extrabold text-emerald-950 mt-2 mb-1'
+          ? 'text-base sm:text-lg font-extrabold text-[#062409] mt-2 mb-1'
           : level === 2
-          ? 'text-sm sm:text-base font-extrabold text-emerald-900 mt-2.5 mb-1 border-b border-emerald-100 pb-1'
-          : 'text-sm font-bold text-slate-900 mt-2 mb-0.5';
+          ? 'text-sm sm:text-base font-extrabold text-olive-dark mt-2.5 mb-1 border-b border-olive/15 pb-1'
+          : 'text-sm font-bold text-ink mt-2 mb-0.5';
       blocks.push(
         <div key={`h-${i}`} dir="auto" className={cls}>
           {renderInline(headingText)}
@@ -120,15 +120,15 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
         <div
           key={`tbl-${i}`}
           dir="auto"
-          className="my-2.5 overflow-x-auto rounded-xl border border-slate-200/90 bg-slate-50/40"
+          className="my-2.5 overflow-x-auto rounded-xl border border-olive/15 bg-canvas/50"
         >
           <table className="w-full text-xs sm:text-sm border-collapse text-start">
             <thead>
-              <tr className="bg-emerald-900/5 border-b border-slate-200">
+              <tr className="bg-olive/10 border-b border-olive/15">
                 {headers.map((h, hIdx) => (
                   <th
                     key={hIdx}
-                    className="px-3 py-2 font-extrabold text-emerald-950 text-start whitespace-nowrap sm:whitespace-normal"
+                    className="px-3 py-2 font-extrabold text-[#062409] text-start whitespace-nowrap sm:whitespace-normal"
                   >
                     {renderInline(h)}
                   </th>
@@ -141,14 +141,14 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
                   key={rIdx}
                   className={
                     rIdx % 2 === 1
-                      ? 'bg-white border-t border-slate-100'
-                      : 'bg-slate-50/35 border-t border-slate-100'
+                      ? 'bg-white border-t border-olive/10'
+                      : 'bg-canvas/40 border-t border-olive/10'
                   }
                 >
                   {headers.map((_, cIdx) => (
                     <td
                       key={cIdx}
-                      className="px-3 py-2 text-slate-800 align-top leading-snug"
+                      className="px-3 py-2 text-ink align-top leading-snug"
                     >
                       {renderInline(row[cIdx] || '')}
                     </td>
@@ -173,7 +173,7 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
         <blockquote
           key={`bq-${i}`}
           dir="auto"
-          className="my-2 px-3 py-2 rounded-xl border-s-4 border-emerald-500 bg-emerald-50/70 text-xs sm:text-sm text-emerald-950 leading-relaxed"
+          className="my-2 px-3 py-2 rounded-xl border-s-4 border-olive bg-cream/70 text-xs sm:text-sm text-[#062409] leading-relaxed"
         >
           {quoteLines.map((ql, idx) => (
             <p key={idx}>{renderInline(ql)}</p>
@@ -208,9 +208,9 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
           {items.map((item, idx) => (
             <li
               key={idx}
-              className="flex items-start gap-2 text-sm sm:text-base leading-relaxed text-slate-800"
+              className="flex items-start gap-2 text-sm sm:text-base leading-relaxed text-ink"
             >
-              <span className="mt-0.5 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-full bg-emerald-100 text-emerald-900 font-extrabold text-xs flex-shrink-0">
+              <span className="mt-0.5 inline-flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-full bg-olive/15 text-olive-dark font-extrabold text-xs flex-shrink-0">
                 {item.num}
               </span>
               <span className="min-w-0 flex-1">{renderInline(item.text)}</span>
@@ -233,11 +233,11 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
           {items.map((item, idx) => (
             <li
               key={idx}
-              className="flex items-start gap-2 text-sm sm:text-base leading-relaxed text-slate-800"
+              className="flex items-start gap-2 text-sm sm:text-base leading-relaxed text-ink"
             >
               <span
                 aria-hidden="true"
-                className="mt-2 w-1.5 h-1.5 rounded-full bg-emerald-600 flex-shrink-0"
+                className="mt-2 w-1.5 h-1.5 rounded-full bg-olive flex-shrink-0"
               />
               <span className="min-w-0 flex-1">{renderInline(item)}</span>
             </li>
@@ -270,7 +270,7 @@ export function AssistantMarkdown({ content }: AssistantMarkdownProps) {
         <p
           key={`p-${i}`}
           dir="auto"
-          className="text-sm sm:text-base leading-relaxed text-slate-800"
+          className="text-sm sm:text-base leading-relaxed text-ink"
         >
           {paraLines.map((pl, idx) => (
             <React.Fragment key={idx}>

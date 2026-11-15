@@ -126,7 +126,7 @@ export default function DiaryPage() {
 
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas">
-      <header className="bg-gradient-to-br from-teal-800 via-emerald-700 to-emerald-600 text-white rounded-b-[32px] px-4 sm:px-5 pt-4 pb-7 shadow-soft">
+      <header className="bg-gradient-to-b from-[#062409] to-olive-dark text-white rounded-b-[32px] px-4 sm:px-5 pt-4 pb-7 shadow-soft">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <Link

@@ -245,21 +245,21 @@ export default function WelcomePage() {
   };
 
   return (
-    <main className="relative min-h-[100dvh] bg-gradient-to-br from-emerald-950 via-teal-900 to-emerald-900 text-white [overflow-x:clip] flex flex-col justify-between selection:bg-teal-400 selection:text-slate-950 w-full">
+    <main className="relative min-h-[100dvh] bg-[#062409] text-white [overflow-x:clip] flex flex-col justify-between selection:bg-emerald-500 selection:text-white w-full">
       {/* Decorative Agriculture Field Glows & Vignette */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div
-          className="absolute -top-32 -start-32 w-80 h-80 rounded-full blur-3xl opacity-40"
+          className="absolute -top-32 -start-32 w-80 h-80 rounded-full blur-3xl opacity-35"
           style={{
             background:
-              'radial-gradient(circle, rgba(20,184,166,0.9) 0%, rgba(6,78,59,0) 70%)',
+              'radial-gradient(circle, rgba(95,165,46,0.95) 0%, rgba(6,36,9,0) 70%)',
           }}
         />
         <div
-          className="absolute top-1/4 -end-32 w-80 h-80 rounded-full blur-3xl opacity-35"
+          className="absolute top-1/4 -end-32 w-80 h-80 rounded-full blur-3xl opacity-30"
           style={{
             background:
-              'radial-gradient(circle, rgba(245,158,11,0.8) 0%, rgba(6,78,59,0) 70%)',
+              'radial-gradient(circle, rgba(200,150,46,0.85) 0%, rgba(6,36,9,0) 70%)',
           }}
         />
         <div
@@ -544,7 +544,7 @@ export default function WelcomePage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full min-h-[48px] rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-98"
+              className="w-full min-h-[48px] rounded-xl bg-[#062409] hover:bg-olive-dark text-white font-black text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-98"
             >
               <span>
                 {authMode === 'login'

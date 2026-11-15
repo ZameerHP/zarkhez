@@ -470,8 +470,8 @@ export default function AssistantPage() {
 
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas flex flex-col overflow-x-hidden">
-      {/* Purple / Teal AI Voice Advisor Header */}
-      <header className="bg-gradient-to-br from-violet-800 via-purple-700 to-teal-600 text-white rounded-b-[32px] px-4 sm:px-5 pt-4 pb-6 shadow-soft">
+      {/* Header with Cropped Zarkhez Emblem */}
+      <header className="bg-gradient-to-b from-[#062409] to-olive-dark text-white rounded-b-[32px] px-4 sm:px-5 pt-4 pb-6 shadow-soft">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Link
@@ -696,7 +696,7 @@ export default function AssistantPage() {
                     </div>
                   )
                 ) : (
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-700 to-teal-600 border border-violet-300/50 overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
+                  <div className="w-9 h-9 rounded-xl bg-[#062409] border border-emerald-400/40 overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src="/images/zarkhez-logo-mark.png"
@@ -711,8 +711,8 @@ export default function AssistantPage() {
                     isUser ? 'max-w-[85%]' : 'max-w-[92%] sm:max-w-[86%]'
                   } rounded-card p-3.5 sm:p-4 shadow-soft space-y-2.5 ${
                     isUser
-                      ? 'bg-gradient-to-br from-violet-700 to-indigo-700 text-white'
-                      : 'bg-white text-ink border border-violet-200/70'
+                      ? 'bg-[#062409] text-white'
+                      : 'bg-white text-ink border border-olive/12'
                   }`}
                 >
                   {isUser ? (
@@ -722,13 +722,13 @@ export default function AssistantPage() {
                   ) : msg.content ? (
                     <AssistantMarkdown content={msg.content} />
                   ) : (
-                    <p className="text-sm sm:text-base leading-relaxed text-slate-600">
+                    <p className="text-sm sm:text-base leading-relaxed text-ink/70">
                       {streaming ? t('thinking') : ''}
                     </p>
                   )}
 
                   {!isUser && msg.content && (
-                    <div className="pt-1 border-t border-slate-100 flex justify-end">
+                    <div className="pt-1 border-t border-olive/10 flex justify-end">
                       <ReadAloudButton
                         text={msg.spokenContent || msg.content}
                         lang={msg.voiceLang || voiceLang}
@@ -752,8 +752,8 @@ export default function AssistantPage() {
                 onClick={handleToggleMic}
                 className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-2xl transition-all ${
                   listening
-                    ? 'bg-rose-600 text-white ring-8 ring-rose-500/25 animate-pulse'
-                    : 'bg-gradient-to-br from-violet-600 via-purple-600 to-teal-500 hover:from-violet-700 hover:to-teal-600 text-white ring-8 ring-violet-500/20'
+                    ? 'bg-alert-red text-white ring-8 ring-alert-red/25 animate-pulse'
+                    : 'bg-olive-fresh hover:bg-olive text-white ring-8 ring-olive/15'
                 }`}
                 aria-label={listening ? t('micListening') : t('micReady')}
               >
@@ -788,7 +788,7 @@ export default function AssistantPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="bg-white rounded-full p-1.5 shadow-soft border-2 border-violet-200 focus-within:border-violet-400 flex items-center gap-1.5"
+            className="bg-white rounded-full p-1.5 shadow-soft border border-olive/25 flex items-center gap-1.5"
           >
             <input
               type="text"
@@ -803,7 +803,7 @@ export default function AssistantPage() {
               type="submit"
               whileTap={{ scale: 0.94 }}
               disabled={streaming || !inputText.trim()}
-              className="min-h-[46px] px-4 sm:px-5 rounded-full bg-gradient-to-r from-violet-600 to-teal-600 hover:from-violet-700 hover:to-teal-700 disabled:opacity-45 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all flex-shrink-0"
+              className="min-h-[46px] px-4 sm:px-5 rounded-full bg-[#062409] hover:bg-olive-dark disabled:opacity-45 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all flex-shrink-0"
             >
               <span>{t('send')}</span>
               <Send className="w-4 h-4 text-emerald-400 rtl:rotate-180" />
