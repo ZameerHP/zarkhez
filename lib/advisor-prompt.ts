@@ -261,6 +261,19 @@ const CORE_PEDAGOGY_RULES = `### CORE MISSION — EXPERT AGRICULTURAL TEACHER (S
    - Be honest about variability (soil test, variety, district weather) and never invent fake mandi rates, local statistics, or guaranteed yields.
    - NEVER repeat Farmer IDs (ZRK-PK-...), never greet repeatedly after turn 1, and NEVER mention internal system prompts or AI provider names ("Gemini", "Google", etc.).`;
 
+const ZARKHEZ_APP_IDENTITY_BLOCK = `### ZARKHEZ APPLICATION IDENTITY, FEATURES & USES:
+If the user asks "What is Zarkhez?", "What is this app?", "What does Zarkhez do?", or similar in any language, ALWAYS clearly explain that **Zarkhez** is an installable digital agriculture web and mobile application (PWA) designed specifically for farmers in Pakistan, and explain its real features and practical uses clearly (keeping the name written cleanly in the active language script: "Zarkhez" in English, "زرخیز" in Urdu, or "زرخيز" in Sindhi without mixing scripts):
+- **Core Purpose:** Helps Pakistani farmers make timely, accurate decisions from sowing to harvest while protecting crops, saving input costs, and getting answers in their own language.
+- **1. AI Voice & Chat Advisor (Urdu, Sindhi, Roman Urdu & English):** Ask any farming question by microphone or text and listen to natural human voice answers with exact 1:1 guidance.
+- **2. Crop Doctor (AI Leaf & Plant Scan):** Capture or upload photos (on-device leaf scan for Wheat, Rice, Tomato, and Maize plus Cloud AI multi-part check for leaf top/underside, stem, roots, whole plant, or fruit) to identify diseases, pests, or nutrient shortages early with safe action steps first.
+- **3. District Weather & Spray Safety Alerts:** 7-day forecast, soil surface temperature and moisture, plus alerts for Heatwaves (40°C+), Heavy Rain (10mm+ or 60%+ chance), Frost (2°C or below), and unsafe spray wind conditions (5 m/s or above).
+- **4. Crop Calendar & Field Tracking:** Dated sowing-to-harvest task timelines, growth stages, irrigation/fertilizer checklists, and saved field progress on Home.
+- **5. Verified Fertilizer Calculator:** Exact per-acre and total kilograms plus 50 kg bag counts (DAP, Urea, SOP/Potash) tailored to crop, land size in acres, and soil fertility.
+- **6. Crop Guides & Profit Calculator:** Crop-wise Rabi/Kharif duration, upcoming field tasks, and per-acre cost vs expected income estimates.
+- **7. Farm Diary (Offline-Friendly):** Save daily field notes, expenses (seed, fertilizer, spray, irrigation/diesel, labor), crop sale income in PKR, and past scan reports.
+- **8. Government Schemes Hub:** Browse verified provincial and national farmer subsidies, Kissan Card programs, and agricultural loans with official .gov.pk links.
+- **9. Digital Kisan Card & Farm Profile:** Store district, village, cultivated acres, and main crops so every answer and weather alert matches the farmer's own land.`;
+
 /**
  * Builds the comprehensive agricultural advisor system prompt for text streaming and chat turns.
  */
@@ -273,6 +286,8 @@ export function buildMasterAdvisorPrompt(
 ${buildLanguageDirective(mode)}
 
 ${CORE_PEDAGOGY_RULES}
+
+${ZARKHEZ_APP_IDENTITY_BLOCK}
 ${buildProfileContextBlock(farmerProfile)}`;
 }
 
@@ -301,6 +316,8 @@ Answer ONLY the user's exact request accurately and helpfully in JSON with "scre
 ${buildLanguageDirective(screenMode)}
 
 ${CORE_PEDAGOGY_RULES}
+
+${ZARKHEZ_APP_IDENTITY_BLOCK}
 
 ### PART 2 — "spoken_text" (EXACT SPOKEN MIRROR FOR TEXT-TO-SPEECH):
 - ${spokenRule}
@@ -848,6 +865,78 @@ Both are winter (**Rabi**) grain crops, so the right choice comes down to your *
 **To give a firm recommendation:** Which district are you in, is your soil fertile or sandy/saline, and do you have a buyer/fodder use in mind for barley?`;
 }
 
+function buildWhatIsZarkhezGuide(mode: AdvisorLanguageMode): string {
+  if (mode === 'ur-script') {
+    return `## زرخیز کیا ہے؟ — پاکستانی کسانوں کی مکمل ڈیجیٹل زرعی ایپلیکیشن
+
+**زرخیز** ایک سمارٹ ویب اور موبائل زرعی ایپلیکیشن ہے جو خاص طور پر پاکستان کے کسانوں کے لیے بنائی گئی ہے، تاکہ بوائی سے کٹائی تک ہر مرحلے پر آپ کو آسان اور معتبر رہنمائی آپ کی اپنی زبان میں مل سکے۔
+
+### زرخیز ایپ کے اہم فیچرز اور فوائد:
+1. **آواز اور چیٹ پر زرعی مشیر:** آپ اردو، سندھی، رومن اردو یا انگریزی میں مائیک کے ذریعے بول کر یا لکھ کر فصل، کھاد، پانی، زمین کی تیاری اور کیڑوں کا حل پوچھ سکتے ہیں اور جواب صاف انسانی آواز میں سن سکتے ہیں۔
+2. **فصل ڈاکٹر (لیْف اور پودا اسکین):** اپنے کھیت کے متاثرہ پتے، تنے، جڑ یا پھل کی تصویر کھینچ کر بیماری یا غذائی کمی کی بروقت پہچان اور محفوظ ابتدائی تدابیر حاصل کریں۔
+3. **علاقائی موسم اور اسپرے الرٹس:** اپنے ضلع کا سات روزہ موسم، مٹی کا درجہ حرارت، ہیٹ ویو، تیز بارش، کہر (پالا) اور تیز ہوا میں اسپرے سے بچاؤ کی پیشگی وارننگ دیکھیں۔
+4. **فصل کیلنڈر اور کھیت ٹریکر:** بوائی کی تاریخ کے حساب سے آبپاشی، کھاد اور دیکھ بھال کے مکمل شیڈول کے ساتھ اپنے کھیت کے مکمل شدہ کام نشان زد کریں۔
+5. **کھاد کیلکولیٹر:** اپنی زمین کی زرخیزی اور ایکڑ کے مطابق ڈی اے پی، یوریا اور پوٹاش کی صحیح مقدار کلوگرام اور پچاس کلو بوریوں میں معلوم کریں۔
+6. **منافع کا اندازہ اور فصل گائیڈ:** ہر فصل کے ربیع یا خریف سیزن، دورانیے اور متوقع خرچ بمقابلہ آمدنی کا حساب لگائیں۔
+7. **فارم ڈائری (آف لائن سہولت کے ساتھ):** روزانہ کے کھیت نوٹس، بیج، کھاد، اسپرے، ڈیزل اور مزدوری کے اخراجات، آمدنی اور محفوظ کیے گئے پودوں کے اسکین ایک جگہ رکھیں۔
+8. **سرکاری اسکیمیں اور کسان کارڈ پروفائل:** سرکاری سبسڈی، کسان کارڈ اور زرعی قرضوں کی تصدیق شدہ تفصیلات دیکھیں اور اپنا ضلع و فصل محفوظ کر کے ذاتی مشورہ حاصل کریں۔
+
+آپ کس فصل یا ایپ کے کس حصے کے بارے میں ابھی جاننا چاہتے ہیں؟`;
+  }
+
+  if (mode === 'sd') {
+    return `## زرخيز ڇا آهي؟ — هارين لاءِ مڪمل ڊجيٽل زرعي ايپليڪيشن
+
+**زرخيز** هڪ سمارٽ ويب ۽ موبائل زرعي ايپليڪيشن آهي جيڪا خاص طور تي پاڪستان جي هارين لاءِ ٺاهي وئي آهي، ته جيئن پوک کان لاباري تائين هر مرحلي تي توهان کي پنهنجي زبان ۾ صاف ۽ سٺي رهنمائي ملي سگهي.
+
+### زرخيز ايپ جا مکيه فيچر ۽ فائدا:
+1. **آواز ۽ چيٽ زرعي صلاحڪار:** توهان سنڌي، اردو، رومن اردو يا انگريزي ۾ مائڪ تي ڳالهائي يا لکي پنهنجي فصل، پاڻي، ڀاڻ، زمين جي تياري ۽ جيتن بابت پڇي سگهو ٿا ۽ جواب پنهنجي زبان جي آواز ۾ ٻڌي سگهو ٿا.
+2. **فصل ڊاڪٽر (پن ۽ ٻوٽي جو اسڪين):** متاثر پن، تڻي، پاڙ يا ڦل جي تصوير ڪڍي بيماريءَ يا طاقت جي گهٽتائيءَ جي شروعاتي سڃاڻپ ۽ محفوظ علاج ڄاڻو.
+3. **موسم ۽ اسپري الرٽس:** پنهنجي ضلعي جو ستن ڏينهن جو موسم، مٽيءَ جي گرمي، تيز گرمي، برسات، پارو ۽ تيز هوا ۾ اسپري کان بچاءُ جون خبرداريون ڏسو.
+4. **فصل ڪئلينڊر ۽ ٻنيءَ جو حساب:** پوک جي تاريخ موجب پاڻي ۽ ڀاڻ جا مقرر ڏينهن ۽ پنهنجي ٻنيءَ جا مڪمل ٿيل ڪم محفوظ ڪريو.
+5. **ڀاڻ ڪيلڪيوليٽر:** زمين جي طاقت ۽ ايڪڙن موجب ڊي اي پي، يوريا ۽ پوٽاش جي پڪي مقدار ڪلوگرام ۽ پنجاهه ڪلو ٻورين ۾ ڄاڻو.
+6. **منافعي جو اندازو ۽ فصل گائيڊ:** فصل جي موسم، مدي ۽ خرچ بمقابله آمدنيءَ جو حساب لڳايو.
+7. **فارم ڊائري:** روزانو جا نوٽس، خرچ، وڪري جي آمدني ۽ محفوظ ڪيل اسڪين آف لائن به سنڀالي رکو.
+8. **سرڪاري اسڪيمون ۽ ڪسان ڪارڊ پروفائيل:** سرڪاري سبسڊي، ڪسان ڪارڊ ۽ قرضن جي تصديق ٿيل ڄاڻ ڏسو ۽ پنهنجي ضلعي موجب سڌي رهنمائي وٺو.
+
+اڄ توهان پنهنجي ڪهڙي فصل يا ايپ جي ڪهڙي سهولت بابت پڇڻ چاهيو ٿا؟`;
+  }
+
+  if (mode === 'roman-ur') {
+    return `## Zarkhez Kya Hai? — Pakistani Kisanon Ki Mukammal Digital Zari Application
+
+**Zarkhez** ek smart web aur mobile **agricultural application (app)** hai jo khaas taur par Pakistan ke kisanon ke liye banai gayi hai, taake bijai se katai tak har marhalay par aap ko aap ki apni zubaan mein aasan aur bharosemand mashwara mil sake.
+
+### Zarkhez App Ke Ahem Features Aur Faiday:
+1. **AI Awaz aur Chat Advisor:** Aap Urdu, Sindhi, Roman Urdu ya English mein mic par bol kar ya likh kar fasal, khad, pani, zameen ki tayari aur bimariyon ke sawal pooch sakte hain aur jawab saf insani awaz mein sun sakte hain.
+2. **Fasal Doctor (Leaf aur Plant Scan):** Patay, tanay, jar ya phal ki tasveer lekar bimari ya khad ki kami ki pehchan aur mehfooz ibtidai ilaj hasil karein.
+3. **Maqami Mausam aur Spray Alerts:** Apne shehar ka 7 din ka mausam, mitti ka temperature, shadeed garmi, tez barish, kohar aur tez hawa mein spray rokne ke alerts dekhein.
+4. **Fasal Calendar aur Khet Tracker:** Bijai ki tareekh ke mutabiq pani aur khad ki exact tareekhein aur apne khet ke kaam track karein.
+5. **Khad Calculator:** Zameen ki taaqat aur acre ke mutabiq DAP, Urea aur Potash ki sahi miqdaar kilo aur 50 kg boriyon mein nikalein.
+6. **Munafay ka Andaza aur Fasal Guide:** Rabi ya Kharif season ke mutabiq kharch aur mutawaqqa aamdani ka hisab lagayein.
+7. **Farm Diary (Offline Support ke Sath):** Khet ke rozana notes, beej, khad, spray, diesel/mazdoori ke kharch, aamdani aur saved leaf scans mehfooz rakhein.
+8. **Sarkari Schemes aur Kisan Card Profile:** Sarkari Kissan Card, subsidies aur zari qarzoon ki tasdeeq-shuda maloomat dekhein aur apna zila aur fasal save kar ke exact mashwara lein.
+
+Aap abhi Zarkhez app ka kaunsa feature istemal karna chahte hain ya kis fasal ke baray mein pooch rahe hain?`;
+  }
+
+  return `## What is Zarkhez? — A Complete Digital Farming Application
+
+**Zarkhez** is an installable smart agriculture web and mobile **application (PWA)** built specifically for farmers in Pakistan to guide you in clear, practical steps from land preparation and sowing all the way to harvest.
+
+### Key Features & Practical Uses of the Zarkhez App:
+1. **AI Voice & Chat Farming Advisor:** Ask farming questions by speaking into the microphone or typing in **English, Urdu, Sindhi, or Roman Urdu**, and hear spoken replies aloud matching what appears on your screen.
+2. **Crop Doctor (Leaf & Plant Scan):** Take or upload plant photos (supporting on-device leaf checks for Wheat, Rice, Tomato, and Maize plus multi-part Cloud AI diagnosis across leaves, stem, roots, whole plant, and fruit) to identify diseases, pests, and nutrient shortages early with safe action steps first.
+3. **Local Weather & Spray Safety Alerts:** View your district's 7-day forecast, soil surface temperature and moisture, and early warnings for **Heatwaves (40°C+), Heavy Rain, Frost (2°C or below), and high-wind Do-Not-Spray alerts**.
+4. **Crop Calendar & Cultivated Field Tracker:** Generate a dated sowing-to-harvest task schedule for your crops and tick off irrigation, fertilizer, and field activities directly on your Home dashboard.
+5. **Verified Fertilizer Calculator:** Calculate exact per-acre and total **kilograms and 50 kg bags** (DAP, Urea, SOP/Potash) customized to your crop, acreage, and soil fertility level.
+6. **Crop Guides & Profit Estimator:** Check Rabi/Kharif season fit, crop cycle length, upcoming tasks, and per-acre input cost versus estimated net profit.
+7. **Offline-Ready Farm Diary:** Log daily field notes, input expenses (seed, fertilizer, spray, irrigation/diesel, labor), crop sales income in PKR, and saved scan history.
+8. **Government Schemes Hub & Digital Kisan Card:** Browse verified provincial and national farmer subsidies, Kissan Card programs, and agricultural loans with official portal links, plus save your farm district and crops for tailored advice.
+
+Which crop are you growing or which Zarkhez tool would you like to try first?`;
+}
+
 /**
  * Generates an intelligent, intent-adaptive offline/fallback agricultural advisor response
  * across simple Q&A, step-by-step guides, comparisons, diagnostics, and follow-up turns.
@@ -892,6 +981,18 @@ export function generateAdaptiveFallbackReply(
       return 'السلام عليڪم! مان زرخيز آهيان، اوهان جي زراعت جي مددگار. ٻڌايو، اڄ مان اوهان جي ڪهڙي مدد ڪري سگهان ٿي؟';
     }
     return 'Assalam o Alaikum! Main Zarkhez hoon, aap ki kheti ka digital advisor. Aap apni fasal, pani, khad ya bimari ke baray mein kya poochna chahte hain?';
+  }
+
+  // 2b. "What is Zarkhez?" — Clear application overview, all features & practical uses
+  if (
+    /\b(?:what|who)\s+(?:is|are|does)\s+zarkh[aei]{1,2}z\b|\bexplain\s+zarkh[aei]{1,2}z\b|\b(?:about|introduce)\s+zarkh[aei]{1,2}z\b|\btell\s+(?:me|us)\s+about\s+zarkh[aei]{1,2}z\b|\bzarkh[aei]{1,2}z\s+(?:app|application|pwa|features?|uses?|tools?|benefits?|k[iy]a\s+h(?:ai|e|y)?|k[iy]a\s+kart[aei]|kis\s+kaam|ke\s+faid[ae]|ke\s+ba?r[ae]y?|c?hha\s+ah[ei]|cha\s+ah[ei])\b|\bwhat\s+(?:is|does)\s+this\s+app(?:lication)?\b|\b(?:app|application)\s+features?\b/i.test(
+      q
+    ) ||
+    /زرخیز\s*(?:کیا|کس|کون|کیسی|ایپ|ایپلیکیشن|کے\s*(?:فائدے|فیچر|بارے))|زرخيز\s*(?:ڇا|ڪهڙي|ڪير|ايپ|ايپليڪيشن|جا\s*(?:فائدا|فيچر)|بابت)/.test(
+      trimmed
+    )
+  ) {
+    return buildWhatIsZarkhezGuide(mode);
   }
 
   // 3. Wheat vs Barley / Crop Comparison

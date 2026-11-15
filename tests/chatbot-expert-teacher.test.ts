@@ -295,6 +295,19 @@ async function runTests() {
     const dualPromptUr = buildVoiceAdvisorPrompt('ur', { district: 'Multan', crop: 'wheat' }, 'ur-script');
     assert.ok(dualPromptUr.includes('Pakistani Urdu Perso-Arabic script'));
     assert.ok(dualPromptUr.includes('EXACT same answer'));
+    assert.ok(dualPromptUr.includes('ZARKHEZ APPLICATION IDENTITY, FEATURES & USES'));
+
+    const aboutEn = generateAdaptiveFallbackReply('What is Zarkhez?', 'en', undefined, undefined, 'en');
+    assert.ok(/application|PWA/i.test(aboutEn) && aboutEn.includes('Fertilizer Calculator') && aboutEn.includes('Crop Doctor'));
+
+    const aboutUr = generateAdaptiveFallbackReply('زرخیز کیا ہے؟', 'ur', undefined, undefined, 'ur-script');
+    assert.ok(aboutUr.includes('ایپلیکیشن') && aboutUr.includes('فصل ڈاکٹر') && aboutUr.includes('کھاد کیلکولیٹر'));
+
+    const aboutSd = generateAdaptiveFallbackReply('زرخيز ڇا آهي؟', 'ur', undefined, undefined, 'sd');
+    assert.ok(aboutSd.includes('ايپليڪيشن') && aboutSd.includes('فصل ڊاڪٽر') && aboutSd.includes('ڀاڻ ڪيلڪيوليٽر'));
+
+    const aboutRoman = generateAdaptiveFallbackReply('Zarkhez kya hai?', 'ur', undefined, undefined, 'roman-ur');
+    assert.ok(aboutRoman.includes('application') && aboutRoman.includes('Fasal Doctor'));
 
     // Also test direct partial rescue check via generateVoiceDualReply when no keys set falls back cleanly
     assert.equal(typeof generateVoiceDualReply, 'function');

@@ -576,6 +576,12 @@ async function runTests() {
     const spokenUr = toSpokenText(hiUr.spokenText, 'ur', { lexiconEntries: lexicon }).spokenText;
     assert.ok(spokenUr.includes('زَرخیز'), 'Must apply crisp zabar hint for Urdu Zarkhez pronunciation');
 
+    const spokenSd = toSpokenText('مان زرخيز آهيان.', 'sd', { lexiconEntries: lexicon }).spokenText;
+    assert.ok(spokenSd.includes('زَرخيز'), 'Must apply smooth Sindhi zabar pronunciation for Zarkhez');
+
+    const typoNormalizedEn = toSpokenText('Tell me about zarkhaz app.', 'en', { lexiconEntries: lexicon }).spokenText;
+    assert.ok(typoNormalizedEn.includes('Zarkhez'), 'Should normalize phonetic typo zarkhaz smoothly to Zarkhez');
+
     const ssmlEn = buildVoiceSsml({
       text: `${hiEn.spokenText} You can spray safely in calm weather.`,
       lang: 'en',

@@ -6,6 +6,7 @@ const ROMAN_URDU_HINT_WORDS =
   /\b(?:hai|hain|nahi|nhi|aur|ke|ki|ka|ko|mein|se|kar(?:ein|en|o)?|lagay(?:ein|en)|dein|lein|rakh(?:ein|en)|fasal|gandum|dhan|kapas|kamad|makai|tamatar|aloo|mirch|pani|khad|yurea|patta|patte|dhabbe|bimari|ilaj|subah|shaam|barish|hawa|mausam|zameen|aap|hum|apni|bohat|zyada|kam|abhi|baad|pehle|zaroor)\b/gi;
 
 const ROMAN_URDU_TO_URDU_WORDS: ReadonlyArray<[RegExp, string]> = [
+  [/\bzarkh[aei]z\b/gi, 'زَرخیز'],
   [/\baap\s+ki\s+fasal\b/gi, 'آپ کی فصل'],
   [/\baap\s+ke\b/gi, 'آپ کے'],
   [/\baap\s+ki\b/gi, 'آپ کی'],
