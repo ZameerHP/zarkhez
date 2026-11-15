@@ -18,7 +18,9 @@ import {
 import { BottomNav } from '@/components/layout/BottomNav';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
 import { ZarkhezLogo } from '@/components/layout/ZarkhezLogo';
+import { AssistantMarkdown } from '@/components/chat/AssistantMarkdown';
 import { ReadAloudButton } from '@/components/voice/ReadAloudButton';
+import { looksLikelyEnglish } from '@/lib/advisor-prompt';
 import {
   isSpeechRecognitionSupported,
   speakText,
@@ -29,6 +31,7 @@ import {
   VoiceLang,
   VoicePhase,
 } from '@/lib/voice';
+import { computeIncrementalInputValue } from '@/lib/voice/transcript-merger';
 import {
   getSavedFields,
   getSavedProfile,
@@ -60,6 +63,7 @@ export default function AssistantPage() {
   const [streaming, setStreaming] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
   const [listening, setListening] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<'idle' | 'recording' | 'finalizing'>('idle');
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [voiceLang, setVoiceLang] = useState<VoiceLang>(locale === 'en' ? 'en' : 'ur');
@@ -77,7 +81,15 @@ export default function AssistantPage() {
 
   const sessionRef = useRef<SpeechSession | null>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const dictationSessionIdRef = useRef(0);
+  const dictationBaseTextRef = useRef('');
+  const inputTextRef = useRef('');
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const updateInputText = (next: string) => {
+    inputTextRef.current = next;
+    setInputText(next);
+  };
 
   useEffect(() => {
     const supported = isSpeechRecognitionSupported();
@@ -120,6 +132,9 @@ export default function AssistantPage() {
     ]);
 
     return () => {
+      dictationSessionIdRef.current += 1;
+      sessionRef.current?.abort?.();
+      sessionRef.current = null;
       stopSpeaking();
     };
   }, [t, locale]);
@@ -170,10 +185,18 @@ export default function AssistantPage() {
       ? voiceLang === 'sd'
         ? 'sd'
         : 'ur'
+      : looksLikelyEnglish(question)
+      ? 'en'
       : voiceLang;
     if (effectiveVoiceLang !== voiceLang) {
       setVoiceLang(effectiveVoiceLang);
     }
+
+    dictationSessionIdRef.current += 1;
+    sessionRef.current?.abort?.();
+    sessionRef.current = null;
+    setListening(false);
+    setVoiceStatus('idle');
 
     stopSpeaking();
     setAiSpeaking(false);
@@ -191,7 +214,7 @@ export default function AssistantPage() {
       ...nextMessages,
       { id: assistantTurnId, role: 'assistant', content: '', voiceLang: effectiveVoiceLang },
     ]);
-    setInputText('');
+    updateInputText('');
     setStreaming(true);
 
     try {
@@ -206,9 +229,9 @@ export default function AssistantPage() {
               content: m.content,
             })),
           context: contextInfo,
-          lang: locale,
+          lang: effectiveVoiceLang === 'en' ? 'en' : locale,
           voiceLang: effectiveVoiceLang,
-          voiceMode: true,
+          voiceMode: autoSpeak,
         }),
       });
 
@@ -223,19 +246,25 @@ export default function AssistantPage() {
           spokenText?: string;
           language?: VoiceLang;
         };
-        // Keep ONE exact clean message on screen matching the spoken answer 1:1
-        const unifiedText = (dual.spokenText || dual.screenText || '').trim();
+        // Preserve full rich educational answer on screen and concise summary for TTS voice
+        const displayScreenText = (dual.screenText || dual.spokenText || '').trim();
+        const replySpokenText = (dual.spokenText || displayScreenText).trim();
         const replyLang: VoiceLang = dual.language || effectiveVoiceLang;
 
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantTurnId
-              ? { ...m, content: unifiedText, voiceLang: replyLang }
+              ? {
+                  ...m,
+                  content: displayScreenText,
+                  spokenContent: replySpokenText,
+                  voiceLang: replyLang,
+                }
               : m
           )
         );
-        if (unifiedText) {
-          speakAssistantReply(unifiedText, replyLang);
+        if (replySpokenText) {
+          speakAssistantReply(replySpokenText, replyLang);
         } else {
           setVoicePhase('idle');
         }
@@ -290,6 +319,61 @@ export default function AssistantPage() {
     }
   };
 
+  const formatVoiceErrorMessage = (err: string): string => {
+    const isOffline =
+      err === 'network_offline' ||
+      err === 'stt_network_error' ||
+      (typeof navigator !== 'undefined' && navigator.onLine === false);
+
+    if (err === 'mic_permission_denied' || err === 'not-allowed' || err === 'permission-denied') {
+      return voiceLang === 'sd'
+        ? 'مهرباني ڪري مائڪ جي اجازت ڏيو.'
+        : voiceLang === 'ur'
+        ? 'براہِ کرم براؤزر میں مائیکروفون کی اجازت دیں۔'
+        : 'Please allow microphone permission in your browser settings.';
+    }
+    if (err === 'mic_not_found') {
+      return voiceLang === 'sd'
+        ? 'مائڪروفون دستياب ناهي.'
+        : voiceLang === 'ur'
+        ? 'آپ کے آلے پر مائیکروفون دستیاب نہیں ہے۔'
+        : 'No working microphone found on this device.';
+    }
+    if (err === 'mic_busy') {
+      return voiceLang === 'sd'
+        ? 'مائڪروفون ڪنهن ٻئي ايپ ۾ مصروف آهي.'
+        : voiceLang === 'ur'
+        ? 'مائیکروفون اس وقت کسی اور ایپ میں استعمال ہو رہا ہے۔'
+        : 'Microphone is busy in another app. Close it and try again.';
+    }
+    if (isOffline) {
+      return voiceLang === 'sd'
+        ? 'انٽرنيٽ بند هجڻ سبب آواز مڪمل نه ٿيو؛ موجود لفظ محفوظ ڪيا ويا.'
+        : voiceLang === 'ur'
+        ? 'انٹرنیٹ منقطع ہو گیا؛ جتنے الفاظ موصول ہوئے محفوظ کر لیے گئے ہیں۔'
+        : 'Connection lost; saved the spoken text captured so far.';
+    }
+    if (err === 'stt_timeout') {
+      return voiceLang === 'sd'
+        ? 'آواز سڃاڻڻ ۾ وقت گهڻو لڳو، مهرباني ڪري ٻيهر ڪوشش ڪريو.'
+        : voiceLang === 'ur'
+        ? 'آواز کی تبدیلی میں وقت زیادہ لگ گیا، دوبارہ کوشش کریں۔'
+        : 'Speech transcription timed out — please try again.';
+    }
+    if (err === 'stt_rate_limited') {
+      return voiceLang === 'sd'
+        ? 'عارضي دٻاءُ سبب ڪجهه سيڪنڊ رکي ٻيهر ڳالهايو.'
+        : voiceLang === 'ur'
+        ? 'عارضی رش کی وجہ سے چند سیکنڈ بعد دوبارہ بولیں۔'
+        : 'Voice service is busy — please pause a few seconds and retry.';
+    }
+    return voiceLang === 'sd'
+      ? 'آواز سڃاڻڻ واري سروس عارضي طور تي مصروف آهي، ٻيهر ڪوشش ڪريو يا لکو.'
+      : voiceLang === 'ur'
+      ? 'آواز کی سروس عارضی طور پر دستیاب نہیں، دوبارہ کوشش کریں یا ٹائپ کریں۔'
+      : 'Speech recognition is temporarily unavailable — please retry or type.';
+  };
+
   const handleToggleMic = () => {
     stopSpeaking();
     setAiSpeaking(false);
@@ -301,62 +385,72 @@ export default function AssistantPage() {
     }
 
     if (listening) {
-      sessionRef.current?.stop();
       setListening(false);
-      setVoicePhase('idle');
+      setVoiceStatus('finalizing');
+      sessionRef.current?.stop();
       return;
     }
 
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      setVoicePhase('error');
-      setMicError(
-        voiceLang === 'sd'
-          ? 'آواز سڃاڻڻ لاءِ انٽرنيٽ ضروري آهي.'
-          : voiceLang === 'ur'
-          ? 'آواز سے سوال پوچھنے کے لیے انٹرنیٹ ضروری ہے۔'
-          : 'Voice input requires an internet connection.'
-      );
-      return;
+    // Cancel any previous finalizing tail before opening a new dictation session cleanly
+    if (sessionRef.current) {
+      dictationSessionIdRef.current += 1;
+      sessionRef.current.abort?.();
+      sessionRef.current = null;
     }
+
+    const sessionId = ++dictationSessionIdRef.current;
+    dictationBaseTextRef.current = inputTextRef.current;
 
     setListening(true);
+    setVoiceStatus('recording');
     setVoicePhase('listening');
-    sessionRef.current = startSpeechRecognition(voiceLang, {
+
+    const startedSession = startSpeechRecognition(voiceLang, {
+      hints: [contextInfo.crop, contextInfo.region].filter(Boolean),
       onResult: (transcript, isFinal) => {
+        if (dictationSessionIdRef.current !== sessionId) return;
         if (!transcript) return;
-        setInputText(transcript);
+        const mergedInput = computeIncrementalInputValue(
+          dictationBaseTextRef.current,
+          transcript
+        );
+        updateInputText(mergedInput);
         // Never auto-send phantom messages on background silence; let farmer confirm and press Send
         if (isFinal) {
           setListening(false);
+          setVoiceStatus('idle');
           setVoicePhase('idle');
         }
       },
+      onPhaseChange: (phase) => {
+        if (dictationSessionIdRef.current !== sessionId) return;
+        setVoicePhase(phase);
+      },
+      onStatusChange: (status) => {
+        if (dictationSessionIdRef.current !== sessionId) return;
+        setVoiceStatus(status);
+      },
       onError: (err) => {
+        if (dictationSessionIdRef.current !== sessionId) return;
         setListening(false);
-        setVoicePhase('idle');
-        if (err === 'stt_network_error' || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
-          setMicError(
-            voiceLang === 'sd'
-              ? 'نيٽ ورڪ نه هجڻ سبب آواز نه سمجهي سگهيو.'
-              : voiceLang === 'ur'
-              ? 'انٹرنیٹ نہ ہونے کی وجہ سے آواز موصول نہیں ہو سکی۔'
-              : 'Voice input failed — please check your connection.'
-          );
-        } else if (err === 'not-allowed' || err === 'permission-denied') {
-          setMicError(
-            voiceLang === 'sd'
-              ? 'مهرباني ڪري مائڪ جي اجازت ڏيو.'
-              : voiceLang === 'ur'
-              ? 'براہِ کرم براؤزر میں مائیکروفون کی اجازت دیں۔'
-              : 'Please allow microphone permission in your browser settings.'
-          );
-        }
+        setVoiceStatus('idle');
+        setVoicePhase('error');
+        setMicError(formatVoiceErrorMessage(err));
       },
       onEnd: () => {
+        if (dictationSessionIdRef.current !== sessionId) return;
+        sessionRef.current = null;
         setListening(false);
-        setVoicePhase('idle');
+        setVoiceStatus('idle');
+        setVoicePhase((prev) => (prev === 'error' ? 'error' : 'idle'));
       },
     });
+
+    if (dictationSessionIdRef.current === sessionId) {
+      sessionRef.current = startedSession;
+    } else {
+      startedSession?.abort?.();
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -376,8 +470,8 @@ export default function AssistantPage() {
 
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas flex flex-col overflow-x-hidden">
-      {/* Header with Cropped Zarkhez Emblem */}
-      <header className="bg-gradient-to-b from-[#062409] to-olive-dark text-white rounded-b-[32px] px-4 sm:px-5 pt-4 pb-6 shadow-soft">
+      {/* Purple / Teal AI Voice Advisor Header */}
+      <header className="bg-gradient-to-br from-violet-800 via-purple-700 to-teal-600 text-white rounded-b-[32px] px-4 sm:px-5 pt-4 pb-6 shadow-soft">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Link
@@ -431,6 +525,11 @@ export default function AssistantPage() {
                 key={opt.id}
                 type="button"
                 onClick={() => {
+                  dictationSessionIdRef.current += 1;
+                  sessionRef.current?.abort?.();
+                  sessionRef.current = null;
+                  setListening(false);
+                  setVoiceStatus('idle');
                   stopSpeaking();
                   setAiSpeaking(false);
                   setVoicePhase('idle');
@@ -597,7 +696,7 @@ export default function AssistantPage() {
                     </div>
                   )
                 ) : (
-                  <div className="w-9 h-9 rounded-xl bg-[#062409] border border-emerald-400/40 overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-700 to-teal-600 border border-violet-300/50 overflow-hidden flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src="/images/zarkhez-logo-mark.png"
@@ -608,18 +707,28 @@ export default function AssistantPage() {
                 )}
 
                 <div
-                  className={`max-w-[85%] rounded-card p-3.5 sm:p-4 shadow-soft space-y-2.5 ${
+                  className={`${
+                    isUser ? 'max-w-[85%]' : 'max-w-[92%] sm:max-w-[86%]'
+                  } rounded-card p-3.5 sm:p-4 shadow-soft space-y-2.5 ${
                     isUser
-                      ? 'bg-[#062409] text-white'
-                      : 'bg-white text-ink border border-olive/12'
+                      ? 'bg-gradient-to-br from-violet-700 to-indigo-700 text-white'
+                      : 'bg-white text-ink border border-violet-200/70'
                   }`}
                 >
-                  <p className="whitespace-pre-line text-sm sm:text-base leading-relaxed">
-                    {msg.content || (streaming ? t('thinking') : '')}
-                  </p>
+                  {isUser ? (
+                    <p dir="auto" className="whitespace-pre-line text-sm sm:text-base leading-relaxed">
+                      {msg.content}
+                    </p>
+                  ) : msg.content ? (
+                    <AssistantMarkdown content={msg.content} />
+                  ) : (
+                    <p className="text-sm sm:text-base leading-relaxed text-slate-600">
+                      {streaming ? t('thinking') : ''}
+                    </p>
+                  )}
 
                   {!isUser && msg.content && (
-                    <div className="pt-1 border-t border-olive/10 flex justify-end">
+                    <div className="pt-1 border-t border-slate-100 flex justify-end">
                       <ReadAloudButton
                         text={msg.spokenContent || msg.content}
                         lang={msg.voiceLang || voiceLang}
@@ -643,8 +752,8 @@ export default function AssistantPage() {
                 onClick={handleToggleMic}
                 className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center shadow-2xl transition-all ${
                   listening
-                    ? 'bg-alert-red text-white ring-8 ring-alert-red/25 animate-pulse'
-                    : 'bg-olive-fresh hover:bg-olive text-white ring-8 ring-olive/15'
+                    ? 'bg-rose-600 text-white ring-8 ring-rose-500/25 animate-pulse'
+                    : 'bg-gradient-to-br from-violet-600 via-purple-600 to-teal-500 hover:from-violet-700 hover:to-teal-600 text-white ring-8 ring-violet-500/20'
                 }`}
                 aria-label={listening ? t('micListening') : t('micReady')}
               >
@@ -655,7 +764,15 @@ export default function AssistantPage() {
                 )}
               </motion.button>
               <span className="text-xs font-bold text-ink/75 mt-1.5 text-center">
-                {listening ? t('micListening') : t('micReady')}
+                {listening
+                  ? t('micListening')
+                  : voiceStatus === 'finalizing'
+                  ? voiceLang === 'sd'
+                    ? 'آخري لفظ لکيا پيا وڃن...'
+                    : voiceLang === 'ur'
+                    ? 'آخری الفاظ مکمل ہو رہے ہیں...'
+                    : 'Finalizing transcript...'
+                  : t('micReady')}
               </span>
               {micError && (
                 <p className="text-xs font-bold text-alert-amber bg-cream border border-alert-amber/35 rounded-xl px-3 py-1.5 mt-2 text-center">
@@ -671,12 +788,12 @@ export default function AssistantPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="bg-white rounded-full p-1.5 shadow-soft border border-olive/25 flex items-center gap-1.5"
+            className="bg-white rounded-full p-1.5 shadow-soft border-2 border-violet-200 focus-within:border-violet-400 flex items-center gap-1.5"
           >
             <input
               type="text"
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={(e) => updateInputText(e.target.value)}
               placeholder={
                 voiceLang === 'sd' ? 'سنڌي ۾ لکو يا مائڪ دٻايو...' : t('inputPlaceholder')
               }
@@ -686,7 +803,7 @@ export default function AssistantPage() {
               type="submit"
               whileTap={{ scale: 0.94 }}
               disabled={streaming || !inputText.trim()}
-              className="min-h-[46px] px-4 sm:px-5 rounded-full bg-[#062409] hover:bg-olive-dark disabled:opacity-45 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all flex-shrink-0"
+              className="min-h-[46px] px-4 sm:px-5 rounded-full bg-gradient-to-r from-violet-600 to-teal-600 hover:from-violet-700 hover:to-teal-700 disabled:opacity-45 text-white font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all flex-shrink-0"
             >
               <span>{t('send')}</span>
               <Send className="w-4 h-4 text-emerald-400 rtl:rotate-180" />

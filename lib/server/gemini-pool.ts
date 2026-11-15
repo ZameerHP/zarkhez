@@ -454,6 +454,7 @@ export function classifyGeminiHttpFailure(
     | 'rpm_temporary'
     | 'daily_quota_exhausted'
     | 'billing_limit'
+    | 'model_not_found'
     | 'service_unavailable'
     | 'bad_request';
   code: string;
@@ -526,7 +527,17 @@ export function classifyGeminiHttpFailure(
     };
   }
 
-  // 404 (model missing) / 408 / 500 / 502 / 503 / 504
+  if (status === 404) {
+    return {
+      category: 'model_not_found',
+      code: 'MODEL_NOT_FOUND',
+      cooldownMs: 0,
+      allowAccountFailover: false,
+      sanitizedReason: safeText || 'Requested Gemini model not found [404]',
+    };
+  }
+
+  // 408 / 500 / 502 / 503 / 504
   return {
     category: 'service_unavailable',
     code: 'MODEL_UNAVAILABLE',
@@ -833,6 +844,7 @@ export async function executeGeminiWithFailover(
   const perCallTimeoutMs = options.timeoutMs ?? 14_000;
 
   let attempts = 0;
+  let activeModelStartIdx = 0;
   const slotsTried: number[] = [];
   const failedProjectsThisCall = new Set<string>();
   let lastFailure: GeminiFailoverFailure | null = null;
@@ -849,17 +861,17 @@ export async function executeGeminiWithFailover(
       slotsTried.push(account.slot);
     }
 
-    // In multi-account mode, fail over directly across accounts on primary model first (fast switch);
+    // In multi-account mode, fail over directly across accounts on the active primary model first (fast switch);
+    // on HTTP 404 model_not_found, advance activeModelStartIdx on the SAME account without penalizing healthy slots;
     // in single-key mode (or last remaining account), cascade through fallback models cleanly.
     const isLastEligibleAccount = aIdx === eligible.length - 1;
-    const modelsForThisAccount =
-      isSingleKeyMode || isLastEligibleAccount ? models : [models[0]];
+    const startModelIdx = Math.min(activeModelStartIdx, Math.max(0, models.length - 1));
 
-    for (let mIdx = 0; mIdx < modelsForThisAccount.length; mIdx++) {
+    for (let mIdx = startModelIdx; mIdx < models.length; mIdx++) {
       const remainingBudget = deadlineMs - getCurrentPoolNow();
       if (remainingBudget < 2000 && attempts > 0) break;
 
-      const candidateModel = modelsForThisAccount[mIdx];
+      const candidateModel = models[mIdx];
       const modelBudget = candidateModel.includes('-lite')
         ? Math.min(perCallTimeoutMs, 10_000)
         : perCallTimeoutMs;
@@ -891,7 +903,7 @@ export async function executeGeminiWithFailover(
           if (
             classified.category === 'bad_request' &&
             options.isSchemaErrorRetryable?.(rawErr) &&
-            mIdx < modelsForThisAccount.length - 1
+            mIdx < models.length - 1
           ) {
             lastFailure = {
               ok: false,
@@ -917,6 +929,25 @@ export async function executeGeminiWithFailover(
               attempts,
               slotsTried,
             };
+          }
+
+          // HTTP 404 model_not_found: cascade to next model on THIS SAME account without penalizing account/project health
+          if (classified.category === 'model_not_found') {
+            activeModelStartIdx = Math.min(mIdx + 1, models.length);
+            lastFailure = {
+              ok: false,
+              category: 'service_unavailable',
+              statusCode: 404,
+              code: 'MODEL_UNAVAILABLE',
+              retryable: mIdx < models.length - 1,
+              message: classified.sanitizedReason,
+              attempts,
+              slotsTried,
+            };
+            if (mIdx < models.length - 1) {
+              continue;
+            }
+            return lastFailure;
           }
 
           // Update unified health/quota store
@@ -970,28 +1001,34 @@ export async function executeGeminiWithFailover(
               attempts,
               slotsTried,
             };
-            if (!isSingleKeyMode && !isLastEligibleAccount) {
-              break; // Immediately fail over to another independent project
-            }
-            continue; // Single-key fallback tries next model
-          }
-
-          // Temporary service error (404/5xx)
-          failedProjectsThisCall.add(account.effectiveProjectId);
-          lastFailure = {
-            ok: false,
-            category: 'service_unavailable',
-            statusCode: res.status >= 500 ? 503 : res.status,
-            code: 'MODEL_UNAVAILABLE',
-            retryable: true,
-            message: classified.sanitizedReason,
-            attempts,
-            slotsTried,
-          };
           if (!isSingleKeyMode && !isLastEligibleAccount) {
-            break; // Immediately switch to next healthy account
+            break; // Immediately fail over to another independent project
           }
+          if (mIdx < models.length - 1) {
+            continue; // Single-key / last-account fallback tries next model
+          }
+          break;
+        }
+
+        // Temporary service error (5xx / 408)
+        failedProjectsThisCall.add(account.effectiveProjectId);
+        lastFailure = {
+          ok: false,
+          category: 'service_unavailable',
+          statusCode: res.status >= 500 ? 503 : res.status,
+          code: 'MODEL_UNAVAILABLE',
+          retryable: true,
+          message: classified.sanitizedReason,
+          attempts,
+          slotsTried,
+        };
+        if (!isSingleKeyMode && !isLastEligibleAccount) {
+          break; // Immediately switch to next healthy account
+        }
+        if (mIdx < models.length - 1) {
           continue;
+        }
+        break;
         }
 
         let parsedJson: unknown = null;
@@ -1015,7 +1052,8 @@ export async function executeGeminiWithFailover(
             slotsTried,
           };
           if (!isSingleKeyMode && !isLastEligibleAccount) break;
-          continue;
+          if (mIdx < models.length - 1) continue;
+          break;
         }
 
         recordAccountAndProjectSuccess(account, allAccounts);
@@ -1031,9 +1069,9 @@ export async function executeGeminiWithFailover(
             attempts,
             slotsTried,
           };
-          if (mIdx < modelsForThisAccount.length - 1) continue;
           if (!isSingleKeyMode && !isLastEligibleAccount) break;
-          continue;
+          if (mIdx < models.length - 1) continue;
+          break;
         }
 
         if (options.onSuccessResponse) {

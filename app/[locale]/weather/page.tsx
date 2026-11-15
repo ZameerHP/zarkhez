@@ -95,8 +95,8 @@ export default function WeatherPage() {
 
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas">
-      {/* Header */}
-      <header className="bg-gradient-to-b from-[#062409] to-olive-dark text-white rounded-b-[32px] px-3.5 min-[375px]:px-4 sm:px-5 pt-4 pb-20 shadow-soft">
+      {/* Sky-Blue Weather Header */}
+      <header className="bg-gradient-to-br from-sky-800 via-sky-600 to-cyan-600 text-white rounded-b-[32px] px-3.5 min-[375px]:px-4 sm:px-5 pt-4 pb-16 shadow-soft">
         <div className="flex items-center justify-between gap-1.5 min-[375px]:gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Link
@@ -131,7 +131,7 @@ export default function WeatherPage() {
         </div>
       </header>
 
-      <main className="px-3.5 min-[375px]:px-4 sm:px-5 -mt-12 space-y-4 sm:space-y-5">
+      <main className="px-3.5 min-[375px]:px-4 sm:px-5 -mt-8 space-y-4 sm:space-y-5">
         {/* Main Weather Card + Active Alerts */}
         <WeatherCard
           placeName={placeName}

@@ -21,43 +21,12 @@ import type {
   VoicePhase,
   VoiceSpeedMode,
 } from './voice/types';
+import {
+  createFieldSpeechCapture,
+  type SpeechSession,
+} from './voice/speech-capture';
 
-export type { VoiceGender, VoiceLang, VoicePhase, VoiceSpeedMode };
-
-interface SpeechRecognitionAlternativeLike {
-  transcript: string;
-}
-
-interface SpeechRecognitionResultLike {
-  isFinal: boolean;
-  0: SpeechRecognitionAlternativeLike;
-}
-
-interface SpeechRecognitionEventLike {
-  resultIndex: number;
-  results: {
-    length: number;
-    [index: number]: SpeechRecognitionResultLike;
-  };
-}
-
-interface SpeechRecognitionErrorEventLike {
-  error?: string;
-}
-
-interface SpeechRecognitionInstanceLike {
-  lang: string;
-  interimResults: boolean;
-  maxAlternatives: number;
-  continuous: boolean;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-}
-
-type SpeechRecognitionConstructorLike = new () => SpeechRecognitionInstanceLike;
+export type { SpeechSession, VoiceGender, VoiceLang, VoicePhase, VoiceSpeedMode };
 
 export interface VoiceAudioMeta {
   audioId: string;
@@ -830,24 +799,19 @@ export async function submitPronunciationReport(payload: {
 export function isSpeechRecognitionSupported(): boolean {
   if (typeof window === 'undefined') return false;
   const w = window as unknown as Record<string, unknown>;
-  const hasRecorder =
+  const hasAudioInput =
     typeof navigator !== 'undefined' &&
-    Boolean(navigator.mediaDevices?.getUserMedia) &&
-    typeof MediaRecorder !== 'undefined';
-  return Boolean(hasRecorder || w.SpeechRecognition || w.webkitSpeechRecognition);
-}
-
-export interface SpeechSession {
-  stop: () => void;
+    Boolean(navigator.mediaDevices?.getUserMedia);
+  return Boolean(hasAudioInput || w.SpeechRecognition || w.webkitSpeechRecognition);
 }
 
 /**
- * Field-tuned speech recognition with:
+ * Streaming & incremental speech recognition:
  * - Barge-in cancellation of any ongoing TTS audio immediately
- * - Noise suppression + echo cancellation + auto gain control
- * - Real ~900ms Voice-Activity Detection (VAD) silence cutoff after speech
- * - Server /api/stt transcription (Gemini / Whisper / AssemblyAI with farming keyterms)
- * - Automatic browser Web Speech API fallback when offline or MediaRecorder unavailable
+ * - Echo cancellation + noise suppression + auto gain control
+ * - Mono 16kHz PCM WAV incremental chunks (0.8s overlap, zero header loss) -> /api/stt (5-account Gemini pool)
+ * - Simultaneous non-blocking Web Speech preview overlay for rapid progressive display (ur/en)
+ * - Capability-detected MediaRecorder + continuous pause-tolerant Web Speech fallbacks
  */
 export function startFieldSpeechCapture(
   rawLang: VoiceLang | string,
@@ -856,282 +820,17 @@ export function startFieldSpeechCapture(
     onError: (err: string) => void;
     onEnd: () => void;
     onPhaseChange?: (phase: VoicePhase) => void;
+    onStatusChange?: (status: 'recording' | 'finalizing' | 'idle') => void;
     hints?: string[];
   }
 ): SpeechSession | null {
   if (typeof window === 'undefined') return null;
 
-  // Barge-in: immediately interrupt active voice output when user presses mic
-  stopSpeaking();
-  callbacks.onPhaseChange?.('listening');
-
   const lang = normalizeVoiceLang(rawLang);
-  const canRecord =
-    navigator.onLine !== false &&
-    Boolean(navigator.mediaDevices?.getUserMedia) &&
-    typeof MediaRecorder !== 'undefined';
-
-  if (!canRecord) {
-    return startBrowserSpeechRecognition(lang, callbacks);
-  }
-
-  let stopped = false;
-  let mediaRecorder: MediaRecorder | null = null;
-  let streamRef: MediaStream | null = null;
-  let audioCtx: AudioContext | null = null;
-  let vadInterval: ReturnType<typeof setInterval> | null = null;
-  const chunks: Blob[] = [];
-
-  const cleanupMedia = () => {
-    if (vadInterval) {
-      clearInterval(vadInterval);
-      vadInterval = null;
-    }
-    if (audioCtx) {
-      try { audioCtx.close(); } catch {}
-      audioCtx = null;
-    }
-    if (streamRef) {
-      for (const track of streamRef.getTracks()) {
-        try { track.stop(); } catch {}
-      }
-      streamRef = null;
-    }
-  };
-
-  const stopCapture = () => {
-    if (stopped) return;
-    stopped = true;
-    try {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-      } else {
-        cleanupMedia();
-        callbacks.onEnd();
-      }
-    } catch {
-      cleanupMedia();
-      callbacks.onEnd();
-    }
-  };
-
-  navigator.mediaDevices
-    .getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        channelCount: 1,
-      },
-    })
-    .then((stream) => {
-      if (stopped) {
-        for (const t of stream.getTracks()) t.stop();
-        return;
-      }
-      streamRef = stream;
-
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/mp4')
-        ? 'audio/mp4'
-        : 'audio/webm';
-
-      mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorder.ondataavailable = (ev) => {
-        if (ev.data && ev.data.size > 0) chunks.push(ev.data);
-      };
-
-      let hasDetectedSpeech = false;
-      let speechFrameCount = 0;
-
-      mediaRecorder.onstop = async () => {
-        cleanupMedia();
-        const blob = new Blob(chunks, { type: mimeType });
-        // Ignore silent clicks / faint ambient noise so phantom fake transcripts are never produced
-        if (blob.size < 2500 || (audioCtx && !hasDetectedSpeech)) {
-          callbacks.onPhaseChange?.('idle');
-          callbacks.onEnd();
-          return;
-        }
-
-        try {
-          callbacks.onPhaseChange?.('thinking');
-          const form = new FormData();
-          form.append('audio', blob, 'speech.webm');
-          form.append('lang', lang);
-          if (callbacks.hints && callbacks.hints.length > 0) {
-            form.append('hints', callbacks.hints.slice(0, 20).join(','));
-          }
-
-          const res = await fetch('/api/stt', { method: 'POST', body: form });
-          if (!res.ok) {
-            callbacks.onPhaseChange?.('idle');
-            callbacks.onEnd();
-            return;
-          }
-          const data = (await res.json()) as { transcript?: string };
-          const transcript = (data.transcript || '').trim();
-          if (transcript) {
-            callbacks.onResult(transcript, true);
-          } else {
-            callbacks.onError('no-speech');
-          }
-        } catch {
-          callbacks.onError('stt_network_error');
-          callbacks.onPhaseChange?.('error');
-        } finally {
-          callbacks.onPhaseChange?.('idle');
-          callbacks.onEnd();
-        }
-      };
-
-      // Strict VAD noise gate + ~900ms end-of-speech pause (rejects ambient noise bursts)
-      try {
-        const AudioCtx =
-          window.AudioContext ||
-          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        if (AudioCtx) {
-          audioCtx = new AudioCtx();
-          const source = audioCtx.createMediaStreamSource(stream);
-          const analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 512;
-          source.connect(analyser);
-          const buf = new Uint8Array(analyser.frequencyBinCount);
-          let silentSince = Date.now();
-          const startedAt = Date.now();
-
-          vadInterval = setInterval(() => {
-            if (stopped) return;
-            analyser.getByteFrequencyData(buf);
-            // Measure vocal spectrum bins (~200Hz-3500Hz) instead of zero-filled upper ultrasonic bins
-            const maxBin = Math.min(buf.length, 64);
-            let sum = 0;
-            for (let i = 2; i < maxBin; i++) sum += buf[i];
-            const vocalEnergy = sum / Math.max(1, maxBin - 2);
-            const now = Date.now();
-
-            if (vocalEnergy > 14) {
-              speechFrameCount += 1;
-              if (speechFrameCount >= 3) {
-                hasDetectedSpeech = true;
-              }
-              silentSince = now;
-            } else if (hasDetectedSpeech && now - silentSince >= 1200) {
-              stopCapture();
-            } else if (now - startedAt > 18000) {
-              stopCapture();
-            }
-          }, 90);
-        }
-      } catch {
-        // Manual push-to-talk still works cleanly even without AudioContext analyser
-      }
-
-      mediaRecorder.start(250);
-    })
-    .catch(() => {
-      cleanupMedia();
-      // Fall back transparently to browser SpeechRecognition if getUserMedia fails cleanly
-      const fallbackSession = startBrowserSpeechRecognition(lang, callbacks);
-      if (!fallbackSession) {
-        callbacks.onPhaseChange?.('error');
-        callbacks.onError('mic_permission_denied');
-        callbacks.onEnd();
-      }
-    });
-
-  return { stop: stopCapture };
-}
-
-function startBrowserSpeechRecognition(
-  lang: VoiceLang,
-  callbacks: {
-    onResult: (transcript: string, isFinal: boolean) => void;
-    onError: (err: string) => void;
-    onEnd: () => void;
-    onPhaseChange?: (phase: VoicePhase) => void;
-  }
-): SpeechSession | null {
-  const w = window as unknown as {
-    SpeechRecognition?: SpeechRecognitionConstructorLike;
-    webkitSpeechRecognition?: SpeechRecognitionConstructorLike;
-  };
-  const SpeechRecognitionCtor = w.SpeechRecognition || w.webkitSpeechRecognition;
-
-  if (!SpeechRecognitionCtor) {
-    callbacks.onError('unsupported');
-    callbacks.onPhaseChange?.('error');
-    return null;
-  }
-
-  try {
-    const recognition = new SpeechRecognitionCtor();
-    recognition.lang = lang === 'sd' ? 'sd-PK' : lang === 'ur' ? 'ur-PK' : 'en-US';
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognition.continuous = true;
-
-    let fullTranscript = '';
-    let silenceTimeout: ReturnType<typeof setTimeout> | null = null;
-
-    const resetSilenceWatch = () => {
-      if (silenceTimeout) clearTimeout(silenceTimeout);
-      if (fullTranscript.trim()) {
-        silenceTimeout = setTimeout(() => {
-          try { recognition.stop(); } catch {}
-        }, 900);
-      }
-    };
-
-    recognition.onresult = (event: SpeechRecognitionEventLike) => {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const item = event.results[i][0];
-        if (event.results[i].isFinal) {
-          fullTranscript += (fullTranscript ? ' ' : '') + item.transcript.trim();
-        } else {
-          interim += ' ' + item.transcript;
-        }
-      }
-      const combined = (fullTranscript + ' ' + interim).trim();
-      callbacks.onResult(combined || fullTranscript, false);
-      resetSilenceWatch();
-    };
-
-    recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
-      if (event?.error === 'no-speech') return;
-      if (silenceTimeout) clearTimeout(silenceTimeout);
-      callbacks.onPhaseChange?.('error');
-      callbacks.onError(event?.error || 'speech_error');
-    };
-
-    recognition.onend = () => {
-      if (silenceTimeout) clearTimeout(silenceTimeout);
-      if (fullTranscript.trim()) {
-        callbacks.onResult(fullTranscript.trim(), true);
-      }
-      callbacks.onPhaseChange?.('idle');
-      callbacks.onEnd();
-    };
-
-    recognition.start();
-
-    return {
-      stop: () => {
-        if (silenceTimeout) clearTimeout(silenceTimeout);
-        try {
-          recognition.stop();
-        } catch {
-          // ignore
-        }
-      },
-    };
-  } catch {
-    callbacks.onError('init_failed');
-    callbacks.onPhaseChange?.('error');
-    return null;
-  }
+  return createFieldSpeechCapture(lang, {
+    ...callbacks,
+    shouldStopSpeakingFirst: stopSpeaking,
+  });
 }
 
 export function startSpeechRecognition(
@@ -1140,6 +839,9 @@ export function startSpeechRecognition(
     onResult: (transcript: string, isFinal: boolean) => void;
     onError: (err: string) => void;
     onEnd: () => void;
+    onPhaseChange?: (phase: VoicePhase) => void;
+    onStatusChange?: (status: 'recording' | 'finalizing' | 'idle') => void;
+    hints?: string[];
   }
 ): SpeechSession | null {
   return startFieldSpeechCapture(lang, callbacks);

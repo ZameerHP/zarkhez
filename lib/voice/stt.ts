@@ -4,7 +4,18 @@ import { loadHotPronunciationLexicon } from './server-lexicon';
 import { getLexiconReplacement } from './lexicon-loader';
 import { redactSecrets } from '../error-sanitizer';
 import { recordDiagnosticEvent, recordDiagnosticSuccess } from '../server/diagnostics-store';
-import { executeGeminiWithFailover, hasAnyConfiguredGeminiAccount } from '../server/gemini-pool';
+import {
+  executeGeminiWithFailover,
+  hasAnyConfiguredGeminiAccount,
+  readGeminiEnvValue,
+} from '../server/gemini-pool';
+import { normalizeSttSegment } from './transcript-merger';
+
+function normalizeAudioMimeType(raw?: string): string {
+  const base = (raw || 'audio/wav').split(';')[0].trim().toLowerCase();
+  if (!base || !base.startsWith('audio/')) return 'audio/wav';
+  return base;
+}
 
 function buildVocabularyBoostList(lang: VoiceLang, extraHints?: string[]): string[] {
   const entries = loadHotPronunciationLexicon();
@@ -16,54 +27,91 @@ function buildVocabularyBoostList(lang: VoiceLang, extraHints?: string[]): strin
   return Array.from(terms).filter(Boolean).slice(0, 60);
 }
 
+type GeminiSttOutcome =
+  | { kind: 'ok'; result: STTResult }
+  | { kind: 'no_speech'; latencyMs: number; modelUsed?: string; failoverSteps?: number }
+  | { kind: 'error'; reason: 'timeout' | 'quota_exhausted' | 'unavailable' | 'unconfigured' };
+
+function buildGeminiSttPrompt(
+  lang: VoiceLang,
+  localeCode: string,
+  boostTerms: string[],
+  previousContext?: string
+): string {
+  const scriptRule =
+    lang === 'sd'
+      ? 'Transcribe strictly in Pakistani Sindhi (Perso-Arabic script preserving ڀ ٻ ڄ ڃ ڇ ڏ ڊ ڌ ڍ ڙ ڦ ڪ ڳ ڱ ڻ ٿ ٺ ٽ). Keep spoken English fertilizer/pesticide names or numbers verbatim. NEVER translate Sindhi into Urdu or English.'
+      : lang === 'ur'
+      ? 'Transcribe strictly in the speaker’s actual spoken words: Pakistani Urdu (Perso-Arabic script) while preserving mixed English, Roman Urdu, crop names, pesticide/fertilizer brands (such as DAP, Urea, NP, Imidacloprid, Rust), and numbers accurately. NEVER translate Urdu into English or rewrite sentences.'
+      : 'Transcribe verbatim in English while preserving Pakistani agricultural terms, Roman Urdu crop/brand names, and quantities faithfully. NEVER invent or rewrite words.';
+
+  const termsLine =
+    boostTerms.length > 0
+      ? `\nAgricultural reference terms (keep spelling exact when heard): ${boostTerms.slice(0, 45).join(', ')}.`
+      : '';
+
+  const safePrev = (previousContext || '').replace(/\s+/g, ' ').trim().slice(-160);
+  const contextLine = safePrev
+    ? `\nImmediate prior context (for continuity only — do NOT repeat prior words unless spoken again in this clip): "${safePrev}".`
+    : '';
+
+  return (
+    `Listen strictly to this audio clip. If the audio is silent, static clicks, wind noise, or contains NO clear human speech, output EXACTLY [NO_SPEECH]. ` +
+    `Otherwise transcribe ONLY the words spoken inside this audio clip (${localeCode}).\n` +
+    `${scriptRule}${termsLine}${contextLine}\n` +
+    `Output ONLY the transcript text with no explanations or labels.`
+  );
+}
+
 async function transcribeWithGeminiStt(
   req: STTRequest,
   boostTerms: string[]
-): Promise<STTResult | null> {
-  if (!hasAnyConfiguredGeminiAccount()) return null;
+): Promise<GeminiSttOutcome> {
+  if (!hasAnyConfiguredGeminiAccount()) {
+    return { kind: 'error', reason: 'unconfigured' };
+  }
 
   const startedAt = Date.now();
   const localeCode = resolveExplicitLocale(req.lang);
-  const scriptLabel =
-    req.lang === 'sd'
-      ? 'Pakistani Sindhi Arabic script (preserving ڀ ٻ ڄ ڃ ڇ ڏ ڊ ڌ ڍ ڙ ڦ ڪ ڳ ڱ ڻ ٿ ٺ ٽ)'
-      : req.lang === 'ur'
-      ? 'Pakistani Urdu Perso-Arabic script'
-      : 'English';
+  const prompt = buildGeminiSttPrompt(req.lang, localeCode, boostTerms, req.previousContext);
+  const mimeType = normalizeAudioMimeType(req.mimeType);
 
-  const prompt = `Listen strictly to this audio clip. If the audio is silent, faint background noise, clicks, or contains NO clear human speech, output EXACTLY [NO_SPEECH]. Otherwise transcribe verbatim ONLY the words the speaker actually said in ${scriptLabel} (${localeCode}) without guessing or adding extra words.`;
-
-  const modelsToTry = [
-    'gemini-3-flash-preview',
-    'gemini-3.8-flash',
-    'gemini-3.5-flash',
-    'gemini-flash-latest',
-  ];
+  const configuredFast = readGeminiEnvValue(['GEMINI_MODEL_FAST'])?.trim();
+  const modelsToTry = Array.from(
+    new Set([
+      ...(configuredFast ? [configuredFast] : []),
+      'gemini-2.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3-flash-preview',
+      'gemini-flash-latest',
+    ])
+  );
 
   const extractTranscript = (data: unknown): string => {
     const parts = ((data as {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
     })?.candidates?.[0]?.content?.parts || []);
-    return parts
+    const joined = parts
       .filter((p) => !p.thought && typeof p.text === 'string')
       .map((p) => p.text!.trim())
       .join(' ')
       .trim()
       .replace(/^["'«»“”`]+|["'«»“”`]+$/g, '')
       .trim();
+    return joined;
   };
 
   const result = await executeGeminiWithFailover({
     models: modelsToTry,
-    timeoutMs: 14_000,
-    overallDeadlineMs: 32_000,
+    timeoutMs: 11_000,
+    overallDeadlineMs: 26_000,
     buildRequestBody: () => ({
       contents: [
         {
           parts: [
             {
               inlineData: {
-                mimeType: req.mimeType || 'audio/webm',
+                mimeType,
                 data: req.audioBase64,
               },
             },
@@ -77,22 +125,45 @@ async function transcribeWithGeminiStt(
   });
 
   if (!result.ok) {
-    return null;
+    const reason =
+      result.category === 'timeout'
+        ? 'timeout'
+        : result.category === 'quota_exhausted'
+        ? 'quota_exhausted'
+        : 'unavailable';
+    return { kind: 'error', reason };
   }
 
-  const cleanedTx = extractTranscript(result.data);
-  if (
-    !cleanedTx ||
-    /\[?\s*NO[_\s-]*SPEECH\s*\]?|^\s*silence\s*$/i.test(cleanedTx)
-  ) {
-    return null;
+  const rawTx = extractTranscript(result.data);
+  if (/\[?\s*NO[_\s-]*SPEECH\s*\]?|^\s*(?:silence|\[silence\]|no audio)\s*$/i.test(rawTx)) {
+    return {
+      kind: 'no_speech',
+      latencyMs: Date.now() - startedAt,
+      modelUsed: result.modelUsed,
+      failoverSteps: result.failoverSteps,
+    };
+  }
+
+  const cleanedTx = normalizeSttSegment(rawTx);
+  if (!cleanedTx) {
+    return {
+      kind: 'no_speech',
+      latencyMs: Date.now() - startedAt,
+      modelUsed: result.modelUsed,
+      failoverSteps: result.failoverSteps,
+    };
   }
 
   return {
-    transcript: cleanedTx,
-    localeCode,
-    provider: 'gemini-audio-stt',
-    latencyMs: Date.now() - startedAt,
+    kind: 'ok',
+    result: {
+      transcript: cleanedTx,
+      localeCode,
+      provider: 'gemini-audio-stt',
+      latencyMs: Date.now() - startedAt,
+      modelUsed: result.modelUsed,
+      failoverSteps: result.failoverSteps,
+    },
   };
 }
 
@@ -105,18 +176,24 @@ async function transcribeWithOpenAiWhisper(
 
   const startedAt = Date.now();
   const localeCode = resolveExplicitLocale(req.lang);
+  const cleanMime = normalizeAudioMimeType(req.mimeType);
   try {
     const audioBytes = Buffer.from(req.audioBase64, 'base64');
-    const ext = req.mimeType.includes('wav')
+    const ext = cleanMime.includes('wav')
       ? 'wav'
-      : req.mimeType.includes('mp4')
+      : cleanMime.includes('mp4') || cleanMime.includes('aac')
       ? 'mp4'
+      : cleanMime.includes('ogg')
+      ? 'ogg'
       : 'webm';
     const form = new FormData();
-    form.append('file', new Blob([audioBytes], { type: req.mimeType || 'audio/webm' }), `speech.${ext}`);
+    form.append('file', new Blob([audioBytes], { type: cleanMime }), `speech.${ext}`);
     form.append('model', 'whisper-1');
     form.append('language', req.lang);
-    form.append('prompt', boostTerms.join(', '));
+    const contextPrompt = [boostTerms.join(', '), req.previousContext?.trim()]
+      .filter(Boolean)
+      .join(' | ');
+    form.append('prompt', contextPrompt);
 
     const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
@@ -207,31 +284,71 @@ async function transcribeWithAssemblyAi(
 
 export async function transcribeFarmAudio(req: STTRequest): Promise<STTResult> {
   const boostTerms = buildVocabularyBoostList(req.lang, req.hints);
+  const localeCode = resolveExplicitLocale(req.lang);
   const providers: SttProviderId[] = [
-    'openai-whisper',
     'gemini-audio-stt',
+    'openai-whisper',
     'assemblyai',
   ];
 
+  let geminiFailureReason: 'timeout' | 'quota_exhausted' | 'unavailable' | 'unconfigured' | null =
+    null;
+
   for (const p of providers) {
-    let result: STTResult | null = null;
-    if (p === 'openai-whisper') result = await transcribeWithOpenAiWhisper(req, boostTerms);
-    else if (p === 'gemini-audio-stt') result = await transcribeWithGeminiStt(req, boostTerms);
-    else if (p === 'assemblyai') result = await transcribeWithAssemblyAi(req, boostTerms);
+    if (p === 'gemini-audio-stt') {
+      const outcome = await transcribeWithGeminiStt(req, boostTerms);
+      if (outcome.kind === 'ok') {
+        recordDiagnosticSuccess('tts');
+        return outcome.result;
+      }
+      if (outcome.kind === 'no_speech') {
+        recordDiagnosticSuccess('tts');
+        return {
+          transcript: '',
+          localeCode,
+          provider: 'gemini-audio-stt',
+          latencyMs: outcome.latencyMs,
+          modelUsed: outcome.modelUsed,
+          failoverSteps: outcome.failoverSteps,
+        };
+      }
+      geminiFailureReason = outcome.reason;
+      continue;
+    }
+
+    const result =
+      p === 'openai-whisper'
+        ? await transcribeWithOpenAiWhisper(req, boostTerms)
+        : await transcribeWithAssemblyAi(req, boostTerms);
 
     if (result && result.transcript.trim()) {
       recordDiagnosticSuccess('tts');
-      return result;
+      return {
+        ...result,
+        fallbackReason: geminiFailureReason || undefined,
+      };
     }
   }
 
+  const isTimeout = geminiFailureReason === 'timeout';
+  const isQuota = geminiFailureReason === 'quota_exhausted';
+  const errorCode = isTimeout
+    ? 'STT_TIMEOUT'
+    : isQuota
+    ? 'STT_QUOTA_EXHAUSTED'
+    : 'STT_UNAVAILABLE';
+
   recordDiagnosticEvent({
     service: 'tts',
-    category: 'temporary_service_failure',
-    code: 'STT_PROVIDERS_UNAVAILABLE',
-    statusCode: 503,
+    category: isQuota ? 'rate_limited' : 'temporary_service_failure',
+    code: errorCode,
+    statusCode: isTimeout ? 504 : isQuota ? 429 : 503,
     severity: 'warn',
-    summary: redactSecrets('All server STT providers unavailable; falling back to browser recognition.'),
+    summary: redactSecrets(
+      isTimeout
+        ? 'Gemini speech recognition request timed out.'
+        : 'All server STT providers unavailable; falling back to browser recognition.'
+    ),
   });
-  throw new Error('STT_UNAVAILABLE');
+  throw new Error(errorCode);
 }

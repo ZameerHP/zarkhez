@@ -388,11 +388,11 @@ export type CropAnalysisRequest = z.infer<typeof CropAnalysisRequestSchema>;
 
 export const ChatMessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
-  content: z.string().min(1).max(2000),
+  content: z.string().min(1).max(16000),
 });
 
 export const ChatRequestSchema = z.object({
-  messages: z.array(ChatMessageSchema).min(1).max(20),
+  messages: z.array(ChatMessageSchema).min(1).max(40),
   context: z
     .object({
       farmerName: z.string().max(100).optional(),

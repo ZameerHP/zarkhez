@@ -163,7 +163,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas overflow-x-hidden">
       {/* Clean Header */}
-      <header className="bg-gradient-to-b from-[#062409] to-olive-dark text-white rounded-b-[28px] px-5 pt-4 pb-6 shadow-soft">
+      <header className="bg-gradient-to-br from-emerald-900 via-emerald-700 to-teal-600 text-white rounded-b-[28px] px-5 pt-4 pb-6 shadow-soft">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <Link
@@ -192,7 +192,7 @@ export default function ProfilePage() {
 
       <main className="px-4 sm:px-5 mt-4 space-y-4">
         {/* Clean Minimal Identity Summary (Never exposes personal info fields when saved) */}
-        <section className="rounded-2xl bg-gradient-to-br from-[#062409] via-olive-dark to-[#062409] text-white p-4 shadow-lg border border-wheat/30">
+        <section className="rounded-2xl bg-gradient-to-br from-emerald-900 via-teal-800 to-emerald-800 text-white p-4 shadow-lg border border-amber-300/40">
           <div className="flex items-center gap-3.5">
             {profile.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element

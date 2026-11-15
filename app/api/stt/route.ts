@@ -15,9 +15,20 @@ function parseLang(raw?: string | null): VoiceLang {
   return 'ur';
 }
 
+function normalizeMimeType(raw?: string | null): string {
+  const clean = (raw || 'audio/wav').split(';')[0].trim().toLowerCase();
+  if (!clean || !clean.startsWith('audio/')) return 'audio/wav';
+  return clean;
+}
+
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now();
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
-  const rate = await checkRateLimit(ip);
+  const rate = await checkRateLimit(ip, {
+    maxRequests: 80,
+    windowMs: 10 * 60 * 1000,
+    namespace: 'stt',
+  });
   if (!rate.success) {
     const requestId = recordDiagnosticEvent({
       service: 'tts',
@@ -39,9 +50,10 @@ export async function POST(req: NextRequest) {
   }
 
   let audioBase64 = '';
-  let mimeType = 'audio/webm';
+  let mimeType = 'audio/wav';
   let lang: VoiceLang = 'ur';
   let hints: string[] | undefined;
+  let previousContext: string | undefined;
 
   try {
     const contentType = req.headers.get('content-type') || '';
@@ -52,6 +64,10 @@ export async function POST(req: NextRequest) {
       const hintsRaw = form.get('hints');
       if (typeof hintsRaw === 'string' && hintsRaw.trim()) {
         hints = hintsRaw.split(',').map((s) => s.trim()).filter(Boolean);
+      }
+      const prevRaw = form.get('previousContext');
+      if (typeof prevRaw === 'string' && prevRaw.trim()) {
+        previousContext = prevRaw.trim().slice(-200);
       }
 
       if (file && typeof file !== 'string' && typeof file.arrayBuffer === 'function') {
@@ -67,7 +83,7 @@ export async function POST(req: NextRequest) {
         }
         const ab = await blob.arrayBuffer();
         audioBase64 = Buffer.from(ab).toString('base64');
-        mimeType = blob.type || 'audio/webm';
+        mimeType = normalizeMimeType(blob.type || 'audio/wav');
       }
     } else {
       const body = (await req.json()) as {
@@ -75,11 +91,16 @@ export async function POST(req: NextRequest) {
         mimeType?: string;
         lang?: string;
         hints?: string[];
+        previousContext?: string;
       };
       audioBase64 = (body.audioBase64 || '').replace(/^data:[^;]+;base64,/, '');
-      mimeType = body.mimeType || 'audio/webm';
+      mimeType = normalizeMimeType(body.mimeType || 'audio/wav');
       lang = parseLang(body.lang);
       hints = Array.isArray(body.hints) ? body.hints : undefined;
+      previousContext =
+        typeof body.previousContext === 'string' && body.previousContext.trim()
+          ? body.previousContext.trim().slice(-200)
+          : undefined;
     }
   } catch {
     return NextResponse.json(
@@ -107,28 +128,45 @@ export async function POST(req: NextRequest) {
       mimeType,
       lang,
       hints,
+      previousContext,
     });
-    return NextResponse.json(result, {
-      status: 200,
-      headers: { 'Cache-Control': 'no-store, private' },
-    });
+    return NextResponse.json(
+      {
+        ...result,
+        processingMs: Date.now() - startedAt,
+      },
+      {
+        status: 200,
+        headers: { 'Cache-Control': 'no-store, private' },
+      }
+    );
   } catch (err) {
+    const rawCode = err instanceof Error ? err.message : 'STT_UNAVAILABLE';
+    const isTimeout = rawCode === 'STT_TIMEOUT';
+    const isQuota = rawCode === 'STT_QUOTA_EXHAUSTED';
+    const statusCode = isTimeout ? 504 : isQuota ? 429 : 502;
+    const errorKey = isTimeout
+      ? 'stt_timeout'
+      : isQuota
+      ? 'service_busy'
+      : 'stt_unavailable';
+
     const requestId = recordDiagnosticEvent({
       service: 'tts',
-      category: 'temporary_service_failure',
-      code: 'STT_FAILED',
-      statusCode: 502,
+      category: isQuota ? 'rate_limited' : 'temporary_service_failure',
+      code: rawCode || 'STT_FAILED',
+      statusCode,
       severity: 'warn',
       summary: err instanceof Error ? redactSecrets(err.message) : 'Server speech recognition failed',
     });
     return NextResponse.json(
       {
-        error: 'stt_unavailable',
+        error: errorKey,
         fallback: 'browser-web-speech',
         request_id: requestId,
-        user_message: getCustomerErrorMessage('temporary_service_failure', 'chat'),
+        user_message: getCustomerErrorMessage(isQuota ? 'rate_limited' : 'temporary_service_failure', 'chat'),
       },
-      { status: 502 }
+      { status: statusCode }
     );
   }
 }

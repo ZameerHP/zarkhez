@@ -61,7 +61,7 @@ export default function SchemesPage() {
 
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas overflow-x-hidden">
-      <header className="bg-gradient-to-b from-[#062409] to-olive-dark text-white rounded-b-[28px] px-4 sm:px-5 pt-4 pb-6 shadow-soft">
+      <header className="bg-gradient-to-br from-indigo-800 via-blue-700 to-indigo-600 text-white rounded-b-[28px] px-4 sm:px-5 pt-4 pb-6 shadow-soft">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Link
@@ -106,9 +106,9 @@ export default function SchemesPage() {
 
       <main className="px-3.5 sm:px-5 mt-4 space-y-4 max-w-md mx-auto">
         {/* Search & Province Filter */}
-        <section className="bg-white rounded-card p-3.5 shadow-soft border border-olive/15 space-y-3">
+        <section className="bg-white rounded-card p-3.5 shadow-soft border-2 border-indigo-200/75 space-y-3">
           <div className="relative">
-            <Search className="w-4 h-4 text-ink/50 absolute top-1/2 -translate-y-1/2 start-3" />
+            <Search className="w-4 h-4 text-indigo-500 absolute top-1/2 -translate-y-1/2 start-3" />
             <input
               type="search"
               value={searchQuery}
@@ -118,7 +118,7 @@ export default function SchemesPage() {
                   ? 'کسان کارڈ، ٹریکٹر، سولر تلاش کریں...'
                   : 'Search Kissan Card, Tractor, Solar...'
               }
-              className="w-full min-h-[44px] ps-9 pe-3 rounded-xl bg-canvas border border-olive/20 text-xs font-semibold text-ink focus:outline-none focus:border-olive"
+              className="w-full min-h-[44px] ps-9 pe-3 rounded-xl bg-slate-50 border border-indigo-200 text-xs font-semibold text-ink focus:outline-none focus:border-indigo-500"
             />
           </div>
 
@@ -130,8 +130,8 @@ export default function SchemesPage() {
                 onClick={() => setProvince(prov)}
                 className={`px-3 py-1.5 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all ${
                   province === prov
-                    ? 'bg-[#062409] text-white'
-                    : 'bg-canvas text-ink/75 border border-olive/15'
+                    ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-sm'
+                    : 'bg-indigo-50/70 text-indigo-900/75 border border-indigo-200/70'
                 }`}
               >
                 {prov === 'all'

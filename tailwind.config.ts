@@ -12,17 +12,17 @@ const config: Config = {
     extend: {
       colors: {
         olive: {
-          DEFAULT: '#6B8A1F',
-          dark: '#3F5A1E',
-          fresh: '#5FA52E',
+          DEFAULT: '#16A34A',
+          dark: '#065F46',
+          fresh: '#10B981',
         },
-        wheat: '#C8962E',
-        cream: '#FBF6D9',
-        canvas: '#F4F5EE',
-        ink: '#111111',
+        wheat: '#D97706',
+        cream: '#FEF3C7',
+        canvas: '#F8FAFC',
+        ink: '#0F172A',
         alert: {
-          amber: '#E0A100',
-          red: '#C0392B',
+          amber: '#F59E0B',
+          red: '#DC2626',
         },
       },
       borderRadius: {
@@ -31,7 +31,7 @@ const config: Config = {
         tile: '16px',
       },
       boxShadow: {
-        soft: '0 8px 30px rgba(30,50,10,0.10)',
+        soft: '0 10px 28px -6px rgba(15,23,42,0.08), 0 4px 10px -4px rgba(15,23,42,0.04)',
       },
       fontFamily: {
         sans: ['var(--font-jakarta)', 'var(--font-naskh)', 'sans-serif'],

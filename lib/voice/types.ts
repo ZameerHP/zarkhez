@@ -75,6 +75,7 @@ export interface STTRequest {
   mimeType: string;
   lang: VoiceLang;
   hints?: string[];
+  previousContext?: string;
 }
 
 export interface STTResult {
@@ -83,6 +84,9 @@ export interface STTResult {
   provider: SttProviderId;
   latencyMs: number;
   confidence?: number;
+  modelUsed?: string;
+  failoverSteps?: number;
+  fallbackReason?: string;
 }
 
 export const VOICE_LOCALE_MAP: Record<VoiceLang, VoiceLocaleCode> = {

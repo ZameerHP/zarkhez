@@ -41,7 +41,7 @@ export function BottomNav() {
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-        className="pointer-events-auto w-full max-w-[450px] bg-[#062409]/95 backdrop-blur-lg text-white rounded-[24px] sm:rounded-[26px] p-1 sm:p-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.35)] border border-emerald-400/20 grid grid-cols-6 gap-0.5 items-center"
+        className="pointer-events-auto w-full max-w-[450px] bg-slate-900/95 backdrop-blur-lg text-white rounded-[24px] sm:rounded-[26px] p-1 sm:p-1.5 shadow-[0_14px_38px_rgba(15,23,42,0.35)] border border-teal-400/25 grid grid-cols-6 gap-0.5 items-center"
       >
         {items.map((item) => {
           const Icon = item.icon;
@@ -56,7 +56,7 @@ export function BottomNav() {
               className={`relative flex flex-col items-center justify-center min-h-[48px] py-1 px-0.5 rounded-[20px] min-w-0 transition-colors ${
                 isActive
                   ? 'text-white font-extrabold'
-                  : 'text-white/65 hover:text-white'
+                  : 'text-slate-300/80 hover:text-white'
               }`}
             >
               {isActive && (
@@ -67,7 +67,7 @@ export function BottomNav() {
                     stiffness: 380,
                     damping: 30,
                   }}
-                  className="absolute inset-0 rounded-[18px] bg-olive-fresh/25 border border-emerald-400/40"
+                  className="absolute inset-0 rounded-[18px] bg-gradient-to-tr from-emerald-500/35 to-teal-400/30 border border-teal-300/45"
                 />
               )}
 
@@ -75,14 +75,14 @@ export function BottomNav() {
                 whileTap={{ scale: 0.88 }}
                 className={`relative z-10 flex items-center justify-center rounded-full transition-colors ${
                   item.highlight && !isActive
-                    ? 'bg-emerald-500/20 p-1 text-emerald-300'
+                    ? 'bg-emerald-500/25 p-1 text-emerald-300'
                     : ''
                 }`}
               >
                 <Icon
                   className={`w-[18px] h-[18px] min-[375px]:w-[19px] min-[375px]:h-[19px] ${
                     isActive
-                      ? 'stroke-[2.5px] text-emerald-300'
+                      ? 'stroke-[2.5px] text-teal-300'
                       : 'stroke-[2px]'
                   }`}
                 />

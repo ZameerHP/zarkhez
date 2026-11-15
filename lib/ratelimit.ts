@@ -12,32 +12,59 @@ const MAX_REQUESTS = 20;
 
 const memoryBuckets = new Map<string, number[]>();
 
-let upstashLimiter: Ratelimit | null = null;
+let redisClient: Redis | null = null;
+const upstashLimiters = new Map<string, Ratelimit>();
+
 if (
   process.env.UPSTASH_REDIS_REST_URL &&
   process.env.UPSTASH_REDIS_REST_TOKEN
 ) {
   try {
-    const redis = new Redis({
+    redisClient = new Redis({
       url: process.env.UPSTASH_REDIS_REST_URL,
       token: process.env.UPSTASH_REDIS_REST_TOKEN,
     });
-    upstashLimiter = new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(MAX_REQUESTS, '10 m'),
-      analytics: false,
-    });
   } catch {
-    upstashLimiter = null;
+    redisClient = null;
   }
 }
 
-export async function checkRateLimit(ip: string): Promise<{
+function getUpstashLimiter(maxRequests: number, windowMs: number): Ratelimit | null {
+  if (!redisClient) return null;
+  const cacheKey = `${maxRequests}:${windowMs}`;
+  const existing = upstashLimiters.get(cacheKey);
+  if (existing) return existing;
+  try {
+    const windowSeconds = Math.max(10, Math.round(windowMs / 1000));
+    const limiter = new Ratelimit({
+      redis: redisClient,
+      limiter: Ratelimit.slidingWindow(maxRequests, `${windowSeconds} s`),
+      analytics: false,
+    });
+    upstashLimiters.set(cacheKey, limiter);
+    return limiter;
+  } catch {
+    return null;
+  }
+}
+
+export async function checkRateLimit(
+  ip: string,
+  options?: {
+    maxRequests?: number;
+    windowMs?: number;
+    namespace?: string;
+  }
+): Promise<{
   success: boolean;
   remaining: number;
 }> {
-  const key = ip || 'anonymous';
+  const maxRequests = Math.max(1, options?.maxRequests ?? MAX_REQUESTS);
+  const windowMs = Math.max(1000, options?.windowMs ?? WINDOW_MS);
+  const rawIp = ip || 'anonymous';
+  const key = options?.namespace ? `${options.namespace}:${rawIp}` : rawIp;
 
+  const upstashLimiter = getUpstashLimiter(maxRequests, windowMs);
   if (upstashLimiter) {
     try {
       const res = await upstashLimiter.limit(key);
@@ -49,10 +76,10 @@ export async function checkRateLimit(ip: string): Promise<{
 
   const now = Date.now();
   const timestamps = (memoryBuckets.get(key) || []).filter(
-    (t) => now - t < WINDOW_MS
+    (t) => now - t < windowMs
   );
 
-  if (timestamps.length >= MAX_REQUESTS) {
+  if (timestamps.length >= maxRequests) {
     memoryBuckets.set(key, timestamps);
     return { success: false, remaining: 0 };
   }
@@ -61,6 +88,6 @@ export async function checkRateLimit(ip: string): Promise<{
   memoryBuckets.set(key, timestamps);
   return {
     success: true,
-    remaining: MAX_REQUESTS - timestamps.length,
+    remaining: maxRequests - timestamps.length,
   };
 }

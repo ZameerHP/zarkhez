@@ -4,18 +4,18 @@
 
 @layer base {
   :root {
-    --canvas: #F4F5EE;
-    --ink: #111111;
-    --olive: #6B8A1F;
-    --olive-dark: #3F5A1E;
-    --olive-fresh: #5FA52E;
-    --wheat: #C8962E;
-    --cream: #FBF6D9;
+    --canvas: #F8FAFC;
+    --ink: #0F172A;
+    --olive: #16A34A;
+    --olive-dark: #065F46;
+    --olive-fresh: #10B981;
+    --wheat: #D97706;
+    --cream: #FEF3C7;
   }
 
   html {
-    background-color: #F4F5EE;
-    color: #111111;
+    background-color: #F8FAFC;
+    color: #0F172A;
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;

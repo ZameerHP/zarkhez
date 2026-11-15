@@ -7,6 +7,7 @@ import {
   getGeminiApiKey,
   streamGeminiChatResponse,
 } from '@/lib/gemini';
+import { detectUserLanguageMode } from '@/lib/advisor-prompt';
 import { getCustomerErrorMessage, redactSecrets } from '@/lib/error-sanitizer';
 import {
   recordDiagnosticEvent,
@@ -85,8 +86,13 @@ export async function POST(req: NextRequest) {
   const lastUserMsg =
     [...messages].reverse().find((m) => m.role === 'user')?.content || '';
 
+  const detectedLang = detectUserLanguageMode(lastUserMsg, voiceLang, lang, messages);
+
   if (voiceMode) {
-    const resolvedVoiceLang = voiceLang || (lang === 'en' ? 'en' : 'ur');
+    const resolvedVoiceLang =
+      voiceLang === 'sd' && detectedLang.mode !== 'en'
+        ? 'sd'
+        : detectedLang.voiceLang;
     const dual = await generateVoiceDualReply(
       messages,
       context
@@ -119,14 +125,21 @@ export async function POST(req: NextRequest) {
       severity: 'warn',
       summary: 'Chat using fallback response because server AI key is not set.',
     });
-    const reply = generateFallbackChatReply(lastUserMsg, lang, context);
+    const reply = generateFallbackChatReply(
+      lastUserMsg,
+      detectedLang.mode === 'en' ? 'en' : lang,
+      context,
+      messages,
+      detectedLang.mode
+    );
     const words = reply.split(' ');
+    const stepDelayMs = words.length > 80 ? 4 : 12;
     const stream = new ReadableStream({
       async start(controller) {
         for (let i = 0; i < words.length; i++) {
           const chunk = (i === 0 ? '' : ' ') + words[i];
           controller.enqueue(encoder.encode(chunk));
-          await new Promise((r) => setTimeout(r, 16));
+          await new Promise((r) => setTimeout(r, stepDelayMs));
         }
         controller.close();
       },
@@ -139,7 +152,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Stream AI response word-by-word without exposing upstream provider details
+  // Stream AI response smoothly without exposing upstream provider details
   const stream = new ReadableStream({
     async start(controller) {
       try {
@@ -154,15 +167,17 @@ export async function POST(req: NextRequest) {
                 weatherSummary: context.weatherSummary,
               }
             : undefined,
-          lang
+          lang,
+          voiceLang
         );
 
         recordDiagnosticSuccess('chat');
         const words = fullReply.split(' ');
+        const stepDelayMs = words.length > 80 ? 3 : 10;
         for (let i = 0; i < words.length; i++) {
           const chunk = (i === 0 ? '' : ' ') + words[i];
           controller.enqueue(encoder.encode(chunk));
-          await new Promise((r) => setTimeout(r, 12));
+          await new Promise((r) => setTimeout(r, stepDelayMs));
         }
       } catch (err) {
         recordDiagnosticEvent({
@@ -173,7 +188,13 @@ export async function POST(req: NextRequest) {
           severity: 'warn',
           summary: err instanceof Error ? redactSecrets(err.message) : 'Chat upstream failed; served fallback.',
         });
-        const fallback = generateFallbackChatReply(lastUserMsg, lang, context);
+        const fallback = generateFallbackChatReply(
+          lastUserMsg,
+          detectedLang.mode === 'en' ? 'en' : lang,
+          context,
+          messages,
+          detectedLang.mode
+        );
         controller.enqueue(encoder.encode(fallback));
       } finally {
         controller.close();

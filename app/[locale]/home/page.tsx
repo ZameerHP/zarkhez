@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   User,
   Landmark,
+  Sparkles,
+  Wrench,
 } from 'lucide-react';
 import { ZarkhezLogo } from '@/components/layout/ZarkhezLogo';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
@@ -187,14 +189,14 @@ export default function HomePage() {
 
   return (
     <div className="min-h-[100dvh] pb-32 bg-canvas [overflow-x:clip]">
-      {/* Enhanced Deep Emerald / Olive Header */}
-      <header className="bg-gradient-to-b from-[#051D08] via-[#133A19] to-[#264E1C] text-white rounded-b-[32px] sm:rounded-b-[36px] px-3.5 min-[375px]:px-4 sm:px-6 pt-4 pb-24 shadow-[0_14px_38px_rgba(6,36,9,0.22)] relative overflow-hidden">
+      {/* Fresh Vibrant Emerald -> Teal Hero Header */}
+      <header className="bg-gradient-to-br from-emerald-900 via-emerald-700 to-teal-600 text-white rounded-b-[32px] sm:rounded-b-[36px] px-3.5 min-[375px]:px-4 sm:px-6 pt-4 pb-12 shadow-[0_14px_38px_rgba(6,95,70,0.22)] relative overflow-hidden">
         <div
-          className="absolute -top-20 -end-16 w-60 h-60 rounded-full bg-olive-fresh/25 blur-3xl pointer-events-none"
+          className="absolute -top-20 -end-16 w-64 h-64 rounded-full bg-teal-300/25 blur-3xl pointer-events-none"
           aria-hidden="true"
         />
         <div
-          className="absolute -bottom-16 -start-14 w-48 h-48 rounded-full bg-wheat/15 blur-2xl pointer-events-none"
+          className="absolute -bottom-16 -start-14 w-52 h-52 rounded-full bg-amber-300/20 blur-2xl pointer-events-none"
           aria-hidden="true"
         />
 
@@ -227,14 +229,14 @@ export default function HomePage() {
           className="relative z-10 mt-5 flex items-center justify-between gap-3"
         >
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] sm:text-xs text-emerald-200/80 font-medium tracking-wide">
+            <p className="text-[11px] sm:text-xs text-teal-100 font-semibold tracking-wide">
               {formattedDate}
             </p>
             <h1 className="text-[22px] sm:text-[26px] leading-snug mt-0.5 truncate">
-              <span className="font-light text-white/90">
+              <span className="font-light text-white/95">
                 {t('greetingLight')}{' '}
               </span>
-              <span className="font-extrabold text-cream">
+              <span className="font-extrabold text-amber-200">
                 {profile.fullName || t('greetingBold')}
               </span>
             </h1>
@@ -243,7 +245,7 @@ export default function HomePage() {
           <Link
             href="/profile"
             aria-label={locale === 'ur' ? 'پروفائل' : 'Profile'}
-            className="w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 border border-white/25 flex items-center justify-center text-cream shadow-sm transition-all flex-shrink-0 overflow-hidden"
+            className="w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 border-2 border-amber-300/70 flex items-center justify-center text-amber-100 shadow-sm transition-all flex-shrink-0 overflow-hidden"
           >
             {profile.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -258,7 +260,7 @@ export default function HomePage() {
           </Link>
         </motion.div>
 
-        {/* Elevated Voice Bar */}
+        {/* Elevated Voice AI Search Bar */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -271,78 +273,140 @@ export default function HomePage() {
               unlockAudio();
               router.push('/assistant?mic=1');
             }}
-            className="w-full min-h-[54px] rounded-full glass border border-white/25 ps-4 pe-2 py-1.5 flex items-center justify-between gap-2 text-start hover:bg-white/25 transition-all shadow-[0_8px_24px_rgba(0,0,0,0.18)] active:scale-98"
+            className="w-full min-h-[54px] rounded-full bg-white/15 backdrop-blur-md border border-white/30 ps-4 pe-2 py-1.5 flex items-center justify-between gap-2 text-start hover:bg-white/25 transition-all shadow-[0_8px_24px_rgba(0,0,0,0.16)] active:scale-98"
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <Search className="w-4 h-4 sm:w-5 sm:h-5 text-cream flex-shrink-0" />
-              <span className="text-xs sm:text-sm text-white/95 truncate font-semibold">
+              <Search className="w-4 h-4 sm:w-5 sm:h-5 text-amber-200 flex-shrink-0" />
+              <span className="text-xs sm:text-sm text-white truncate font-semibold">
                 {t('askPlaceholder')}
               </span>
             </div>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-olive-fresh to-olive text-white flex items-center justify-center shadow-md ring-1 ring-white/25 flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-teal-400 text-white flex items-center justify-center shadow-md ring-2 ring-white/40 flex-shrink-0">
               <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </button>
         </motion.div>
       </header>
 
-      {/* Main Content Overlapping the Olive Header */}
-      <main className="px-3.5 min-[375px]:px-4 sm:px-6 -mt-16 relative z-20 space-y-5">
-        {/* White Weather Card + Active Alert Banner */}
-        <WeatherCard
-          placeName={profile.placeName}
-          weather={weather}
-          loading={loadingWeather}
-          isOfflineCached={isOfflineCached}
-          weatherUnavailable={weatherUnavailable}
-          onRefresh={() => loadWeather(profile.lat, profile.lon)}
-          onChangeLocation={() => setShowLocationModal(true)}
-        />
+      {/* Main Content: 5 Color-Coded, Cleanly Separated Section Blocks */}
+      <main className="px-3.5 min-[375px]:px-4 sm:px-6 -mt-6 relative z-20 space-y-6">
+        {/* SECTION 1: Sky-Blue Live Weather Module */}
+        <section aria-label={locale === 'ur' ? 'موسم کی صورتحال' : 'Live Weather'}>
+          <WeatherCard
+            placeName={profile.placeName}
+            weather={weather}
+            loading={loadingWeather}
+            isOfflineCached={isOfflineCached}
+            weatherUnavailable={weatherUnavailable}
+            onRefresh={() => loadWeather(profile.lat, profile.lon)}
+            onChangeLocation={() => setShowLocationModal(true)}
+          />
+        </section>
 
-        {/* Quick Tools with Subtle Tactile Upgrades */}
+        {/* SECTION 2: Core AI Actions (AI Leaf Scanner + Purple/Teal Voice AI) */}
         <motion.section
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.08 }}
-          aria-labelledby="quick-tools-heading"
+          aria-labelledby="core-ai-heading"
+          className="bg-white rounded-[28px] p-4 sm:p-5 shadow-soft border-2 border-emerald-200/75 space-y-3.5"
         >
-          <h2
-            id="quick-tools-heading"
-            className="font-extrabold text-base sm:text-lg text-ink mb-2.5"
-          >
-            {t('quickTools')}
-          </h2>
-          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-sm">
+                <Sparkles className="w-4 h-4" />
+              </span>
+              <h2
+                id="core-ai-heading"
+                className="font-extrabold text-base sm:text-lg text-ink"
+              >
+                {locale === 'ur' ? 'زرعی اے آئی اسسٹنٹس' : 'Core AI Actions'}
+              </h2>
+            </div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
+              {locale === 'ur' ? 'فوری مدد' : 'Smart AI'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Link
               href="/scan"
               onClick={() => unlockAudio()}
-              className="col-span-2 bg-gradient-to-br from-[#062409] to-[#17411D] text-white rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md flex items-center gap-3 min-h-[76px] hover:-translate-y-0.5 transition-all active:scale-95 border border-emerald-400/25"
+              className="bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-600 text-white rounded-2xl p-4 shadow-md shadow-emerald-600/20 hover:shadow-lg flex items-center gap-3.5 min-h-[84px] hover:-translate-y-0.5 transition-all active:scale-95 border border-emerald-300/40"
             >
-              <div className="w-11 h-11 rounded-2xl bg-olive-fresh/25 border border-emerald-400/35 flex items-center justify-center flex-shrink-0">
-                <ScanLine className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-300" />
+              <div className="w-12 h-12 rounded-2xl bg-white/20 border border-white/35 flex items-center justify-center flex-shrink-0">
+                <ScanLine className="w-6 h-6 text-white" />
               </div>
               <div className="min-w-0">
                 <span className="block font-extrabold text-sm sm:text-base leading-tight truncate">
                   {t('toolScan')}
                 </span>
-                <span className="block text-[11px] text-white/80 mt-0.5 truncate">
+                <span className="block text-[11px] text-emerald-50/90 mt-1 truncate">
                   {t('toolScanSub')}
                 </span>
               </div>
             </Link>
 
             <Link
-              href="/tools/calendar"
-              className="bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md border border-olive/12 flex items-center gap-3 min-h-[76px] hover:border-olive hover:-translate-y-0.5 transition-all active:scale-95"
+              href="/assistant"
+              onClick={() => unlockAudio()}
+              className="bg-gradient-to-br from-violet-600 via-purple-600 to-teal-600 text-white rounded-2xl p-4 shadow-md shadow-violet-600/20 hover:shadow-lg flex items-center gap-3.5 min-h-[84px] hover:-translate-y-0.5 transition-all active:scale-95 border border-violet-300/40"
             >
-              <div className="w-11 h-11 rounded-2xl bg-olive/12 text-olive-dark flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 border border-white/35 flex items-center justify-center flex-shrink-0">
+                <Mic className="w-6 h-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <span className="block font-extrabold text-sm sm:text-base leading-tight truncate">
+                  {locale === 'ur' ? 'آواز سے زرعی مشورہ' : 'AI Voice Advisor'}
+                </span>
+                <span className="block text-[11px] text-violet-100 mt-1 truncate">
+                  {locale === 'ur'
+                    ? 'اردو، سنڌي اور انگلش میں بول کر پوچھیں'
+                    : 'Ask in Urdu, Sindhi & English'}
+                </span>
+              </div>
+            </Link>
+          </div>
+        </motion.section>
+
+        {/* SECTION 3: Farm Calculators & Govt Schemes */}
+        <motion.section
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.11 }}
+          aria-labelledby="quick-tools-heading"
+          className="bg-gradient-to-br from-indigo-50/80 via-white to-amber-50/60 rounded-[28px] p-4 sm:p-5 shadow-soft border-2 border-indigo-200/70 space-y-3.5"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 text-white flex items-center justify-center shadow-sm">
+                <Wrench className="w-4 h-4" />
+              </span>
+              <h2
+                id="quick-tools-heading"
+                className="font-extrabold text-base sm:text-lg text-ink"
+              >
+                {t('quickTools')}
+              </h2>
+            </div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-800">
+              {locale === 'ur' ? 'اوزار اور امداد' : 'Tools & Aid'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Link
+              href="/tools/calendar"
+              className="bg-white text-ink rounded-2xl p-3.5 sm:p-4 shadow-sm hover:shadow-md border-2 border-emerald-200/80 hover:border-emerald-400 flex items-center gap-3 min-h-[80px] hover:-translate-y-0.5 transition-all active:scale-95"
+            >
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
                 <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div className="min-w-0">
                 <span className="block font-extrabold text-sm sm:text-base leading-tight truncate">
                   {t('toolCalendar')}
                 </span>
-                <span className="block text-[11px] text-ink/65 mt-0.5 truncate">
+                <span className="block text-[11px] text-slate-600 mt-0.5 truncate">
                   {t('toolCalendarSub')}
                 </span>
               </div>
@@ -350,16 +414,16 @@ export default function HomePage() {
 
             <Link
               href="/tools/fertilizer"
-              className="bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md border border-olive/12 flex items-center gap-3 min-h-[76px] hover:border-olive hover:-translate-y-0.5 transition-all active:scale-95"
+              className="bg-white text-ink rounded-2xl p-3.5 sm:p-4 shadow-sm hover:shadow-md border-2 border-amber-200/85 hover:border-amber-400 flex items-center gap-3 min-h-[80px] hover:-translate-y-0.5 transition-all active:scale-95"
             >
-              <div className="w-11 h-11 rounded-2xl bg-cream text-wheat flex items-center justify-center flex-shrink-0">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
                 <Sprout className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div className="min-w-0">
                 <span className="block font-extrabold text-sm sm:text-base leading-tight truncate">
                   {t('toolFertilizer')}
                 </span>
-                <span className="block text-[11px] text-ink/65 mt-0.5 truncate">
+                <span className="block text-[11px] text-slate-600 mt-0.5 truncate">
                   {t('toolFertilizerSub')}
                 </span>
               </div>
@@ -367,47 +431,61 @@ export default function HomePage() {
 
             <Link
               href="/schemes"
-              className="col-span-2 bg-white text-ink rounded-card p-3.5 sm:p-4 shadow-soft hover:shadow-md border border-olive/12 flex items-center gap-3 min-h-[76px] hover:border-olive hover:-translate-y-0.5 transition-all active:scale-95"
+              className="col-span-2 bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 text-white rounded-2xl p-3.5 sm:p-4 shadow-md shadow-indigo-600/20 hover:shadow-lg flex items-center justify-between gap-3 min-h-[78px] hover:-translate-y-0.5 transition-all active:scale-95 border border-indigo-300/35"
             >
-              <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-olive-dark flex items-center justify-center flex-shrink-0">
-                <Landmark className="w-5 h-5 sm:w-6 sm:h-6" />
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-2xl bg-white/20 border border-white/30 text-amber-200 flex items-center justify-center flex-shrink-0">
+                  <Landmark className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div className="min-w-0">
+                  <span className="block font-extrabold text-sm sm:text-base leading-tight truncate">
+                    {locale === 'ur' ? 'سرکاری اسکیمیں' : 'Govt Schemes'}
+                  </span>
+                  <span className="block text-[11px] text-indigo-100 mt-0.5 truncate">
+                    {locale === 'ur' ? 'تصدیق شدہ پورٹلز اور امداد' : 'Verified portals & aid'}
+                  </span>
+                </div>
               </div>
-              <div className="min-w-0">
-                <span className="block font-extrabold text-sm sm:text-base leading-tight truncate">
-                  {locale === 'ur' ? 'سرکاری اسکیمیں' : 'Govt Schemes'}
-                </span>
-                <span className="block text-[11px] text-ink/65 mt-0.5 truncate">
-                  {locale === 'ur' ? 'تصدیق شدہ پورٹلز اور امداد' : 'Verified portals & aid'}
-                </span>
-              </div>
+              <span className="px-2.5 py-1 rounded-full bg-amber-300 text-indigo-950 font-black text-[10px] flex-shrink-0">
+                .gov.pk
+              </span>
             </Link>
           </div>
         </motion.section>
 
-        {/* My Crops Strip */}
+        {/* SECTION 4: Crop Guide Strip (Warm Harvest Amber) */}
         <motion.section
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.12 }}
+          transition={{ duration: 0.4, delay: 0.14 }}
           aria-labelledby="my-crops-heading"
+          className="bg-gradient-to-br from-amber-50/90 via-white to-orange-50/60 rounded-[28px] p-4 sm:p-5 shadow-soft border-2 border-amber-200/80 space-y-3"
         >
-          <div className="flex items-center justify-between mb-2.5">
-            <h2
-              id="my-crops-heading"
-              className="font-extrabold text-base sm:text-lg text-ink"
-            >
-              {t('myCrops')}
-            </h2>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-sm">
+                <Sprout className="w-4 h-4" />
+              </span>
+              <h2
+                id="my-crops-heading"
+                className="font-extrabold text-base sm:text-lg text-ink"
+              >
+                {t('myCrops')}
+              </h2>
+            </div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
+              {crops.length} {locale === 'ur' ? 'فصلیں' : 'Crops'}
+            </span>
           </div>
 
-          <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-2 -mx-3.5 px-3.5 min-[375px]:-mx-4 min-[375px]:px-4 sm:-mx-6 sm:px-6">
+          <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
             {crops.map((crop) => (
               <Link
                 key={crop.key}
                 href={`/crop/${crop.key}`}
-                className="flex-shrink-0 w-28 sm:w-32 bg-white rounded-card p-3 shadow-soft hover:shadow-md border border-olive/12 hover:border-olive hover:-translate-y-0.5 transition-all active:scale-95 flex flex-col items-center text-center group"
+                className="flex-shrink-0 w-28 sm:w-32 bg-white rounded-2xl p-3 shadow-sm hover:shadow-md border-2 border-amber-200/60 hover:border-amber-400 hover:-translate-y-0.5 transition-all active:scale-95 flex flex-col items-center text-center group"
               >
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-olive/20 group-hover:border-olive transition-colors">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-amber-300 group-hover:border-emerald-500 transition-colors">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={crop.photoUrl}
@@ -421,8 +499,8 @@ export default function HomePage() {
                 <span
                   className={`mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
                     crop.scanSupported
-                      ? 'bg-olive/15 text-olive-dark'
-                      : 'bg-cream text-wheat'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-amber-100 text-amber-800'
                   }`}
                 >
                   {crop.scanSupported
@@ -434,14 +512,15 @@ export default function HomePage() {
           </div>
         </motion.section>
 
-        {/* My Fields (Real User Fields Only) */}
+        {/* SECTION 5: My Fields (Crisp Emerald/Teal Farm Plots Container) */}
         <motion.section
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.16 }}
           aria-labelledby="my-fields-heading"
+          className="bg-emerald-50/70 rounded-[28px] p-4 sm:p-5 shadow-soft border-2 border-emerald-200/80 space-y-3.5"
         >
-          <div className="flex items-center justify-between mb-2.5">
+          <div className="flex items-center justify-between gap-2">
             <h2
               id="my-fields-heading"
               className="font-extrabold text-base sm:text-lg text-ink"
@@ -452,7 +531,7 @@ export default function HomePage() {
               type="button"
               whileTap={{ scale: 0.94 }}
               onClick={() => setShowAddField(true)}
-              className="inline-flex items-center gap-1.5 min-h-[38px] px-3.5 py-1.5 rounded-full bg-olive text-white text-xs font-bold shadow-sm hover:bg-olive-dark transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-[38px] px-3.5 py-1.5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-bold shadow-sm hover:from-emerald-700 hover:to-teal-700 transition-all"
             >
               <Plus className="w-4 h-4" />
               <span>{t('addField')}</span>
@@ -460,14 +539,14 @@ export default function HomePage() {
           </div>
 
           {fields.length === 0 ? (
-            <div className="bg-white rounded-card p-5 text-center shadow-soft border border-olive/10 space-y-3">
-              <p className="text-xs sm:text-sm text-ink/75">
+            <div className="bg-white rounded-2xl p-5 text-center shadow-sm border border-emerald-200/80 space-y-3">
+              <p className="text-xs sm:text-sm text-slate-600">
                 {t('emptyFields')}
               </p>
               <button
                 type="button"
                 onClick={() => setShowAddField(true)}
-                className="inline-flex items-center gap-2 min-h-[44px] px-5 py-2 rounded-full bg-olive text-white font-bold text-xs sm:text-sm active:scale-95 transition-transform"
+                className="inline-flex items-center gap-2 min-h-[44px] px-5 py-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs sm:text-sm active:scale-95 transition-transform shadow-sm"
               >
                 <Plus className="w-4 h-4" />
                 <span>{t('addField')}</span>
@@ -496,7 +575,7 @@ export default function HomePage() {
                   <Link
                     key={field.id}
                     href={`/crop/${crop.key}?fieldId=${field.id}&sowing=${field.sowing_date}`}
-                    className="block bg-white rounded-card overflow-hidden shadow-soft hover:shadow-md border border-olive/12 hover:border-olive transition-all active:scale-98"
+                    className="block bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md border-2 border-emerald-200/80 hover:border-emerald-400 transition-all active:scale-98"
                   >
                     <div className="flex items-stretch">
                       <div className="w-24 sm:w-28 relative flex-shrink-0">
@@ -520,22 +599,22 @@ export default function HomePage() {
                             <button
                               type="button"
                               onClick={(e) => handleRemoveField(e, field.id)}
-                              className="min-w-[40px] min-h-[40px] -me-2 flex items-center justify-center rounded-full text-ink/40 hover:text-alert-red hover:bg-alert-red/10 flex-shrink-0"
+                              className="min-w-[40px] min-h-[40px] -me-2 flex items-center justify-center rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex-shrink-0"
                               aria-label={tApp('delete')}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
-                          <p className="text-xs text-olive-dark font-semibold mt-0.5">
+                          <p className="text-xs text-teal-700 font-bold mt-0.5">
                             {t('stageLabel')}: {stage.name[locale]} (
                             <bdi dir="ltr">Day {daysSinceSowing}</bdi>)
                           </p>
                         </div>
 
-                        <div className="mt-2 pt-2 border-t border-olive/10">
+                        <div className="mt-2 pt-2 border-t border-slate-100">
                           {nextTask ? (
                             <div className="flex items-center justify-between gap-2 text-xs">
-                              <span className="text-ink/80 truncate">
+                              <span className="text-slate-700 truncate">
                                 <strong className="text-ink">
                                   {t('nextTaskLabel')}:
                                 </strong>{' '}
@@ -543,13 +622,13 @@ export default function HomePage() {
                               </span>
                               <bdi
                                 dir="ltr"
-                                className="px-2 py-0.5 rounded-full bg-cream text-wheat font-bold flex-shrink-0 text-[11px]"
+                                className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold flex-shrink-0 text-[11px]"
                               >
                                 {nextTask.dueDate.slice(5)}
                               </bdi>
                             </div>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-xs text-olive font-semibold">
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold">
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               {t('allTasksDone')}
                             </span>
