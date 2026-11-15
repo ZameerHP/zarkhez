@@ -808,7 +808,7 @@ async function run(): Promise<void> {
     // =========================================================================
     resetGeminiEnv();
     {
-      // Part A: HTTP 404 on GEMINI_MODEL_FAST must cascade to gemini-2.5-flash on Account 1 WITHOUT burning slots!
+      // Part A: HTTP 404 on GEMINI_MODEL_FAST must cascade to gemini-flash-lite-latest on Account 1 WITHOUT burning slots!
       process.env.GEMINI_MODEL_FAST = 'gemini-retired-404';
       const seenA: Array<{ slot: number; model: string }> = [];
       globalThis.fetch = async (input) => {
@@ -831,11 +831,11 @@ async function run(): Promise<void> {
       assert.equal(resA.status, 200);
       const jsonA = (await resA.json()) as { transcript: string; modelUsed?: string; failoverSteps?: number };
       assert.equal(jsonA.transcript, 'کھیت کی مٹی چیک کروائیں');
-      assert.equal(jsonA.modelUsed, 'gemini-2.5-flash');
+      assert.equal(jsonA.modelUsed, 'gemini-flash-lite-latest');
       assert.equal(jsonA.failoverSteps, 0, '404 model cascade stayed on healthy Account 1!');
       assert.deepEqual(seenA, [
         { slot: 1, model: 'gemini-retired-404' },
-        { slot: 1, model: 'gemini-2.5-flash' },
+        { slot: 1, model: 'gemini-flash-lite-latest' },
       ]);
       // Confirm Account 1 remained ACTIVE (not marked unavailable on 404!)
       assert.equal(getGeminiPoolHealthSnapshot().slots[0].status, 'active');
@@ -1074,7 +1074,65 @@ async function run(): Promise<void> {
       console.log('✓ Scenario 18 passed: Live overlay stitching, 80/10m STT rate budget, and signal bounds');
     }
 
-    console.log(`\nALL ${passed}/18 VOICE INPUT & STT REPAIR SCENARIOS PASSED.`);
+    // =========================================================================
+    // Scenario 19: Stop During Pending getUserMedia Permission Finalizes Cleanly & Releases Late Tracks
+    // =========================================================================
+    {
+      let resolvePerm!: (stream: MediaStream) => void;
+      let stoppedLateTracks = 0;
+      let endCalls = 0;
+      const statuses: string[] = [];
+
+      const delayedStream = {
+        getTracks: () => [
+          {
+            stop: () => {
+              stoppedLateTracks++;
+            },
+          },
+        ],
+      } as unknown as MediaStream;
+
+      const session = createFieldSpeechCapture(
+        'ur',
+        {
+          onResult: () => {},
+          onError: () => {},
+          onStatusChange: (s) => statuses.push(s),
+          onEnd: () => {
+            endCalls++;
+          },
+        },
+        {
+          getNavigator: () => ({
+            onLine: true,
+            mediaDevices: {
+              getUserMedia: () =>
+                new Promise<MediaStream>((resolve) => {
+                  resolvePerm = resolve;
+                }),
+            } as unknown as MediaDevices,
+          }),
+          fetchFn: (async () => new Response('{}', { status: 200 })) as typeof fetch,
+        }
+      );
+
+      assert.ok(session);
+      session!.stop();
+      await new Promise((r) => setTimeout(r, 170));
+      assert.equal(endCalls, 1, 'Stop while awaiting permission must finalize without hanging UI');
+      assert.equal(statuses[statuses.length - 1], 'idle');
+
+      // Permission resolves late -> must immediately release mic tracks and NOT double-fire onEnd
+      resolvePerm(delayedStream);
+      await new Promise((r) => setTimeout(r, 20));
+      assert.equal(stoppedLateTracks, 1, 'Late-resolved mic track must be stopped immediately');
+      assert.equal(endCalls, 1, 'Late permission resolution must not double-fire onEnd');
+      passed++;
+      console.log('✓ Scenario 19 passed: Stop during pending getUserMedia finalizes cleanly & releases late tracks');
+    }
+
+    console.log(`\nALL ${passed}/19 VOICE INPUT & STT REPAIR SCENARIOS PASSED.`);
   } finally {
     globalThis.fetch = realFetch;
   }

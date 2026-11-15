@@ -240,11 +240,11 @@ function buildGeminiTtsContentText(params: {
   lang: VoiceLang;
   model: string;
 }): string {
-  // Compact inline [warm] tag works reliably across 3.8-flash-tts & 3.1-flash-tts-preview
-  // without adding 20s latency or leaking instruction text aloud; keep Sindhi and lite pure.
+  // Compact inline [warm] tag works cleanly across 3.8-flash-tts & 3.1-flash-tts-preview
+  // (including native sd-PK, ur-PK, and en-US) without leaking instruction text aloud.
   if (
-    params.lang === 'sd' ||
-    (params.model !== 'gemini-3.8-flash-tts' && params.model !== 'gemini-3.1-flash-tts-preview')
+    params.model !== 'gemini-3.8-flash-tts' &&
+    params.model !== 'gemini-3.1-flash-tts-preview'
   ) {
     return params.spokenText;
   }
@@ -262,16 +262,17 @@ async function synthesizeWithGeminiTts(params: {
 
   const ttsInputText = params.spokenText;
 
-  // Prefer reliable fast gemini-3.8-flash-tts & lite-tts ahead of quota-limited preview models,
-  // avoiding gemini-2.5-flash-preview-tts which frequently returns finishReason:OTHER with empty audio.
+  // Ordered by verified natural audio speed & Sindhi/Urdu/English fidelity.
+  // Fails over cleanly if primary 3.8-flash-tts hits tight free-tier RPM limits.
   const modelsToTry = [
     'gemini-3.8-flash-tts',
     'gemini-3.8-flash-lite-tts',
     'gemini-3.1-flash-tts-preview',
+    'gemini-2.5-flash-preview-tts',
   ];
 
   const geminiLangCode =
-    params.lang === 'ur' ? 'ur-PK' : params.lang === 'en' ? 'en-US' : undefined;
+    params.lang === 'sd' ? 'sd-PK' : params.lang === 'ur' ? 'ur-PK' : 'en-US';
 
   for (const includeLangCode of geminiLangCode ? [true, false] : [false]) {
     const result = await executeGeminiWithFailover({

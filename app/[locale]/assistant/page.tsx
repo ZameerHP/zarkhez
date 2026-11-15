@@ -11,8 +11,6 @@ import {
   Send,
   Sparkles,
   User,
-  Volume2,
-  VolumeX,
   Square,
 } from 'lucide-react';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -35,7 +33,6 @@ import { computeIncrementalInputValue } from '@/lib/voice/transcript-merger';
 import {
   getSavedFields,
   getSavedProfile,
-  saveProfile,
 } from '@/lib/supabase/client';
 import { getCachedWeather } from '@/lib/weather';
 
@@ -64,7 +61,6 @@ export default function AssistantPage() {
   const [speechSupported, setSpeechSupported] = useState(true);
   const [listening, setListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<'idle' | 'recording' | 'finalizing'>('idle');
-  const [autoSpeak, setAutoSpeak] = useState(true);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [voiceLang, setVoiceLang] = useState<VoiceLang>(locale === 'en' ? 'en' : 'ur');
   const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
@@ -84,6 +80,8 @@ export default function AssistantPage() {
   const dictationSessionIdRef = useRef(0);
   const dictationBaseTextRef = useRef('');
   const inputTextRef = useRef('');
+  const userSelectedVoiceLangRef = useRef(false);
+  const autoStartMicRef = useRef<() => void>(() => {});
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const updateInputText = (next: string) => {
@@ -99,7 +97,6 @@ export default function AssistantPage() {
     const fields = getSavedFields();
     const weather = getCachedWeather();
 
-    setAutoSpeak(profile.autoSpeakVoice !== false);
     if (profile.avatarUrl) setUserAvatar(profile.avatarUrl);
 
     const primaryCrop =
@@ -131,7 +128,19 @@ export default function AssistantPage() {
       },
     ]);
 
+    let micLaunchTimer: ReturnType<typeof setTimeout> | null = null;
+    if (typeof window !== 'undefined' && supported) {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get('mic') === '1') {
+        window.history.replaceState(null, '', window.location.pathname);
+        micLaunchTimer = setTimeout(() => {
+          autoStartMicRef.current();
+        }, 120);
+      }
+    }
+
     return () => {
+      if (micLaunchTimer) clearTimeout(micLaunchTimer);
       dictationSessionIdRef.current += 1;
       sessionRef.current?.abort?.();
       sessionRef.current = null;
@@ -143,20 +152,8 @@ export default function AssistantPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streaming]);
 
-  const toggleAutoSpeak = async () => {
-    unlockAudio();
-    const next = !autoSpeak;
-    setAutoSpeak(next);
-    if (!next) {
-      stopSpeaking();
-      setAiSpeaking(false);
-      setVoicePhase('idle');
-    }
-    await saveProfile({ autoSpeakVoice: next });
-  };
-
   const speakAssistantReply = (replyText: string, replyLang: VoiceLang = voiceLang) => {
-    if (!autoSpeak || !replyText.trim()) return;
+    if (!replyText.trim()) return;
     setAiSpeaking(true);
     setVoicePhase('thinking');
     speakText(replyText, replyLang, {
@@ -179,12 +176,13 @@ export default function AssistantPage() {
     if (!question || streaming) return;
 
     const hasSindhiChars = /[ٻڀٺٽڄڃڇڊڌڍڏڙڦڪڳڱڻ۽۾]/.test(question);
+    const isExplicitLocked = voiceLang === 'sd' || userSelectedVoiceLangRef.current;
     const effectiveVoiceLang: VoiceLang = hasSindhiChars
       ? 'sd'
+      : isExplicitLocked
+      ? voiceLang
       : /[\u0600-\u06FF]/.test(question)
-      ? voiceLang === 'sd'
-        ? 'sd'
-        : 'ur'
+      ? 'ur'
       : looksLikelyEnglish(question)
       ? 'en'
       : voiceLang;
@@ -231,7 +229,8 @@ export default function AssistantPage() {
           context: contextInfo,
           lang: effectiveVoiceLang === 'en' ? 'en' : locale,
           voiceLang: effectiveVoiceLang,
-          voiceMode: autoSpeak,
+          voiceMode: true,
+          explicitVoiceLang: hasSindhiChars ? true : isExplicitLocked,
         }),
       });
 
@@ -375,6 +374,7 @@ export default function AssistantPage() {
   };
 
   const handleToggleMic = () => {
+    unlockAudio();
     stopSpeaking();
     setAiSpeaking(false);
     setMicError(null);
@@ -399,6 +399,8 @@ export default function AssistantPage() {
     }
 
     const sessionId = ++dictationSessionIdRef.current;
+    const micStartedAt = Date.now();
+    let receivedTranscriptInSession = false;
     dictationBaseTextRef.current = inputTextRef.current;
 
     setListening(true);
@@ -410,6 +412,7 @@ export default function AssistantPage() {
       onResult: (transcript, isFinal) => {
         if (dictationSessionIdRef.current !== sessionId) return;
         if (!transcript) return;
+        receivedTranscriptInSession = true;
         const mergedInput = computeIncrementalInputValue(
           dictationBaseTextRef.current,
           transcript
@@ -432,6 +435,7 @@ export default function AssistantPage() {
       },
       onError: (err) => {
         if (dictationSessionIdRef.current !== sessionId) return;
+        receivedTranscriptInSession = true;
         setListening(false);
         setVoiceStatus('idle');
         setVoicePhase('error');
@@ -443,6 +447,15 @@ export default function AssistantPage() {
         setListening(false);
         setVoiceStatus('idle');
         setVoicePhase((prev) => (prev === 'error' ? 'error' : 'idle'));
+        if (!receivedTranscriptInSession && Date.now() - micStartedAt > 600) {
+          setMicError(
+            voiceLang === 'sd'
+              ? 'ڪو به آواز واضح نه مليو — مهرباني ڪري مائڪ جي ويجهو صاف ڳالهايو.'
+              : voiceLang === 'ur'
+              ? 'کوئی واضح آواز سنائی نہیں دی — مائیک کے قریب بولیں اور دوبارہ کوشش کریں۔'
+              : 'No clear speech was detected — speak closer to your mic and try again.'
+          );
+        }
       },
     });
 
@@ -452,6 +465,7 @@ export default function AssistantPage() {
       startedSession?.abort?.();
     }
   };
+  autoStartMicRef.current = handleToggleMic;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -484,23 +498,6 @@ export default function AssistantPage() {
             <ZarkhezLogo size={34} lightText showText={false} />
           </div>
 
-          <button
-            type="button"
-            onClick={toggleAutoSpeak}
-            className={`min-h-[38px] px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold flex items-center gap-1.5 transition-all ${
-              autoSpeak
-                ? 'bg-olive-fresh text-white shadow-sm'
-                : 'glass text-white/80'
-            }`}
-          >
-            {autoSpeak ? (
-              <Volume2 className="w-3.5 h-3.5" />
-            ) : (
-              <VolumeX className="w-3.5 h-3.5" />
-            )}
-            <span>{autoSpeak ? t('autoSpeakOn') : t('autoSpeakOff')}</span>
-          </button>
-
           <LanguageToggle variant="glass" />
         </div>
 
@@ -525,6 +522,7 @@ export default function AssistantPage() {
                 key={opt.id}
                 type="button"
                 onClick={() => {
+                  userSelectedVoiceLangRef.current = true;
                   dictationSessionIdRef.current += 1;
                   sessionRef.current?.abort?.();
                   sessionRef.current = null;

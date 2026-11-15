@@ -40,7 +40,7 @@ function buildGeminiSttPrompt(
 ): string {
   const scriptRule =
     lang === 'sd'
-      ? 'Transcribe strictly in Pakistani Sindhi (Perso-Arabic script preserving ڀ ٻ ڄ ڃ ڇ ڏ ڊ ڌ ڍ ڙ ڦ ڪ ڳ ڱ ڻ ٿ ٺ ٽ). Keep spoken English fertilizer/pesticide names or numbers verbatim. NEVER translate Sindhi into Urdu or English.'
+      ? 'Transcribe strictly in Pakistani Sindhi using Sindhi Perso-Arabic script only (preserving Sindhi letters ڀ ٻ ڄ ڃ ڇ ڏ ڊ ڌ ڍ ڙ ڦ ڪ ڳ ڱ ڻ ٿ ٺ ٽ ۽ ي ه — never Devanagari or Gurmukhi). Keep spoken English fertilizer/pesticide names or numbers verbatim. NEVER translate Sindhi into Urdu or English.'
       : lang === 'ur'
       ? 'Transcribe strictly in the speaker’s actual spoken words: Pakistani Urdu (Perso-Arabic script) while preserving mixed English, Roman Urdu, crop names, pesticide/fertilizer brands (such as DAP, Urea, NP, Imidacloprid, Rust), and numbers accurately. NEVER translate Urdu into English or rewrite sentences.'
       : 'Transcribe verbatim in English while preserving Pakistani agricultural terms, Roman Urdu crop/brand names, and quantities faithfully. NEVER invent or rewrite words.';
@@ -56,7 +56,7 @@ function buildGeminiSttPrompt(
     : '';
 
   return (
-    `Listen strictly to this audio clip. If the audio is silent, static clicks, wind noise, or contains NO clear human speech, output EXACTLY [NO_SPEECH]. ` +
+    `Listen carefully to this audio clip (even if the voice is soft or quiet). Output EXACTLY [NO_SPEECH] ONLY if there is genuinely no human speech (pure silence, static clicks, or wind noise). ` +
     `Otherwise transcribe ONLY the words spoken inside this audio clip (${localeCode}).\n` +
     `${scriptRule}${termsLine}${contextLine}\n` +
     `Output ONLY the transcript text with no explanations or labels.`
@@ -80,9 +80,9 @@ async function transcribeWithGeminiStt(
   const modelsToTry = Array.from(
     new Set([
       ...(configuredFast ? [configuredFast] : []),
-      'gemini-2.5-flash',
-      'gemini-3.5-flash-lite',
+      'gemini-flash-lite-latest',
       'gemini-3-flash-preview',
+      'gemini-3.5-flash-lite',
       'gemini-flash-latest',
     ])
   );

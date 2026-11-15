@@ -135,6 +135,64 @@ export function cleanTechnicalMetadataForSpeech(raw: string): string {
 }
 
 /**
+ * Converts a formatted Markdown reply (headings, lists, tables, bold text) into natural
+ * sequential speech matching 100% of the screen reply's facts without Markdown syntax.
+ */
+export function convertMarkdownReplyToSpokenText(
+  screenText: string,
+  lang: VoiceLang
+): string {
+  if (!screenText || !screenText.trim()) return '';
+  const sentenceStop = lang === 'en' ? '.' : '۔';
+  const pauseMark = lang === 'en' ? ',' : '،';
+
+  let text = repairStrayDevanagariInUrdu(screenText).replace(/\r\n/g, '\n');
+  text = text.replace(/```[\s\S]*?```/g, ' ');
+  text = text.replace(/\[([^\]]+)\]\((?:https?:\/\/|\/)[^)]+\)/g, '$1');
+
+  const lines = text.split('\n');
+  const spokenLines: string[] = [];
+
+  for (const rawLine of lines) {
+    let line = rawLine.trim();
+    if (!line) continue;
+
+    // Skip Markdown table separator rows like |---|---|
+    if (/^\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?$/.test(line)) {
+      continue;
+    }
+
+    // Flatten Markdown table rows into readable comma-separated clauses
+    if (line.includes('|')) {
+      const cells = line
+        .replace(/^\|/, '')
+        .replace(/\|$/, '')
+        .split('|')
+        .map((c) => c.replace(/[*_`~]/g, '').trim())
+        .filter(Boolean);
+      if (cells.length === 0) continue;
+      line = cells.join(`${pauseMark} `);
+    }
+
+    line = line
+      .replace(/^#{1,6}\s+/, '')
+      .replace(/^\s*(?:[-*+•▪●◦]|\d+[.)])\s+/, '')
+      .replace(/[*_`~]/g, '')
+      .replace(/([^\d]):\s+/g, `$1${pauseMark} `)
+      .trim();
+
+    if (!line) continue;
+    line = line.replace(/:+$/, sentenceStop);
+    if (!/[.!?۔؟،,;:]$/.test(line)) {
+      line += sentenceStop;
+    }
+    spokenLines.push(line);
+  }
+
+  return cleanTechnicalMetadataForSpeech(spokenLines.join(' '));
+}
+
+/**
  * Detects whether a response intended for Urdu TTS was accidentally emitted in Roman Urdu.
  */
 export function looksLikeRomanUrdu(text: string): boolean {

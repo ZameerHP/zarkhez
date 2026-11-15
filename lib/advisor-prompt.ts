@@ -1,4 +1,5 @@
 import {
+  convertMarkdownReplyToSpokenText,
   looksLikeRomanUrdu,
   repairStrayDevanagariInUrdu,
   transliterateCommonRomanUrduToUrdu,
@@ -119,6 +120,49 @@ export function detectUserLanguageMode(
 }
 
 /**
+ * Resolves final screen mode and spoken voice language while honoring explicit
+ * user language locks (especially Sindhi `sd` or explicitly clicked voice pills).
+ */
+export function resolveAdvisorLanguageSelection(params: {
+  text: string;
+  voiceLang?: VoiceLang;
+  uiLang?: 'en' | 'ur';
+  history?: ChatHistoryTurn[];
+  explicitVoiceLang?: boolean;
+}): { mode: AdvisorLanguageMode; voiceLang: VoiceLang; isLocked: boolean } {
+  const detected = detectUserLanguageMode(
+    params.text,
+    params.voiceLang,
+    params.uiLang,
+    params.history
+  );
+  const isLocked = params.voiceLang === 'sd' || Boolean(params.explicitVoiceLang);
+  if (!isLocked || !params.voiceLang) {
+    return {
+      mode: detected.mode,
+      voiceLang: detected.mode === 'sd' ? 'sd' : detected.voiceLang,
+      isLocked: false,
+    };
+  }
+
+  const lockedVoiceLang = params.voiceLang;
+  const lockedMode: AdvisorLanguageMode =
+    lockedVoiceLang === 'sd'
+      ? 'sd'
+      : lockedVoiceLang === 'en'
+      ? 'en'
+      : detected.mode === 'roman-ur'
+      ? 'roman-ur'
+      : 'ur-script';
+
+  return {
+    mode: lockedMode,
+    voiceLang: lockedVoiceLang,
+    isLocked: true,
+  };
+}
+
+/**
  * Cleans leaked internal metadata or stray Devanagari characters from formatted screen Markdown
  * while preserving headings, bold markers, bullet/numbered lists, tables, and line breaks.
  */
@@ -235,7 +279,7 @@ ${buildProfileContextBlock(farmerProfile)}`;
 /**
  * Builds the dual-output system prompt:
  * - `screen_text`: Full adaptive depth (from 1-line simple answer up to complete step-by-step Markdown guide)
- * - `spoken_text`: Clean, concise TTS narration (2 to 4 short sentences in the target spoken language)
+ * - `spoken_text`: Exact spoken equivalent of `screen_text` in the target spoken language with Markdown removed
  */
 export function buildMasterVoiceDualPrompt(
   screenMode: AdvisorLanguageMode,
@@ -244,10 +288,10 @@ export function buildMasterVoiceDualPrompt(
 ): string {
   const spokenRule =
     spokenLang === 'sd'
-      ? `Write "spoken_text" in natural everyday rural Pakistani Sindhi Perso-Arabic script (ڀ ٻ ڄ ڃ ڇ ڏ ڊ ڌ ڍ ڙ ڦ ڪ ڳ ڱ ڻ ٿ ٺ ٽ ي ه). No Urdu or Hindi words.`
+      ? `Write both "screen_text" and "spoken_text" strictly in natural everyday rural Pakistani Sindhi Perso-Arabic script (ڀ ٻ ڄ ڃ ڇ ڏ ڊ ڌ ڍ ڙ ڦ ڪ ڳ ڱ ڻ ٿ ٺ ٽ ي ه). NEVER answer in English or Urdu even if the farmer used English crop or fertilizer terms.`
       : spokenLang === 'ur'
       ? `Write "spoken_text" strictly in pure conversational Pakistani Urdu Perso-Arabic script (NO Roman Urdu letters, NO Hindi words, polite female advisor grammar like "بتا سکتی ہوں" / "کریں").`
-      : `Write "spoken_text" in natural, warm conversational Pakistani English.`;
+      : `Write both "screen_text" and "spoken_text" strictly in natural, warm conversational Pakistani English.`;
 
   return `You are "Zarkhez" (زرخیز) — an elite AI agricultural scientist, patient teacher, and caring farming advisor speaking with a farmer in Pakistan.
 
@@ -258,11 +302,10 @@ ${buildLanguageDirective(screenMode)}
 
 ${CORE_PEDAGOGY_RULES}
 
-### PART 2 — "spoken_text" (AUDIO NARRATION FOR TEXT-TO-SPEECH):
+### PART 2 — "spoken_text" (EXACT SPOKEN MIRROR FOR TEXT-TO-SPEECH):
 - ${spokenRule}
-- Answer ONLY the key actionable takeaway aloud in 2 to 4 short sentences with gentle commas so audio plays smoothly without awkward pauses.
-- If "screen_text" is a detailed multi-stage guide, summarize the core practical takeaway warmly in 2 to 4 short sentences and briefly mention that the full step-by-step guide with details is shown on screen.
-- Strictly NO markdown symbols (#, *, _, |, \`), NO bullet numbers, NO colons, NO emojis, and spell small numbers out cleanly in words inside "spoken_text".
+- "spoken_text" MUST voice the EXACT same answer, steps, quantities, and advice shown in "screen_text" in the same order — NEVER summarize into a vague teaser, NEVER invent extra sentences, and NEVER say "the full guide is shown on screen".
+- Strip Markdown symbols (#, *, _, |, \`), emojis, and bullet formatting inside "spoken_text", turning headings, list items, and table rows into smooth spoken clauses with gentle commas and periods.
 - Keep "language" set to "${spokenLang}".
 ${buildProfileContextBlock(farmerProfile)}`;
 }
@@ -985,6 +1028,9 @@ export function generateAdaptiveFallbackReply(
     if (mode === 'ur-script') {
       return `سپرے سے پہلے موسم دیکھنا بہت ضروری ہے۔${weatherNote}\n1. سپرے تب کریں جب ہوا 5 m/s سے کم ہو اور اگلے 24 گھنٹوں میں بارش کا امکان کم ہو۔\n2. صبح شبنم خشک ہونے کے بعد یا شام ٹھنڈے وقت سپرے کریں، تیز دھوپ میں نہیں۔\n3. حفاظتی ماسک اور دستانے پہنیں اور لیبل کی ہدایت کے مطابق عمل کریں۔`;
     }
+    if (mode === 'sd') {
+      return `اسپري کان اڳ موسم ڏسڻ تمام ضروري آهي.${weatherNote}\n1. اسپري تڏهن ڪريو جڏهن هوا پنج ميٽر في سيڪنڊ کان گهٽ هجي ۽ ايندڙ چوويهن ڪلاڪن ۾ برسات جو امڪان نه هجي.\n2. صبح جو ماڪ سڪڻ کان پوءِ يا شام جو ٿڌي وقت اسپري ڪريو، تيز اس ۾ هرگز نه ڪريو.\n3. حفاظتي ماسڪ ۽ دستانا پائي بوتل جي هدايت موجب عمل ڪريو.`;
+    }
     return `Reviewing weather parameters before spraying protects both your investment and crop.${weatherNote}\n1. Only spray when wind speed is below 5 m/s and 24-hour rain probability is under 40%.\n2. Spray in early morning after dew evaporates or in late afternoon — never in peak midday heat.\n3. Wear protective gloves and a mask, keeping nozzles calibrated to target foliage.`;
   }
 
@@ -1004,6 +1050,9 @@ export function generateAdaptiveFallbackReply(
   ) {
     if (mode === 'ur-script') {
       return `متوازن کھاد اچھی پیداوار کی ضمانت ہے:\n1. **ڈی اے پی (DAP)** اور **پوٹاش (SOP)** بوائی کے وقت زمین میں ملائیں تاکہ جڑیں مضبوط بنیں۔\n2. **یوریا (Urea)** ایک ساتھ نہ ڈالیں بلکہ آبپاشی کے ساتھ 2 سے 3 قسطوں میں دیں۔\n3. اپنی زمین اور ایکڑ کے مطابق مقدار دیکھنے کے لیے **Fertilizer Calculator** استعمال کریں۔`;
+    }
+    if (mode === 'sd') {
+      return `متوازن ڀاڻ سٺي پيداوار جي ضمانت آهي:\n1. **ڊي اي پي (DAP)** ۽ **پوٽاش (SOP)** پوک وقت زمين ۾ ملايو ته جيئن پاڙون مضبوط ٿين.\n2. **يوريا (Urea)** هڪ ئي وقت نه وجهو، بلڪه پاڻيءَ سان گڏ ٻن کان ٽن قسطن ۾ ڏيو.\n3. پنهنجي زمين ۽ ايڪڙ موجب صحيح مقدار ڏسڻ لاءِ زرخيز ايپ جو **Fertilizer Calculator** استعمال ڪريو.`;
     }
     if (mode === 'roman-ur') {
       return `Mutawazan khad (balanced nutrition) hi bharpoor paidawar ki zamanat hai.\n1. DAP aur Potash (SOP) hamesha zameen ki tayari ya bijai ke waqt dein taake poday ki jarein mazboot banein.\n2. Urea ko hamesha 2 se 3 hisson mein taqseem kar ke aabpashi ke sath dein, kabhi bhi saari Urea ek sath na dalain.\n3. Apni zameen aur acre ke hisab se exact miqdaar janne ke liye Zarkhez app ka "Fertilizer Calculator" use karein.`;
@@ -1026,6 +1075,9 @@ export function generateAdaptiveFallbackReply(
     if (mode === 'ur-script') {
       return 'منڈی کے ریٹ روزانہ ہر شہر میں بدلتے رہتے ہیں۔ تصدیق شدہ ریٹ کے لیے مقامی غلہ منڈی کمیٹی یا سرکاری زرعی پورٹل سے چیک کریں — میں غلط یا فرضی قیمت نہیں بتاتا۔';
     }
+    if (mode === 'sd') {
+      return 'منڊي جا اگهه روزانو هر شهر ۾ بدلجندا رهندا آهن. پڪي قيمت لاءِ مقامي غله منڊي ڪميٽي يا سرڪاري زرعي پورٽل تان پڇو، ته جيئن ڪنهن غلط اندازي کان نقصان نه ٿئي.';
+    }
     if (mode === 'roman-ur') {
       return `Mandi ke daily rates har shehar mein ghanta-ba-ghanta tabdeel hotay rehtay hain aur verified real-time rate ke liye local ghalla mandi committee ya official portal se check karna zaroori hai. Main ghalat ya farzi qeemat bata kar aap ko nuqsaan nahi pohanchana chahta.\nFasal ki kheti, bimari ya khad ke baare mein koi bhi sawal poochiye!`;
     }
@@ -1038,6 +1090,9 @@ export function generateAdaptiveFallbackReply(
   ) {
     if (mode === 'en') {
       return `Got it — I've noted **${resolvedContext.acres || 'your field'}** in **${resolvedContext.region}** (for **${resolvedContext.crop}**).\n\nWhat would you like to plan next: soil preparation, sowing timing, fertilizer schedule, or irrigation dates?`;
+    }
+    if (mode === 'sd') {
+      return `ٺيڪ آهي، مون **${resolvedContext.region}** ۾ اوهان جي زمين (${resolvedContext.acres || 'ٻني'}) ۽ فصل (**${resolvedContext.crop}**) نوٽ ڪري ڇڏيو آهي. هاڻي اوهان زمين جي تياري، پوک جي وقت، ڀاڻ يا پاڻي بابت ڇا ڄاڻڻ چاهيو ٿا؟`;
     }
     if (mode === 'ur-script') {
       return `بہت خوب — میں نے **${resolvedContext.region}** میں آپ کا رقبہ (${resolvedContext.acres || 'کھیت'}) ذہن میں رکھ لیا ہے۔ اب آپ **${resolvedContext.crop}** کی بوائی، کھاد یا پانی کے بارے میں کیا جاننا چاہتے ہیں؟`;
@@ -1060,94 +1115,51 @@ export function generateAdaptiveFallbackReply(
 /**
  * Generates dual offline output:
  * - `screenText`: Rich adaptive guide in the user's actual language/script
- * - `spokenText`: Concise, digit/symbol-free 2-4 sentence TTS narration in the target spoken language
+ * - `spokenText`: Exact spoken mirror of `screenText` without Markdown syntax or mismatching filler
  */
 export function generateAdaptiveSpokenDualFallback(
   question: string,
   voiceLang: VoiceLang,
   context?: AdvisorFarmerProfile,
-  history?: ChatHistoryTurn[]
+  history?: ChatHistoryTurn[],
+  explicitVoiceLang = false
 ): { screenText: string; spokenText: string; language: VoiceLang } {
-  const modeInfo = detectUserLanguageMode(question, voiceLang, undefined, history);
-  const effectiveVoiceLang = voiceLang === 'sd' || modeInfo.mode === 'sd' ? 'sd' : modeInfo.voiceLang;
+  const { mode: screenMode, voiceLang: effectiveVoiceLang } =
+    resolveAdvisorLanguageSelection({
+      text: question,
+      voiceLang,
+      history,
+      explicitVoiceLang,
+    });
 
   const screenText = generateAdaptiveFallbackReply(
     question,
     effectiveVoiceLang === 'en' ? 'en' : 'ur',
     context,
     history,
-    modeInfo.mode
+    screenMode
   );
 
-  // Build concise, clean, TTS-friendly spoken summary matching VoiceLang & digit-free rules
+  // For English, Sindhi, and Urdu script, spokenText strictly mirrors screenText 1:1 with Markdown flattened
+  if (screenMode !== 'roman-ur') {
+    const exactSpoken = convertMarkdownReplyToSpokenText(screenText, effectiveVoiceLang);
+    return {
+      screenText,
+      spokenText: exactSpoken || screenText,
+      language: effectiveVoiceLang,
+    };
+  }
+
+  // Only when screenText is Roman Urdu (ur mode with Latin text) do we emit Perso-Arabic Urdu narration
   const q = question.toLowerCase();
   let spokenText = '';
 
   if (/^(?:what\s+is\s+)?(\d+)\s*\+\s*(\d+)\s*\??$/i.test(question.trim())) {
     const m = question.trim().match(/^(?:what\s+is\s+)?(\d+)\s*\+\s*(\d+)\s*\??$/i)!;
     const ans = Number(m[1]) + Number(m[2]);
-    spokenText =
-      effectiveVoiceLang === 'ur'
-        ? `اس کا جواب ${ans} ہے۔`
-        : effectiveVoiceLang === 'sd'
-        ? `ان جو جواب ${ans} آهي.`
-        : `The answer is ${ans}.`;
-    return { screenText, spokenText, language: effectiveVoiceLang };
+    return { screenText, spokenText: `اس کا جواب ${ans} ہے۔`, language: 'ur' };
   }
 
-  if (effectiveVoiceLang === 'sd') {
-    if (/پاڻي|water|pani|irrigat|آبپاشي/.test(q)) {
-      spokenText =
-        'ڪڻڪ کي پهريون پاڻي پوک کان ويهن کان پنجويهن ڏينهن کان پوءِ ڏيو، ڇو ته ان وقت پاڙون مضبوط ٿينديون آهن. گڏوگڏ يوريا ڀاڻ جو پهريون حصو به ڏيو. ڇا اوهان جي زمين وارياسي آهي يا پڪي؟';
-    } else if (/اسپري|spray|موسم|weather|هوا|برسات|rain/.test(q)) {
-      spokenText =
-        'اسپري تڏهن ڪريو جڏهن هوا هلڪي هجي ۽ برسات جو خطرو نه هجي. تيز اس ۾ اسپري نه ڪريو ته جيئن دوا ضايع نه ٿئي. ڇا اڄ اوهان جي علائقي ۾ هوا تيز آهي؟';
-    } else if (/ڀاڻ|يوريا|ڊي اي پي|fertilizer|urea|dap|khad/.test(q)) {
-      spokenText =
-        'پوک وقت ڊي اي پي ۽ پوٽاش زمين ۾ ملايو، ۽ يوريا ڀاڻ ٻن يا ٽن حصن ۾ پاڻيءَ سان گڏ ڏيو. ان سان ڀاڻ ضايع نه ٿيندو. اوهان ڪهڙي فصل لاءِ پڇي رهيا آهيو؟';
-    } else if (/بيمار|پن|داغ|پيل|جيت|leaf|curl|blast|rust|yellow/.test(q)) {
-      spokenText =
-        'پنن جي صحيح سڃاڻپ لاءِ ڏينهن جي روشنيءَ ۾ هڪ متاثر پن جي صاف تصوير ڪڍي اسڪين ڪريو. ڪنهن به دوا کان اڳ علائقي جي زرعي آفيسر کان صلاح وٺو. ڇا هيءَ علامت پوري ٻنيءَ ۾ آهي يا ڪجهه ٻوٽن تي؟';
-    } else {
-      spokenText =
-        'السلام عليڪم هاري ڀاءُ! مڪمل تفصيل اسڪرين تي موجود آهي. اوهان پنهنجي فصل، زمين، پاڻي يا ڀاڻ بابت وڌيڪ پڇي سگهو ٿا.';
-    }
-    return { screenText, spokenText, language: 'sd' };
-  }
-
-  if (effectiveVoiceLang === 'en') {
-    if (/wheat.*grow|complete process|nothing about farming/i.test(q)) {
-      spokenText =
-        "To grow wheat from scratch, sow certified seed in November into moist, well-plowed and leveled soil, mixing DAP at sowing. Apply the first irrigation after twenty to twenty-five days along with split urea, and protect the crop through heading and golden harvest. You'll find the complete beginner step-by-step guide right on your screen — let me know your district and soil type so I can tailor it further.";
-    } else if (/yellow|peel|leaf|curl|blast|rust|disease|pest|spot/.test(q)) {
-      spokenText =
-        "Yellowing leaves can come from excess standing water, nitrogen or zinc deficiency, pests, or leaf disease, so check your soil moisture and both sides of a few leaves before spraying. I've listed a full step-by-step check on your screen. Which crop is this, and are bottom or top leaves yellowing first?";
-    } else if (/prepare.*land|land prep|seedbed/i.test(q)) {
-      spokenText =
-        "Prepare your land when soil moisture feels workable without sticking like mud, plowing two to three times and leveling with a plank so water spreads evenly. Avoid working muddy ground so soil doesn't harden around young roots. Full steps are on your screen — which crop are you planting?";
-    } else if (/dap.*urea|urea.*dap/i.test(q)) {
-      spokenText =
-        'Think of DAP as root food applied at sowing time, while urea gives green leaf and stem growth when split across irrigations. I broke down both fertilizers with timing and common mistakes right on your screen. Which crop are you fertilizing?';
-    } else if (/wheat.*barley|barley.*wheat/i.test(q)) {
-      spokenText =
-        "Choose wheat if you have good soil and steady water for an easy market crop, or choose barley if water is scarce or your soil is sandy or mildly salty. I've put a clear side-by-side table on your screen. What is your soil and irrigation setup like?";
-    } else if (/water|irrigat|pani/.test(q)) {
-      spokenText =
-        "Give wheat its first watering twenty to twenty-five days after sowing when crown roots are forming, right along with your first split of urea. Just skip irrigation if strong winds are blowing so the crop stays upright. What's your soil type like?";
-    } else if (/spray|weather|rain|wind|hawa/.test(q)) {
-      spokenText =
-        "Spray only when the wind is calm and there's no rain expected for several hours. Early morning after dew dries, or late afternoon, works best so the spray settles well on the leaves. Which pest or disease are you planning to treat?";
-    } else if (/fertilizer|urea|dap|khad|potash/.test(q)) {
-      spokenText =
-        "Mix DAP and potash into the soil at sowing, then split your urea into two or three doses with irrigation so nutrients don't wash away. That way your crop gets steady growth and better yield. Which crop are you feeding right now?";
-    } else {
-      spokenText =
-        "I've shared practical guidance on your screen tailored to your question. Feel free to share your city, soil type, or crop stage if you'd like exact next steps.";
-    }
-    return { screenText, spokenText, language: 'en' };
-  }
-
-  // Urdu script spoken_text (for both 'ur-script' and 'roman-ur' TTS compatibility)
   if (/پانی|آبپاشی|water|pani|irrigat/.test(q)) {
     spokenText =
       'گندم کو پہلا پانی بجائی کے بیس سے پچیس دن بعد لگائیں، کیونکہ اسی وقت پودے کی جڑیں مضبوط ہو رہی ہوتی ہیں۔ ساتھ ہی یوریا کھاد کی پہلی قسط دے دیں، اور اگر تیز ہوا چل رہی ہو تو پانی روک لیں۔ کیا آپ کی زمین ریتلی ہے یا چکنی؟';
@@ -1159,12 +1171,11 @@ export function generateAdaptiveSpokenDualFallback(
       'بوائی کے وقت ڈی اے پی اور پوٹاش زمین میں ملائیں، اور یوریا کھاد ایک ساتھ ڈالنے کے بجائے دو یا تین حصوں میں پانی کے ساتھ دیں تاکہ خوراک ضائع نہ ہو اور پیداوار بہتر آئے۔ آپ یہ کھاد کس فصل کے لیے پوچھ رہے ہیں؟';
   } else if (/پت|بیمار|مڑ|کنگی|دھب|تیل|پیل|leaf|curl|blast|rust|peela|sukr|keera|yellow/.test(q)) {
     spokenText =
-      'صحیح پہچان کے لیے پہلے مٹی کی نمی اور پتوں کی اوپر نیچے جانچ کریں اور دن کی روشنی میں واضح تصویر لے کر اسکین کر لیں۔ کسی بھی زہر کے سپرے سے پہلے قریبی زرعی ماہر سے ضرور پوچھ لیں۔ مکمل تفصیل اسکرین پر موجود ہے۔';
+      'صحیح پہچان کے لیے پہلے مٹی کی نمی اور پتوں کی اوپر نیچے جانچ کریں اور دن کی روشنی میں واضح تصویر لے کر اسکین کر لیں۔ کسی بھی زہر کے سپرے سے پہلے قریبی زرعی ماہر سے ضرور پوچھ لیں۔';
   } else {
-    spokenText =
-      transliterateCommonRomanUrduToUrdu(
-        'تفصیلی اور آسان رہنمائی اسکرین پر موجود ہے۔ مزید درست مشورے کے لیے اپنا ضلع، مٹی اور فصل کا نام بتا دیجیے۔'
-      );
+    spokenText = transliterateCommonRomanUrduToUrdu(
+      convertMarkdownReplyToSpokenText(screenText, 'ur')
+    );
   }
 
   return { screenText, spokenText, language: 'ur' };

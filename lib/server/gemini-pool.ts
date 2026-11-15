@@ -65,6 +65,7 @@ export interface AccountRuntimeState {
 interface PoolMemoryStore {
   projects: Map<string, ProjectRuntimeState>;
   accounts: Map<string, AccountRuntimeState>;
+  modelCooldowns: Map<string, number>;
 }
 
 const GLOBAL_POOL_KEY = '__ZARKHEZ_GEMINI_POOL_STATE_V1__';
@@ -78,11 +79,20 @@ const PLACEHOLDER_KEY_PATTERNS = [
   /^AIzaSyXXXX/i,
 ];
 
+const EXPLICIT_RPM_RX =
+  /\b(?:per[\s_-]*minute|rpm|tpm|requests[\s_-]*per[\s_-]*minute|tokens[\s_-]*per[\s_-]*minute|Please retry in \d)|PerMinute/i;
+
+const PER_MODEL_QUOTA_RX =
+  /PerModel|quotaDimensions[\s\S]{0,160}"model"\s*:\s*"|limit:\s*\d+\s*,\s*model:\s*gemini-/i;
+
 const DAILY_QUOTA_OR_BILLING_RX =
-  /\b(?:per[\s_-]*day|daily|rpd|requests[\s_-]*per[\s_-]*day|spending[\s_-]*limit|billing|plan and billing|exceeded your current quota|quota exceeded for quota metric.*day)\b/i;
+  /\b(?:per[\s_-]*day|daily|rpd|requests[\s_-]*per[\s_-]*day|quota exceeded for quota metric.*day)|PerDay/i;
 
 const BILLING_LIMIT_RX =
-  /\b(?:billing|spending[\s_-]*limit|payment|account[\s_-]*suspended|delinquent)\b/i;
+  /\b(?:spending[\s_-]*limit|billing[\s_-]*account|enable billing|payment|account[\s_-]*suspended|delinquent|hard cap)\b/i;
+
+const GENERIC_QUOTA_RX =
+  /\b(?:exceeded your current quota|check (?:your )?billing|quota exhausted)\b/i;
 
 function getPoolStore(): PoolMemoryStore {
   const g = globalThis as unknown as Record<string, PoolMemoryStore | undefined>;
@@ -90,7 +100,10 @@ function getPoolStore(): PoolMemoryStore {
     g[GLOBAL_POOL_KEY] = {
       projects: new Map<string, ProjectRuntimeState>(),
       accounts: new Map<string, AccountRuntimeState>(),
+      modelCooldowns: new Map<string, number>(),
     };
+  } else if (!g[GLOBAL_POOL_KEY]!.modelCooldowns) {
+    g[GLOBAL_POOL_KEY]!.modelCooldowns = new Map<string, number>();
   }
   return g[GLOBAL_POOL_KEY]!;
 }
@@ -452,6 +465,7 @@ export function classifyGeminiHttpFailure(
   category:
     | 'auth_failed'
     | 'rpm_temporary'
+    | 'model_quota_exhausted'
     | 'daily_quota_exhausted'
     | 'billing_limit'
     | 'model_not_found'
@@ -462,10 +476,11 @@ export function classifyGeminiHttpFailure(
   allowAccountFailover: boolean;
   sanitizedReason: string;
 } {
-  const safeText = redactSecrets(errorBodyText || '').slice(0, 320);
+  const fullText = redactSecrets(errorBodyText || '').slice(0, 1800);
+  const safeText = fullText.slice(0, 320);
 
   if (status === 401 || status === 403) {
-    if (BILLING_LIMIT_RX.test(safeText)) {
+    if (BILLING_LIMIT_RX.test(fullText)) {
       return {
         category: 'billing_limit',
         code: 'BILLING_OR_SPENDING_LIMIT',
@@ -485,8 +500,41 @@ export function classifyGeminiHttpFailure(
 
   if (status === 429) {
     const retryMs = parseRetryAfterMs(retryAfterHeader, nowMs);
-    const isBilling = BILLING_LIMIT_RX.test(safeText);
-    const isDailyQuota = DAILY_QUOTA_OR_BILLING_RX.test(safeText);
+    const isDailyQuota = DAILY_QUOTA_OR_BILLING_RX.test(fullText);
+    const isPerModelQuota = PER_MODEL_QUOTA_RX.test(fullText);
+    const isExplicitRpm = EXPLICIT_RPM_RX.test(fullText);
+    const isBilling = BILLING_LIMIT_RX.test(fullText);
+    const isGenericQuota = GENERIC_QUOTA_RX.test(fullText);
+
+    if (isDailyQuota && isPerModelQuota) {
+      return {
+        category: 'model_quota_exhausted',
+        code: 'QUOTA_EXHAUSTED',
+        cooldownMs: 3_600_000,
+        allowAccountFailover: false,
+        sanitizedReason: 'Selected Gemini model daily limit reached [429]',
+      };
+    }
+
+    if (isDailyQuota) {
+      return {
+        category: 'daily_quota_exhausted',
+        code: 'QUOTA_EXHAUSTED',
+        cooldownMs: 3_600_000,
+        allowAccountFailover: false,
+        sanitizedReason: 'Daily project quota exhausted [429]',
+      };
+    }
+
+    if (isExplicitRpm) {
+      return {
+        category: 'rpm_temporary',
+        code: 'RATE_LIMITED',
+        cooldownMs: retryMs ?? 30_000,
+        allowAccountFailover: true,
+        sanitizedReason: 'Temporary per-minute rate limit (RPM/TPM) [429]',
+      };
+    }
 
     if (isBilling) {
       return {
@@ -498,13 +546,13 @@ export function classifyGeminiHttpFailure(
       };
     }
 
-    if (isDailyQuota) {
+    if (isGenericQuota) {
       return {
         category: 'daily_quota_exhausted',
         code: 'QUOTA_EXHAUSTED',
         cooldownMs: 3_600_000,
         allowAccountFailover: false,
-        sanitizedReason: 'Daily project quota exhausted [429]',
+        sanitizedReason: 'Project quota exhausted [429]',
       };
     }
 
@@ -872,6 +920,22 @@ export async function executeGeminiWithFailover(
       if (remainingBudget < 2000 && attempts > 0) break;
 
       const candidateModel = models[mIdx];
+      const modelCooldownKey = `${account.effectiveProjectId}::${candidateModel}`;
+      const modelCooldownUntil = getPoolStore().modelCooldowns.get(modelCooldownKey) ?? 0;
+      if (modelCooldownUntil > getCurrentPoolNow()) {
+        lastFailure = {
+          ok: false,
+          category: 'quota_exhausted',
+          statusCode: 429,
+          code: 'QUOTA_EXHAUSTED',
+          retryable: mIdx < models.length - 1 || !isLastEligibleAccount,
+          message: 'Selected Gemini model daily limit reached [429]',
+          attempts,
+          slotsTried,
+        };
+        continue;
+      }
+
       const modelBudget = candidateModel.includes('-lite')
         ? Math.min(perCallTimeoutMs, 10_000)
         : perCallTimeoutMs;
@@ -948,6 +1012,29 @@ export async function executeGeminiWithFailover(
               continue;
             }
             return lastFailure;
+          }
+
+          // Per-model free-tier daily quota only affects this specific model on this project:
+          // cache per-model cooldown cleanly without penalizing the healthy account/project, then cascade to fallback model.
+          if (classified.category === 'model_quota_exhausted') {
+            getPoolStore().modelCooldowns.set(
+              `${account.effectiveProjectId}::${candidateModel}`,
+              getCurrentPoolNow() + classified.cooldownMs
+            );
+            lastFailure = {
+              ok: false,
+              category: 'quota_exhausted',
+              statusCode: 429,
+              code: 'QUOTA_EXHAUSTED',
+              retryable: mIdx < models.length - 1 || !isLastEligibleAccount,
+              message: classified.sanitizedReason,
+              attempts,
+              slotsTried,
+            };
+            if (mIdx < models.length - 1) {
+              continue;
+            }
+            break;
           }
 
           // Update unified health/quota store

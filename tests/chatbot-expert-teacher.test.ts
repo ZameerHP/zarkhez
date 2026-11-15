@@ -230,6 +230,35 @@ async function runTests() {
       assert.ok(dualJson.screenText.includes('## Step 1: Soil & Moisture'), 'Preserves Markdown headings in screenText');
       assert.ok(dualJson.screenText.includes('| DAP | Sowing |'), 'Preserves Markdown table in screenText');
       assert.ok(!dualJson.spokenText.includes('##') && !dualJson.spokenText.includes('|'), 'Spoken audio stays free of Markdown noise');
+      assert.ok(
+        dualJson.spokenText.includes('Step 1') && dualJson.spokenText.includes('DAP'),
+        'Spoken text faithfully mirrors screen text content 1:1 instead of diverging'
+      );
+
+      // 8c. Explicit Sindhi lock (سنڌي pill) stays strictly Sindhi even when prompt is in English
+      const sdReq = new NextRequest('http://localhost/api/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-forwarded-for': '10.12.34.57' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: 'How do I prepare soil for wheat?' }],
+          lang: 'ur',
+          voiceLang: 'sd',
+          voiceMode: true,
+          explicitVoiceLang: true,
+        }),
+      });
+      const sdRes = await chatRoutePost(sdReq);
+      assert.equal(sdRes.status, 200);
+      const sdJson = (await sdRes.json()) as {
+        screenText: string;
+        spokenText: string;
+        language: string;
+      };
+      assert.equal(sdJson.language, 'sd', 'Explicit Sindhi selection must lock reply to sd even for English questions');
+      const sdSysInst = JSON.stringify(
+        capturedBodies[1].system_instruction || capturedBodies[1].systemInstruction || ''
+      );
+      assert.ok(sdSysInst.includes('SINDHI SCRIPT'), 'System instruction enforces Sindhi script when locked');
 
       const genConfigDual = capturedBodies[0].generationConfig as Record<string, unknown>;
       assert.equal(genConfigDual.maxOutputTokens, 4096, 'Dual reply unlocks full 4096 output tokens');
@@ -241,7 +270,7 @@ async function runTests() {
         'en'
       );
       assert.ok(streamReply.includes('## Step 1: Soil & Moisture'));
-      const genConfigStream = capturedBodies[1].generationConfig as Record<string, unknown>;
+      const genConfigStream = capturedBodies[2].generationConfig as Record<string, unknown>;
       assert.equal(genConfigStream.response_mime_type, undefined, 'Plain chat mode must not force application/json');
       assert.equal(genConfigStream.maxOutputTokens, 4096, 'Stream chat uses 4096 output tokens');
     } finally {
@@ -265,7 +294,7 @@ async function runTests() {
 
     const dualPromptUr = buildVoiceAdvisorPrompt('ur', { district: 'Multan', crop: 'wheat' }, 'ur-script');
     assert.ok(dualPromptUr.includes('Pakistani Urdu Perso-Arabic script'));
-    assert.ok(dualPromptUr.includes('2 to 4 short sentences'));
+    assert.ok(dualPromptUr.includes('EXACT same answer'));
 
     // Also test direct partial rescue check via generateVoiceDualReply when no keys set falls back cleanly
     assert.equal(typeof generateVoiceDualReply, 'function');

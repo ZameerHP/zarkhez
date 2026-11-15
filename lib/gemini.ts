@@ -27,6 +27,7 @@ import {
 } from './server/vision-schemas';
 import {
   cleanTechnicalMetadataForSpeech,
+  convertMarkdownReplyToSpokenText,
   looksLikeRomanUrdu,
   transliterateCommonRomanUrduToUrdu,
 } from './voice/speech-prep';
@@ -36,9 +37,9 @@ import {
   buildMasterAdvisorPrompt,
   buildMasterVoiceDualPrompt,
   cleanScreenAdvisorText,
-  detectUserLanguageMode,
   generateAdaptiveFallbackReply,
   generateAdaptiveSpokenDualFallback,
+  resolveAdvisorLanguageSelection,
 } from './advisor-prompt';
 
 /**
@@ -226,32 +227,37 @@ export function generateSpokenFallbackChatReply(
   question: string,
   voiceLang: 'ur' | 'sd' | 'en',
   context?: { crop?: string; region?: string; weatherSummary?: string },
-  history?: ChatHistoryTurn[]
+  history?: ChatHistoryTurn[],
+  explicitVoiceLang = false
 ): { screenText: string; spokenText: string; language: 'ur' | 'sd' | 'en' } {
+  const { voiceLang: effectiveLang } = resolveAdvisorLanguageSelection({
+    text: question,
+    voiceLang,
+    history,
+    explicitVoiceLang,
+  });
   if (isPureGreeting(question)) {
-    return buildGreetingReply(voiceLang);
+    return buildGreetingReply(effectiveLang);
   }
-  return generateAdaptiveSpokenDualFallback(question, voiceLang, context, history);
+  return generateAdaptiveSpokenDualFallback(
+    question,
+    voiceLang,
+    context,
+    history,
+    explicitVoiceLang
+  );
 }
 
-function summarizeMarkdownForSpeech(
+function convertScreenReplyForSpeech(
   screenText: string,
   spokenLang: 'ur' | 'sd' | 'en'
 ): string {
-  const cleaned = cleanTechnicalMetadataForSpeech(screenText);
-  if (!cleaned) return '';
-  const sentences = cleaned
-    .split(/(?<=[۔.!?؟])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  let summary = sentences.slice(0, 3).join(' ');
-  if (summary.length > 360) {
-    summary = summary.slice(0, 357).replace(/\s+\S*$/, '') + (spokenLang === 'en' ? '.' : '۔');
+  const converted = convertMarkdownReplyToSpokenText(screenText, spokenLang);
+  if (!converted) return '';
+  if (spokenLang === 'ur' && looksLikeRomanUrdu(converted)) {
+    return transliterateCommonRomanUrduToUrdu(converted);
   }
-  if (spokenLang === 'ur' && looksLikeRomanUrdu(summary)) {
-    summary = transliterateCommonRomanUrduToUrdu(summary);
-  }
-  return summary;
+  return converted;
 }
 
 function extractRescuedScreenText(rawJsonLike: string): string {
@@ -280,23 +286,23 @@ export async function generateVoiceDualReply(
     acres?: number;
     weatherSummary?: string;
   },
-  voiceLang: 'ur' | 'sd' | 'en' = 'ur'
+  voiceLang: 'ur' | 'sd' | 'en' = 'ur',
+  explicitVoiceLang = false
 ): Promise<{ screenText: string; spokenText: string; language: 'ur' | 'sd' | 'en' }> {
   const lastUserMsg =
     [...messages].reverse().find((m) => m.role === 'user')?.content || '';
 
-  if (isPureGreeting(lastUserMsg)) {
-    return buildGreetingReply(voiceLang);
-  }
+  const { mode: effectiveScreenMode, voiceLang: resolvedVoiceLang } =
+    resolveAdvisorLanguageSelection({
+      text: lastUserMsg,
+      voiceLang,
+      history: messages,
+      explicitVoiceLang,
+    });
 
-  const detected = detectUserLanguageMode(
-    lastUserMsg,
-    voiceLang,
-    undefined,
-    messages
-  );
-  const resolvedVoiceLang =
-    voiceLang === 'sd' || detected.mode === 'sd' ? 'sd' : detected.voiceLang;
+  if (isPureGreeting(lastUserMsg)) {
+    return buildGreetingReply(resolvedVoiceLang);
+  }
 
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
@@ -304,7 +310,8 @@ export async function generateVoiceDualReply(
       lastUserMsg,
       resolvedVoiceLang,
       farmerProfile,
-      messages
+      messages,
+      explicitVoiceLang
     );
   }
 
@@ -312,7 +319,7 @@ export async function generateVoiceDualReply(
   const systemInstruction = buildVoiceAdvisorPrompt(
     resolvedVoiceLang,
     farmerProfile,
-    detected.mode
+    effectiveScreenMode
   );
   const geminiContents = messages.map((m) => ({
     role: m.role === 'assistant' ? ('model' as const) : ('user' as const),
@@ -347,11 +354,19 @@ export async function generateVoiceDualReply(
       let spokenText = cleanTechnicalMetadataForSpeech(
         String(obj.spoken_text || obj.spokenText || obj.speech || '')
       );
-      if (resolvedVoiceLang === 'ur' && looksLikeRomanUrdu(spokenText)) {
-        spokenText = transliterateCommonRomanUrduToUrdu(spokenText);
-      }
-      if (!spokenText && screenText) {
-        spokenText = summarizeMarkdownForSpeech(screenText, resolvedVoiceLang);
+      if (effectiveScreenMode !== 'roman-ur' && screenText) {
+        // Keep audio 100% faithful to the actual text shown on screen
+        const exactScreenSpeech = convertScreenReplyForSpeech(screenText, resolvedVoiceLang);
+        if (exactScreenSpeech) {
+          spokenText = exactScreenSpeech;
+        }
+      } else {
+        if (resolvedVoiceLang === 'ur' && looksLikeRomanUrdu(spokenText)) {
+          spokenText = transliterateCommonRomanUrduToUrdu(spokenText);
+        }
+        if (!spokenText && screenText) {
+          spokenText = convertScreenReplyForSpeech(screenText, resolvedVoiceLang);
+        }
       }
       const hasLeakedPrompt = /PART 1 —|PART 2 —|STRICT JSON ONLY|Read strictly/i.test(
         `${screenText} ${spokenText}`
@@ -359,7 +374,7 @@ export async function generateVoiceDualReply(
       if ((screenText || spokenText) && !hasLeakedPrompt) {
         return {
           screenText: screenText || spokenText,
-          spokenText: spokenText || summarizeMarkdownForSpeech(screenText, resolvedVoiceLang),
+          spokenText: spokenText || convertScreenReplyForSpeech(screenText, resolvedVoiceLang),
           language: resolvedVoiceLang,
         };
       }
@@ -368,7 +383,7 @@ export async function generateVoiceDualReply(
     // Rescue partial JSON screen_text if response truncated slightly before spoken_text closed
     const rescuedScreen = extractRescuedScreenText(text);
     if (rescuedScreen) {
-      const rescuedSpoken = summarizeMarkdownForSpeech(rescuedScreen, resolvedVoiceLang);
+      const rescuedSpoken = convertScreenReplyForSpeech(rescuedScreen, resolvedVoiceLang);
       return {
         screenText: rescuedScreen,
         spokenText: rescuedSpoken || cleanTechnicalMetadataForSpeech(rescuedScreen),
@@ -381,7 +396,9 @@ export async function generateVoiceDualReply(
     if (cleanedPlain && !looksLikeBrokenJson) {
       return {
         screenText: cleanedPlain,
-        spokenText: summarizeMarkdownForSpeech(cleanedPlain, resolvedVoiceLang) || cleanTechnicalMetadataForSpeech(cleanedPlain),
+        spokenText:
+          convertScreenReplyForSpeech(cleanedPlain, resolvedVoiceLang) ||
+          cleanTechnicalMetadataForSpeech(cleanedPlain),
         language: resolvedVoiceLang,
       };
     }
@@ -393,7 +410,8 @@ export async function generateVoiceDualReply(
     lastUserMsg,
     resolvedVoiceLang,
     farmerProfile,
-    messages
+    messages,
+    explicitVoiceLang
   );
 }
 
@@ -1134,17 +1152,19 @@ export async function streamGeminiChatResponse(
     weatherSummary?: string;
   },
   lang: 'en' | 'ur' = 'ur',
-  voiceLang?: 'ur' | 'sd' | 'en'
+  voiceLang?: 'ur' | 'sd' | 'en',
+  explicitVoiceLang = false
 ): Promise<string> {
   const lastUserMsg =
     [...messages].reverse().find((m) => m.role === 'user')?.content || '';
 
-  const detected = detectUserLanguageMode(
-    lastUserMsg,
+  const detected = resolveAdvisorLanguageSelection({
+    text: lastUserMsg,
     voiceLang,
-    lang,
-    messages
-  );
+    uiLang: lang,
+    history: messages,
+    explicitVoiceLang,
+  });
 
   if (isPureGreeting(lastUserMsg)) {
     return buildGreetingReply(detected.voiceLang).screenText;

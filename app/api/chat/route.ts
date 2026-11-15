@@ -7,7 +7,7 @@ import {
   getGeminiApiKey,
   streamGeminiChatResponse,
 } from '@/lib/gemini';
-import { detectUserLanguageMode } from '@/lib/advisor-prompt';
+import { resolveAdvisorLanguageSelection } from '@/lib/advisor-prompt';
 import { getCustomerErrorMessage, redactSecrets } from '@/lib/error-sanitizer';
 import {
   recordDiagnosticEvent,
@@ -82,17 +82,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { messages, context, lang, voiceLang, voiceMode } = parsed.data;
+  const { messages, context, lang, voiceLang, voiceMode, explicitVoiceLang } = parsed.data;
   const lastUserMsg =
     [...messages].reverse().find((m) => m.role === 'user')?.content || '';
 
-  const detectedLang = detectUserLanguageMode(lastUserMsg, voiceLang, lang, messages);
+  const resolvedLang = resolveAdvisorLanguageSelection({
+    text: lastUserMsg,
+    voiceLang,
+    uiLang: lang,
+    history: messages,
+    explicitVoiceLang,
+  });
 
   if (voiceMode) {
-    const resolvedVoiceLang =
-      voiceLang === 'sd' && detectedLang.mode !== 'en'
-        ? 'sd'
-        : detectedLang.voiceLang;
     const dual = await generateVoiceDualReply(
       messages,
       context
@@ -104,7 +106,8 @@ export async function POST(req: NextRequest) {
             weatherSummary: context.weatherSummary,
           }
         : undefined,
-      resolvedVoiceLang
+      resolvedLang.voiceLang,
+      resolvedLang.isLocked
     );
     recordDiagnosticSuccess('chat');
     return NextResponse.json(dual, {
@@ -127,10 +130,10 @@ export async function POST(req: NextRequest) {
     });
     const reply = generateFallbackChatReply(
       lastUserMsg,
-      detectedLang.mode === 'en' ? 'en' : lang,
+      resolvedLang.mode === 'en' ? 'en' : lang,
       context,
       messages,
-      detectedLang.mode
+      resolvedLang.mode
     );
     const words = reply.split(' ');
     const stepDelayMs = words.length > 80 ? 4 : 12;
@@ -168,7 +171,8 @@ export async function POST(req: NextRequest) {
               }
             : undefined,
           lang,
-          voiceLang
+          resolvedLang.voiceLang,
+          resolvedLang.isLocked
         );
 
         recordDiagnosticSuccess('chat');
@@ -190,10 +194,10 @@ export async function POST(req: NextRequest) {
         });
         const fallback = generateFallbackChatReply(
           lastUserMsg,
-          detectedLang.mode === 'en' ? 'en' : lang,
+          resolvedLang.mode === 'en' ? 'en' : lang,
           context,
           messages,
-          detectedLang.mode
+          resolvedLang.mode
         );
         controller.enqueue(encoder.encode(fallback));
       } finally {

@@ -405,6 +405,7 @@ export const ChatRequestSchema = z.object({
     .optional(),
   lang: z.enum(['en', 'ur']).default('ur'),
   voiceLang: z.enum(['ur', 'sd', 'en']).optional(),
+  explicitVoiceLang: z.boolean().optional().default(false),
   voiceMode: z.boolean().optional().default(false),
 });
 

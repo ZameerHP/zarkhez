@@ -206,14 +206,18 @@ async function runTests() {
     assert.equal(testSet.sindhi.length, 60, 'voice-test-set.json must contain 60 Sindhi phrases');
   });
 
-  await testCase('8. Voice-mode assistant prompt & fallback produce 2-4 clean Urdu/Sindhi sentences (dual screen vs spoken)', () => {
+  await testCase('8. Voice-mode assistant prompt & fallback enforce exact speech parity and Sindhi lock', () => {
     const promptSd = buildVoiceAdvisorPrompt('sd', { crop: 'rice', district: 'Badin' });
     assert.ok(promptSd.includes('Answer ONLY'));
-    assert.ok(promptSd.includes('2 to 4 short sentences'));
+    assert.ok(promptSd.includes('EXACT same answer'));
 
     const fallbackSd = generateSpokenFallbackChatReply('گندم کو پہلا پانی کب دیں؟', 'sd');
     assert.equal(fallbackSd.language, 'sd');
-    assert.equal(/[*#•\d]/.test(fallbackSd.spokenText), false, 'Voice reply must contain no digits or markdown symbols');
+    assert.equal(/[*#•]/.test(fallbackSd.spokenText), false, 'Voice reply must contain no Markdown markers');
+
+    const fallbackSdLockedEn = generateSpokenFallbackChatReply('When to water wheat?', 'sd', undefined, undefined, true);
+    assert.equal(fallbackSdLockedEn.language, 'sd', 'Explicit Sindhi lock must stay Sindhi even when asked in English');
+    assert.ok(/[ٻڀٺٽڄڃڇڊڌڍڏڙڦڪڳڱڻ۽۾]/.test(fallbackSdLockedEn.screenText));
 
     const fallbackUr = generateSpokenFallbackChatReply('Gandum ko pani kab lagayein?', 'ur');
     assert.equal(fallbackUr.language, 'ur');
@@ -550,8 +554,8 @@ async function runTests() {
     const lexicon = loadHotPronunciationLexicon();
     const spokenEn = toSpokenText(hiEn.spokenText, 'en', { lexiconEntries: lexicon }).spokenText;
     assert.ok(spokenEn.includes('Assalamo Alaikum'), 'Must smooth standalone o pause in English greeting');
-    assert.ok(spokenEn.includes('Zar-khaze'), 'Must apply connected phonetic spelling Zar-khaze for Zarkhez');
-    assert.ok(!spokenEn.includes('Zar khaiz'), 'Must not split Zarkhez with old disconnected spelling');
+    assert.ok(spokenEn.includes('Zarkhez'), 'Must keep smooth natural Zarkhez pronunciation without hyphen splits');
+    assert.ok(!spokenEn.includes('Zar-khaze') && !spokenEn.includes('Zar khaiz'), 'Must not split Zarkhez with bumpy spellings');
     assert.ok(
       !spokenEn.toLowerCase().includes('calcium ammonium nitrate'),
       'Lowercase verb "can" in greeting must never be expanded to Calcium Ammonium Nitrate fertilizer'

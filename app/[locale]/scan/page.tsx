@@ -355,9 +355,6 @@ export default function ScanPage() {
   };
 
   const triggerSpokenDiagnosis = (diagData: CropDiagnosis) => {
-    const profile = getSavedProfile();
-    if (profile.autoSpeakVoice === false) return;
-
     const targetLang = reportLang;
     const speechText = buildScanVoiceNarration(diagData, targetLang);
 

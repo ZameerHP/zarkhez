@@ -94,9 +94,9 @@ const STEP_WINDOW_SAMPLES = Math.round(TARGET_SAMPLE_RATE * 3.6);
 const OVERLAP_SAMPLES = Math.round(TARGET_SAMPLE_RATE * 0.8);
 const MIN_TAIL_SAMPLES = Math.round(TARGET_SAMPLE_RATE * 0.12); // 120ms guarantees fast tail words aren't lost
 const MAX_CAPTURE_MS = 300_000; // 5 minutes ceiling (never cuts off 30-60s+ farmer speech)
-const FLUSH_STOP_SETTLE_MS = 45; // Drain final WebAudio hardware buffer before stopping tracks
-const SILENCE_RMS_SKIP = 0.0015;
-const SILENCE_PEAK_SKIP = 0.006;
+const FLUSH_STOP_SETTLE_MS = 130; // Drain final WebAudio hardware buffer before stopping tracks
+const SILENCE_RMS_SKIP = 0.0005;
+const SILENCE_PEAK_SKIP = 0.002;
 
 export function getBrowserSpeechLocale(lang: VoiceLang): string {
   if (lang === 'sd') return 'sd-PK';
@@ -616,11 +616,14 @@ export function createFieldSpeechCapture(
           overlayBaseFinal = mergeTranscriptWithOverlap(overlayBaseFinal, overlayCurrentFinal);
           overlayCurrentFinal = '';
         }
-        try {
-          instance.start();
-        } catch {
-          stopPreviewOverlay();
-        }
+        setTimeout(() => {
+          if (stopped || aborted || previewDisabled || previewRec !== instance) return;
+          try {
+            instance.start();
+          } catch {
+            stopPreviewOverlay();
+          }
+        }, 120);
       };
     };
 
@@ -910,34 +913,69 @@ export function createFieldSpeechCapture(
     }
   };
 
+  const sessionStartedAt = nowMs();
+
+  // Initialize and resume AudioContext synchronously during user gesture so mobile iOS / Android
+  // browsers do not stall in 'suspended' state after awaiting getUserMedia.
+  try {
+    const candidateCtx = deps.createAudioContext
+      ? deps.createAudioContext()
+      : getDefaultAudioContext();
+    if (
+      candidateCtx &&
+      typeof candidateCtx.createMediaStreamSource === 'function' &&
+      typeof candidateCtx.createScriptProcessor === 'function'
+    ) {
+      audioCtx = candidateCtx;
+      if (candidateCtx.state === 'suspended' && typeof candidateCtx.resume === 'function') {
+        void candidateCtx.resume().catch(() => {});
+      }
+    }
+  } catch {
+    audioCtx = null;
+  }
+
   // Async microphone permission & dual-track capture boot
   void (async () => {
     try {
-      const micStream = await getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-        },
-      });
+      let micStream: MediaStream;
+      try {
+        micStream = await getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+          },
+        });
+      } catch (constraintErr) {
+        const errName = (constraintErr as { name?: string } | null)?.name || '';
+        if (errName === 'OverconstrainedError' || errName === 'ConstraintNotSatisfiedError') {
+          micStream = await getUserMedia({ audio: true });
+        } else {
+          throw constraintErr;
+        }
+      }
 
       if (aborted || stopped) {
         stopMediaStream(micStream);
+        void finishCapture(false);
         return;
       }
 
       stream = micStream;
       startLivePreviewOverlay();
 
-      const ctx = deps.createAudioContext ? deps.createAudioContext() : getDefaultAudioContext();
+      const ctx =
+        audioCtx ||
+        (deps.createAudioContext ? deps.createAudioContext() : getDefaultAudioContext());
       if (ctx && typeof ctx.createMediaStreamSource === 'function' && typeof ctx.createScriptProcessor === 'function') {
         audioCtx = ctx;
         if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
           await ctx.resume().catch(() => {});
         }
         sourceNode = ctx.createMediaStreamSource(micStream);
-        processorNode = ctx.createScriptProcessor(4096, 1, 1);
+        processorNode = ctx.createScriptProcessor(2048, 1, 1);
         silentGainNode = ctx.createGain();
         silentGainNode.gain.value = 0;
 
@@ -956,13 +994,37 @@ export function createFieldSpeechCapture(
         processorNode.connect(silentGainNode);
         silentGainNode.connect(ctx.destination);
 
-        // Periodic window check guarantees tail/active speech flush even if processor cadence varies
+        // Periodic window check guarantees tail/active speech flush even if processor cadence varies,
+        // and auto-switches to MediaRecorder if a frozen mobile AudioContext produces 0 samples after 1.3s.
+        let switchedToMediaRecorder = false;
         windowPumpInterval = setInterval(() => {
           if (stopped || aborted) return;
-          if (nowMs() - sessionStartedAt >= MAX_CAPTURE_MS) {
+          const elapsed = nowMs() - sessionStartedAt;
+          if (elapsed >= MAX_CAPTURE_MS) {
             stopped = true;
             void finishCapture(true);
             return;
+          }
+          if (
+            !switchedToMediaRecorder &&
+            totalPcmSamples === 0 &&
+            elapsed >= 1300 &&
+            stream &&
+            !fallbackRecorder
+          ) {
+            switchedToMediaRecorder = true;
+            if (startMediaRecorderFallback(stream)) {
+              if (processorNode) {
+                try {
+                  processorNode.onaudioprocess = null;
+                  processorNode.disconnect();
+                } catch {
+                  // ignore
+                }
+                processorNode = null;
+              }
+              return;
+            }
           }
           maybeScheduleWindow();
         }, 650);
@@ -982,15 +1044,13 @@ export function createFieldSpeechCapture(
       }, MAX_CAPTURE_MS);
     } catch (err) {
       cleanupAudioHardware();
-      if (aborted) return;
+      if (aborted || finalized) return;
       callbacks.onPhaseChange?.('error');
       callbacks.onStatusChange?.('idle');
       callbacks.onError(classifyMicrophoneError(err));
       callbacks.onEnd();
     }
   })();
-
-  const sessionStartedAt = nowMs();
 
   return {
     stop: () => {
